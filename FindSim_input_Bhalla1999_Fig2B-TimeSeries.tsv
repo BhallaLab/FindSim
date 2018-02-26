@@ -1,0 +1,67 @@
+Experiment metadata		
+		
+transcriber	Nisha Ann Viswan	
+organization	National Centre for Biological Sciences	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 7657647	
+authors	Teng KK et al.	
+journal	J Biol Chem. 1995	
+		
+		
+		
+Experiment context		
+species	Rat	
+cell-types	Pheochromocytoma cell line (PC12)	
+temperature (Celsius)		
+Include pathway	EGFR signaling	
+details	Fig 9A	
+notes	Simulation MAPK activity using calicum.	
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+molecules		
+field	conc	
+Data		
+Time	Value	
+		
+		
+Readouts		
+readoutType	Time-Series	
+timeUnits	sec	
+quantityUnits	ratio	
+useRatio	TRUE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	300	
+ratioReferenceEntity	MAPK_p,MAPK_p_p	
+molecules	MAPK_p,MAPK_p_p	
+experimentalReadout	conc	
+useSum	TRUE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+0	0.02	0
+300	1	0
+1800	0.12	0
+3600	0.1	0
+7200	0.08	0
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName		
+citationId		
+citation	Science 1999	
+authors	Bhalla and Iyengar	
+modelSubset	/kinetics/EGFR,/kinetics/Sos,/kinetics/Ras,/kinetics/MAPK,/kinetics/Ca,/kinetics/PI3K_activation,/kinetics/PKC,/kinetics/Phosphatase,/kinetics/CaM	
+stimulusMolecules		
+readoutMolecules	/kinetics/MAPK/MAPK_p,/kinetics/MAPK/MAPK_p_p	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	/kinetics/Phosphatase/PP2A, /kinetics/CaM/CaMKIII_bind_CaM_Ca4, /kinetics/PKC/PKC_active/phosph_AC2, /kinetics/Ras/GEF_Gprot_bg, /kinetics/Ras/bg_act_GEF, /kinetics/MAPK/craf_1_p/MEK_phospho, /kinetics/CaM/CaM(Ca)n_CaNAB/func, /kinetics/MAPK/craf_1_p/MEKp_phospho, /kinetics/MAPK/mGluR_barr2_Raf_scaffolding	
+solver	Runge kutta method (gsl)	
+notes	Fig2B	
+parameterChange		
+Object	parameter	Value
+/kinetics/EGFR/EGF	concInit (uM)	0.0001
