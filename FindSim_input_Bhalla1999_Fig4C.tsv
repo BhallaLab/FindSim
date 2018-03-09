@@ -865,44 +865,44 @@ fileName
 citationId		
 citation	Science 1999	
 authors	Bhalla and Iyengar	
-modelSubset	/kinetics/Ca,/kinetics/Phosphatase,/kinetics/Gprotein,/kinetics/mGluR,/kinetics/AC,/kinetics/PKA,/kinetics/PP2B,/kinetics/PLC_g,/kinetics/Ras,/kinetics/MAPK,/kinetics/PP1,/kinetics/CaM,/kinetics/CaMKII,/kinetics/mGluRAntag,/kinetics/PLCbeta,/kinetics/PLA2,/kinetics/PKC,/kinetics/PI3K_activation/PIP2,/kinetics/PI3K_activation/temp_PIP2,/kinetics/PI3K_activation/IP3,/kinetics/EGFR,/kinetics/Sos	
-stimulusMolecules	/kinetics/Ca/Ca	
-readoutMolecules	/kinetics/MAPK/MAPK_p_p	
+modelSubset	kinetics/Ca,Phosphatase,Gprotein,kinetics/mGluR,AC,PKA,PP2B,kinetics/PLC_g,Ras,MAPK/MAPK,kinetics/MAPK/,PP1,kinetics/CaM,kinetics/CaMKII,kinetics/mGluRAntag,PLCbeta,PLA2,PKC,PIP2,temp_PIP2,IP3,kinetics/EGFR,kinetics/Sos	
+stimulusMolecules	Ca/Ca	
+readoutMolecules	MAPK/MAPK_p_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	/kinetics/Phosphatase/PP2A/dephos_clus_S6K,"/kinetics/Phosphatase/PP2A/dephos_S6K","/kinetics/PI3K_activation/Gab1","/kinetics/PI3K_activation/PI3K_basal","/kinetics/PI3K_activation/PI3K","/kinetics/PI3K_activation/PIP3","/kinetics/PI3K_activation/PTEN","/kinetics/PI3K_activation/SHC_p_Grb2_Gab1_PI3K_clx","/kinetics/PLC_g/PLCg_basal","/kinetics/Ras/inact_GEF/basal_GEF_activity","/kinetics/Ras/Ras_GTP_PI3K","/kinetics/Phosphatase/PP2A/dephosp_S6K","/kinetics/PI3K_activation/bind_Gab1","/kinetics/PI3K_activation/PI3K_act","/kinetics/PI3K_activation/basal_PI3K_act","/kinetics/Ras/PI3K_bind_Ras_GTP","/kinetics/Phosphatase/PP2A/Dephos_AKTser473","/kinetics/Phosphatase/PP2A/Dephosph_AKTthr308","/kinetics/Phosphatase/PP2A/eEF2thr_56_dephospho","/kinetics/Phosphatase/PP2A/PP2A_4E_BP_p_p","/kinetics/Phosphatase/PP2A/PP2A_4E_BP_p","/kinetics/Phosphatase/PP2A/PP2A_4E_BP","/kinetics/Phosphatase/PP2A/PP2A_4EBP","/kinetics/CaM/CaMKIII_bind_CaM_Ca4","/kinetics/PLC_g/PLC_g_p_dephospho","/kinetics/Sos/Grb2_bind_SHC","/kinetics/PI3K_activation/PDK1/S6K_phospho","/kinetics/PI3K_activation/PIP3_PDK1/phospho_thr308","/kinetics/PI3K_activation/PIP3_PDK2/phosp_AKTser473","/kinetics/MAPK/MAPK_p_p/cluster_phospho_S6K","/kinetics/MAPK/MAPK_p_p/MAPK_4E_BP_p_p","/kinetics/MAPK/MAPK_p_p/MAPK_4E_BP_phospho","/kinetics/MAPK/craf_1_p/MEK_phospho","/kinetics/MAPK/craf_1_p/MEKp_phospho","/kinetics/AKT_activation/PIP3_AKT_t308_s473","/kinetics/MAPK/mGluR_barr2_Raf_scaffolding"	
+itemstodelete	dephos_clus_S6K,dephos_S6K,Gab1,PI3K_basal,PI3K,PIP3,PTEN,SHC_p_Grb2_Gab1_PI3K_clx,PLCg_basal,basal_GEF_activity,Ras_GTP_PI3K,dephosp_S6K,bind_Gab1,PI3K_act,basal_PI3K_act,PI3K_bind_Ras_GTP,Dephos_AKTser473,Dephosph_AKTthr308,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,CaMKIII_bind_CaM_Ca4,PLC_g_p_dephospho,Grb2_bind_SHC,PDK1/S6K_phospho,phospho_thr308,phosp_AKTser473,cluster_phospho_S6K,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,mGluR_barr2_Raf_scaffolding	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
 Object	parameter	value
-/kinetics/Ca/Ca	concInit (uM)	0.00008
-/kinetics/Ca/Ca	isBuffered	1
-/kinetics/Phosphatase/MKP_1	concInit (uM)	0.000002
-/kinetics/Ras/Ras_act_craf	Kf	24000
-/kinetics/Ras/CaM_bind_GEF	Kf	60000
-/kinetics/MAPK/MAPK	concInit (uM)	0.00036
-/kinetics/MAPK/MAPKK_p_p/MAPKKthr	kcat	0.15
-/kinetics/MAPK/MAPKK_p_p/MAPKKtyr	kcat	0.15
-/kinetics/MAPK/Raf_p_GTP_Ras/Raf_p_GTP_Ras.1	kcat	0.105
-/kinetics/MAPK/Raf_p_GTP_Ras/Raf_p_GTP_Ras.2	kcat	0.105
-/kinetics/Phosphatase/MKP_1/MKP1_thr_deph	kcat	1
-/kinetics/Phosphatase/MKP_1/MKP1_tyr_deph	kcat	1
-/kinetics/Phosphatase/MKP_1/MKP1_thr_deph	Km	0.0000697
-/kinetics/Phosphatase/MKP_1/MKP1_tyr_deph	Km	0.0000697
-/kinetics/EGFR/L.EGFR/SHC_phospho	Km	0.000871
-/kinetics/Sos/SHC_p_dephospho	Kf	0.00167
-/kinetics/Sos/SHC_p.Sos.Grb2/Sos.Ras_GEF	kcat	0.02
-/kinetics/PKC/PKC_active/PKC_act_raf	Km	0.0697
-/kinetics/Ras/CaM_GEF/CaM_GEF_act_Ras	kcat	0.02
-/kinetics/PKC/PKC_basal_p	concInit (uM)	0
-/kinetics/MAPK/craf_1	concInit (uM)	0.0002
-/kinetics/MAPK/MAPKK	concInit (uM)	0.00018
-/kinetics/Phosphatase/PP2A	concInit (uM)	0.00012
-/kinetics/Phosphatase/PPhosphatase2A	concInit (uM)	0.000224
-/kinetics/PI3K_activation/PIP2	concInit (uM)	0.01
-/kinetics/PKC/DAG	isBuffered	0
-/kinetics/PKC/Arachidonic_Acid	isBuffered	0
-/kinetics/PKC/Arachidonic_Acid	concInit (uM)	0
-/kinetics/PKC/DAG	concInit (uM)	0
-/kinetics/PLC_g/PLC_g	concInit (uM)	0.00082
-/kinetics/Ras/GAP	concInit (uM)	0.000002
-/kinetics/Ras/GDP_Ras	concInit (uM)	0.0002
+Ca/Ca	concInit (mM)	0.00008
+Ca/Ca	isBuffered	1
+MKP_1	concInit (mM)	0.000002
+Ras_act_craf	Kf	24000
+CaM_bind_GEF	Kf	60000
+MAPK/MAPK	concInit (mM)	0.00036
+MAPKKthr	kcat	0.15
+MAPKKtyr	kcat	0.15
+Raf_p_GTP_Ras.1	kcat	0.105
+Raf_p_GTP_Ras.2	kcat	0.105
+MKP1_thr_deph	kcat	1
+MKP1_tyr_deph	kcat	1
+MKP1_thr_deph	Km	0.0000697
+MKP1_tyr_deph	Km	0.0000697
+EGFR/L.EGFR/SHC_phospho	Km	0.000871
+SHC_p_dephospho	Kf	0.00167
+Sos.Ras_GEF	kcat	0.02
+PKC_act_raf	Km	0.0697
+CaM_GEF_act_Ras	kcat	0.02
+PKC_basal_p	concInit (mM)	0
+craf_1	concInit (mM)	0.0002
+MAPK/MAPKK	concInit (mM)	0.00018
+PP2A	concInit (mM)	0.00012
+Pphosphatase2A	concInit (mM)	0.000224
+PIP2	concInit (mM)	0.01
+DAG	isBuffered	0
+Arachidonic_Acid	isBuffered	0
+Arachidonic_Acid	concInit (mM)	0
+DAG	concInit (mM)	0
+PLC_g/PLC_g	concInit (mM)	0.00082
+GAP	concInit (mM)	0.000002
+GDP_Ras	concInit (mM)	0.0002
