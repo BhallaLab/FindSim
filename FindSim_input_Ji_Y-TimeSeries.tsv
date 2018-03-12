@@ -62,7 +62,7 @@ modelSubset	kinetics/Ca,kinetics/Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kin
 stimulusMolecules	BDNF/BDNF	
 readoutMolecules	MAPK/MAPK_p_p,MAPK_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	MAPK/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_PP1_I_p,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaM(Ca)n_CaNAB/func	
+itemstodelete	MAPK/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
