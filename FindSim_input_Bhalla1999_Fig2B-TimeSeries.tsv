@@ -55,13 +55,13 @@ fileName
 citationId		
 citation	Science 1999	
 authors	Bhalla and Iyengar	
-modelSubset	/kinetics/EGFR,/kinetics/Sos,/kinetics/Ras,/kinetics/MAPK,/kinetics/Ca,/kinetics/PI3K_activation,/kinetics/PKC,/kinetics/Phosphatase,/kinetics/CaM	
+modelSubset	kinetics/EGFR,kinetics/Sos,Ras,kinetics/MAPK,kinetics/Ca,PI3K_activation,PKC,Phosphatase,kinetics/CaM	
 stimulusMolecules		
-readoutMolecules	/kinetics/MAPK/MAPK_p,/kinetics/MAPK/MAPK_p_p	
+readoutMolecules	MAPK_p,MAPK/MAPK_p_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	/kinetics/Phosphatase/PP2A, /kinetics/CaM/CaMKIII_bind_CaM_Ca4, /kinetics/PKC/PKC_active/phosph_AC2, /kinetics/Ras/GEF_Gprot_bg, /kinetics/Ras/bg_act_GEF, /kinetics/MAPK/craf_1_p/MEK_phospho, /kinetics/CaM/CaM(Ca)n_CaNAB/func, /kinetics/MAPK/craf_1_p/MEKp_phospho, /kinetics/MAPK/mGluR_barr2_Raf_scaffolding	
+itemstodelete	PP2A,CaMKIII_bind_CaM_Ca4,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,CaM(Ca)n_CaNAB/func,MEKp_phospho,mGluR_barr2_Raf_scaffolding	
 solver	Runge kutta method (gsl)	
 notes	Fig2B	
 parameterChange		
 Object	parameter	Value
-/kinetics/EGFR/EGF	concInit (uM)	0.0001
+EGF	concInit (uM)	0.0001

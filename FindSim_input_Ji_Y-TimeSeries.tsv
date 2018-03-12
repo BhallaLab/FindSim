@@ -58,13 +58,13 @@ fileName
 citationId	DOQCS: 92	
 citation	PLoS Comput Biology 2009	
 authors	Jain and Bhalla	
-modelSubset	/kinetics/Ca,/kinetics/Phosphatase,/kinetics/PLC_g,/kinetics/Sos,/kinetics/Ras,/kinetics/MAPK,/kinetics/CaM,/kinetics/CaMKIII,/kinetics/PKC,/kinetics/PI3K_activation,/kinetics/BDNF,/kinetics/TrKB,/kinetics/AKT_activation,/kinetics/mTORC1,/kinetics/S6Kinase,/kinetics/TSC1_TSC2	
-stimulusMolecules	/kinetics/BDNF/BDNF	
-readoutMolecules	/kinetics/MAPK/MAPK_p_p,/kinetics/MAPK/MAPK_p	
+modelSubset	kinetics/Ca,kinetics/Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,kinetics/CaMKIII,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,AKT_activation,mTORC1,S6Kinase,kinetics/TSC1_TSC2	
+stimulusMolecules	BDNF/BDNF	
+readoutMolecules	MAPK/MAPK_p_p,MAPK_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	/kinetics/MAPK/MAPK_p_p/MAPK_p_p,/kinetics/CaM/CaM(Ca)n_CaNAB/dephosph_inhib1,/kinetics/MAPK/craf_1_p/MEK_phospho,/kinetics/MAPK/craf_1_p/MEKp_phospho,/kinetics/AKT_activation/PIP3_AKT_t308_s473,/kinetics/PKC/PKC_active/phosph_AC2,/kinetics/Ras/bg_act_GEF,/kinetics/Ras/dephosph_inact_GEF_p,/kinetics/PLC_g/Ca_act_PLC_g,/kinetics/PLC_g/Ca_act_PLC_g_p,/kinetics/PLC_g/dephosph_PLC_g,/kinetics/CaM/neurogranin_bind_CaM,/kinetics/CaM/dephosph_neurogranin,/kinetics/PKC/PKC_active/PKC_phosph_neurogranin,/kinetics/PKC/PKC_active/PKC_phosph_ng_CaM,/kinetics/Ras/GEF_Gprot_bg,/kinetics/CaM/CaM(Ca)n_CaNAB,/kinetics/MAPK/mGluR_barr2_Raf_scaffolding,/kinetics/CaM/CaM(Ca)n_CaNAB/dephosph_PP1_I_p,/kinetics/CaM/CaNAB_Ca4/dephosph_inhib1_noCaM,/kinetics/Phosphatase/PP2A/PP2A_dephospho_I1,/kinetics/Phosphatase/PP2A/PP2A_dephospho_I1_p,/kinetics/Phosphatase/PP2A/mGluR_dephosph,/kinetics/CaM/CaM(Ca)n_CaNAB/func	
+itemstodelete	MAPK/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_PP1_I_p,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaM(Ca)n_CaNAB/func	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
 Object	parameter	Value
-/kinetics/BDNF/BDNF	concInit (uM)	0
+BDNF/BDNF	concInit (uM)	0
