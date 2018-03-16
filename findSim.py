@@ -39,16 +39,35 @@
 ** also known as GENESIS 3 base code.
 **           copyright (C) 2003-2018 Upinder S. Bhalla. and NCBS
 **********************************************************************/
+
+2018
+Mar 16: 
+    string checked for comma, 
+    function to check unique Id is provided in modelmapping
+    object's deleted specified in itemstodelete section
+    object's deleted specified in modelSubset
+        groups and group/object is specified then group is saved
+        group/object is mentioned then in group is saved, then object which are 
+        set in modelSubseting those are deleted
+        same with comparment's,if comparment is specified then sharedobject and group is saved
+        else comparement is deleted
+
+#To be checked: 
+    #if comparement has just one pool present, while applying the stoich in buildSolver , we get seg fault "installAndUnschedFunc".
+    # While checking compartment, checked for CubeMesh or cyclMesh in further if it come through rdesigner check
+    # while setting the values like kcat, km etc not taken care for units unlike for concInit
+    # check after surviour group, check anything is dangling, like reaction and enzyme if S delete and function check input and out and input with numVars
+    # stimuti block is not necessary we can delete entire block or block exist make sure what every empty it doesn't affect the model  
+    # different type if time-series types at this point no check is make
 '''
-# Warning: since its looping entire file, some case like citationId in experiment may be empty bcos model's citationId may be empty
-# stimuti block is not necessary we can delete entire block or block exist make sure what every empty it doesn't affect the model 
-# different type if time-series types at this point no check is make
-# check if list items have space between comma
+
 import heapq
 import pylab
 import numpy
 import sys
 import moose
+import os
+import re
 
 convertTimeUnits = {('sec','s') : 1.0, ('ms','millisec') : 1e-3,('us','microsec') : 1e-6, ('ns','nanosec') : 1e-9,
                     ('min','m') : 60.0, ('hours','hrs') : 3600.0, "days": 86400.0}
@@ -91,7 +110,6 @@ class Experiment:
                     except IndexError:
                         arg[i] = ""
                     continue
-        print " arg[0] ",arg[0], arg[1], arg[2],arg[3]
         return Experiment( arg[0], arg[1], arg[2], arg[3] )
     load = staticmethod( load )
 
@@ -220,6 +238,7 @@ class Readout:
         """Formula to use to score how well the model matches expt"""
         self.data = data
         """List of triplets of numbers, [time, quantity, stderr]"""
+    
     def load( fd ):
         arg, data, param,struct,ent,refent = innerLoad( fd, Readout.argNames, 3 )
         readout = Readout( **arg )
@@ -315,76 +334,141 @@ class Model:
         At present the system assumes that this can only be done before the
         simulation starts.
         '''
+        if entity:
+            entity = entity.replace('\'',"")
+            entity = entity.replace('\"',"")
+            entity = entity.replace('',"")
+
         self.itemstodelete.append((entity,change))
         # if change == 'delete':
         #     self.StructuralChange.append( ( entity, change ) )
         # else:
         #     print( "Warning: Model::addStructuralChange: Unknown modification: " + change )
+    def findObj( self,rootpath, name ):
+        '''
+        Model:: findObj causes to search unqiue id provided in modelmapping's 
+        modelSubset,stimulusMolecules,readoutMolecules,itemstodelete,parameterChange
+        if more than one value is returned then program halts unless user correct this.
+        Expected min unique id, if found more than one, then its parent needs to be passed until
+        a unique is found (This is b'cos in moose, all the object's are path based)
+        '''
+        try1 = moose.wildcardFind( rootpath+'/' + name )
+        try2 = moose.wildcardFind( rootpath+'/##/' + name )
+        if len( try1 ) + len( try2 ) > 1:
+            print( "Bad: Too many entries. ", try1, try2)
+            return
+        if len( try1 ) + len( try2 ) == 0:
+            print( "Bad: zero entries. ", name )
+            return 
+        if len( try1 ) == 1:
+            return try1[0]
+        else:
+            return try2[0]
 
-    def modify( self, modelId ):
+    def modify( self, modelId, erSPlist, odelWarning):
         # Start off with things explicitly specified for deletion.
         kinpath = modelId.path
         if self.itemstodelete:
             for ( entity, change ) in self.itemstodelete[:]:
-                if moose.exists( kinpath + entity ):
-                    obj = moose.element( kinpath + entity )
-                    if change == 'delete':
-                        moose.delete( obj )
-                else:
-                    print "Object does not exist ", kinpath+entity
-        # Go on to dealing with subsets of model.
-        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
-            # Generate list of all included groups
-            subsets = self.subset.split( ',')
-            directGroups = []
-            parentGroups = []
-            for i in subsets: # We don't do wildcards here, just enumurate.
-                if moose.exists( kinpath + i ):
-                    elm = moose.element( kinpath + i )
-                    if isGroup( elm ):
-                        directGroups.extend( findChildGroups( elm ) )
+                if entity != "":
+                    foundobj = self.findObj(kinpath, entity)
+                    if foundobj:
+                        if moose.exists( moose.element(foundobj).path ):
+                            obj = moose.element( foundobj.path )
+                            if change == 'delete':
+                                if obj.path != modelId.path and obj.path != '/model[0]':
+                                    moose.delete( obj )
+                                else:
+                                    print ("modelId/rootPath is not allowed to delete ", obj)
+                        else:
+                            print "Object does not exist ", entity
                     else:
-                        parentGroups.append( findParentGroup(elm) )
-                else:
-                    print("Warning: subset entry '{}' not found".format(i))
-            includedGroups = set( directGroups + parentGroups )
-            # Generate list of all groups
-            allGroups = set( moose.wildcardFind( kinpath + '##[TYPE=Neutral],' + kinpath + '##[ISA=ChemCompt]' ) )
+                        exit()
+        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
+            '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
+                specific is delete from the group.
+                And if group/obj is written then group's obj is saved.
+            '''
+            # Generate list of all included groups
+            allCompts, directCompts, indirectCompts = [], [], []
+            allGroups, directGroups, indirectGroups = [], [], []
+            
+            #Get all Groups under all compartment, all compartment under model
+            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
+                allCompts.append(c)
+                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
+                    allGroups.append(grps)
+
+            subsets = re.sub(r'\s', '', self.modelSubset).split(',')
+            nonGroups = []
+            nonCompts = []
+            survivorsGroup = []
+            #here all the object direct and indirect groups and compartment is queried
+            #indirectgroup/compartment are those in which group/object or comparetment/object
+            #are specified in modelmapping
+
+            for i in subsets: 
+                foundobj = self.findObj(kinpath, i)
+                if foundobj:
+                    if moose.exists( moose.element(foundobj).path ):
+                        elm = moose.element( moose.element(foundobj).path  )
+                        if isCompartment(elm):
+                            directCompts.append(elm)
+                        elif isGroup( elm ):
+                            directGroups.extend( findChildGroups( elm ) )
+                            survivorsGroup.append(elm)
+                            objCompt = findCompartment(elm)
+                            if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
+                                indirectCompts.append(objCompt)
+                        else:
+                            obj = findParentGroup(elm)
+                            if (moose.element(obj).className == "Neutral"):
+                                indirectGroups.append( obj )
+                                nonGroups.append(elm)
+                            elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
+                                indirectCompts.append(obj)
+                                nonCompts.append(elm)
+                    else:
+                        print("Warning: subset entry '{}' not found".format(i))
+            
+            includedGroups = set( directGroups + indirectGroups )
+            allGroups = set(allGroups)
             # Find groups to delete, and delete them.
             excludedGroups = allGroups - includedGroups
-            deletees = pruneExcludedElements( excludedGroups )
-            for i in deletees:
+            for i in excludedGroups:
                 moose.delete( i )
-            print [i.name for i in moose.wildcardFind( kinpath + '/##[TYPE=Neutral]' )]
+
             # Generate list of all surviving objects. We're going to get
             # rid of them too, unless they are saved by the subset list.
-            survivors = set( moose.wildcardFind( kinpath + '##[0]' ) )
-            #print "Survivors = ", sorted([ i.name for i in survivors ])
+            survivors = []
+            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
+                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
+                    survivors.append(grps)
+            survivors = set(survivors)
             # Go through the subsets again in case some are already deleted
-            nonGroups = []
-            for i in subsets: # We don't do wildcards here, just enumurate.
-                if moose.exists( kinpath + i ):
-                    elm = moose.element( kinpath + i )
-                    if not isGroup( elm ):
-                        nonGroups.append( elm )
             nonGroupSet = ornamentPools( nonGroups )
-            #print "nonGroups = ", sorted([ i.name for i in nonGroups ])
-            deletees = pruneExcludedElements( survivors - nonGroupSet ) - includedGroups
-            #print "deletees = ", sorted([ i.name for i in deletees ])
-            for i in deletees:
-                moose.delete( i )
-            pruneDanglingEnzymes( kinpath )
-            #print "Whatever is left = ", sorted( [i.name for i in moose.wildcardFind( kinpath + "##" ) ] )
+            nonComptSet = ornamentPools( nonCompts )
 
-        # Go through and change parameters.
-        for (entity, field, value) in self.parameterChange:
-            path = kinpath + entity
-            if moose.exists( path ):
-                moose.element( path ).setField( field, value )
-                #print( "Model::modify called with: " + entity + '.' + field  + ' = ' + str( value ) )
-            else:
-                print( "Warning: Model::modify: object/field not found: " + path + '.' + field )
-
+            for l in survivors-set(survivorsGroup):
+                elmGrp = set(moose.wildcardFind(l.path+'/##[ISA=PoolBase]'+','+ l.path+'/##[ISA=ReacBase]'))
+                deleteObjsfromGroup = list(elmGrp-nonGroupSet)
+                deleteObjsfromGroup = [i for i in deleteObjsfromGroup if not isinstance(moose.element(i.parent), moose.EnzBase)]
+                for elmGrpl in deleteObjsfromGroup:
+                    if moose.exists(elmGrpl.path):
+                         moose.delete(elmGrpl)
+            #getting rid of object which are not specified under compartment
+            for l in allCompts:
+                elmCmpt = set(moose.wildcardFind(l.path+'/#[ISA=PoolBase]'+','+ l.path+'/#[ISA=ReacBase]'))
+                deleteObjsfromCompt = list(elmCmpt-nonComptSet)
+                deleteObjsfromCompt = [i for i in deleteObjsfromCompt if not isinstance(moose.element(i.parent), moose.EnzBase)]
+                for elmCmpt in deleteObjsfromCompt:
+                    if moose.exists(elmCmpt.path):
+                         moose.delete(elmCmpt)
+            #deleting compartment 
+            for dc in set(set(allCompts) - set(directCompts+indirectCompts)):
+                moose.delete(dc)
+            
+            #pruneDanglingObj( kinpath, erSPlist)
 
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset','readoutMolecules','stimulusMolecules', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
@@ -459,7 +543,6 @@ def readParameter(fd, para, width):
         row = []
         lcols = 0
         for c in cols:
-            print " c "
             if c != '':
                 if lcols > 1 :
                     row.append(float(c))
@@ -478,6 +561,97 @@ def str2bool( arg ):
         return False
     return True
 
+def isGroup( elm ):
+    return elm.className == 'Neutral' or elm.className.find( 'Mesh' ) != -1
+
+def isCompartment( elm ):
+    return elm.className in ['CubeMesh','CyclMesh'] or elm.className.find( 'Mesh' ) != -1
+
+def findChildGroups( elm ):
+    return list( (elm,) + moose.wildcardFind( elm.path + '/##[TYPE=Neutral],' + elm.path + '/##[ISA=ChemCompt]' ) )
+
+def findCompartment(element):
+    if element.path == '/':
+        return moose.element('/')
+    elif mooseIsInstance(element, ["CubeMesh", "CyclMesh"]):
+        return (element)
+    else:
+        return findCompartment(moose.element(element.parent))
+
+def mooseIsInstance(element, classNames):
+    return moose.element(element).__class__.__name__ in classNames
+
+def findParentGroup( elm ):
+    
+    if isGroup( elm ):
+        return elm
+    if elm.parent.name == 'root':
+        print( 'Warning: findParentGroup: root element found, likely naming error' )
+        #return moose.element( '/model/kinetics' )
+        return moose.element('/model')
+    return findParentGroup( elm.parent )
+
+def pruneExcludedElements( elms ):
+    #Eliminate all elments in list whose parents are also in list.
+    prunes = set( [ i for i in elms if i.parent in elms ] )
+    return elms - prunes
+
+def ornamentPools( elms ):
+    #Add to the list all descendants of pools: enzymes, cplx, funcs...
+    # Do things uniquely and avoiding indices
+    s1 = set( elms )
+    appendees = []
+    for i in s1:
+        if i.className.find( 'Pool' ) != -1:
+            appendees.extend( i.children )
+            for j in set( i.children ):
+                appendees.extend( j[0].children )
+    '''
+    print " s1 ",s1
+    for i in s1:
+        print " i .feing ",i, i.className.find('Pool')
+        if i.className.find( 'Pool' ) != -1:
+            print i.children
+            for iis in i:
+                f
+            if i.className != "Annotator":
+                appendees.extend( i.children )
+                for j in set( i.children ):
+                    if j.className != "Annotator":
+                        appendees.extend( j[0].children )
+                #print [k.name for k in j[0].children]
+    print " appendees ",appendees
+    '''
+    ret = set( elms + [k[0] for k in appendees] )
+    return ret
+    #elms.extend( list(set(appendees)) ) # make it unique.
+    
+def pruneDanglingObj( kinpath, erSPlist):
+    erlist = moose.wildcardFind(kinpath+"/##[ISA=Enz],"+kinpath+ "/##[ISA=Reac]")
+    modelWarning = " \nWarning: found dangling Reaction/Enzyme, model's need to specify this in itemstodelete for deletion "
+    modelRateLaw = " \n Warning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting "
+    #modelWarning = ""
+    for i in erlist:
+        isub = i.neighbors["sub"]
+        iprd = i.neighbors["prd"]
+        tobedelete = False
+        if moose.exists(i.path):
+            if len(isub) == 0 or len(iprd) == 0 :
+                print (modelWarning +"\n"+i.path)
+                exit()
+            elif len(isub) != erSPlist[i]["s"] or len(iprd) != erSPlist[i]["p"]:
+                print (modelRateLaw + "\n"+ i.path)
+                exit()
+
+    flist = moose.wildcardFind( kinpath + "/##[ISA=Function]" )
+    for i in flist:
+        if len(i.neighbors['valueOut']) == 0:
+            moose.delete(moose.element(i))
+        if len(moose.element(moose.element(i).path+'/x').neighbors['input']) == 0 or  \
+            len(moose.element(moose.element(i).path+'/x').neighbors['input']) != i.numVars:
+            print ("Warning: while subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion \n",
+                    i.path)
+            exit()
 
 ##########################################################################
 
@@ -508,34 +682,51 @@ def loadTsv( fname ):
                         model = Model.load(fd )
                         print "#########################", cols[0]
     
-    print "expt ", expt.exptSource, expt.citationId, expt.journal, expt.authors
-    print " stims ", stims
-    for s in stims:
-        print " \n stims ",s.timeUnits, s.quantityUnits, s.entity,s.field,s.settleTime, s.data,
-    print " readouts ",readouts
-    for r in readouts:
-        print " \n Readout ",r.readoutType, "TU ", r.timeUnits, "QU ",r.quantityUnits,\
-                        " RATIO", r.useRatio, " SUM ",r.useSum, " NO ",r.useNormalization,\
-                        "RRT ", r.ratioReferenceTime, "RRD", r.ratioReferenceDose,\
-                        "MOL", r.molecules," RRE ", r.ratioReferenceEntity,\
-                        "ER ", r.experimentalReadout, "XL ", r.useXlog, "YL ",r.useYlog,\
-                        "DATA ",r.data
-    print " model ",model
-    print " model ",model.modelSource, " \n cit ", model.citation, " \n CITID ",model.citationId, " \nAut ",model.authors, "\n details ",\
-                    model.detail, "\n sS ",model.modelSubset,"\n FILE ", model.fileName, " \nsol ",model.solver, "\n n ",\
-                    model.notes, " \n pC ",model.parameterChange, " \n SC ",model.itemstodelete
+    # print "expt ", expt.exptSource, expt.citationId, expt.journal, expt.authors
+    # for s in stims:
+    #     print " \n stims ",s.timeUnits, s.quantityUnits, s.entity,s.field,s.settleTime, s.data,
+    # for r in readouts:
+    #     print " \n Readout ",r.readoutType, "TU ", r.timeUnits, "QU ",r.quantityUnits,\
+    #                     " RATIO", r.useRatio, " SUM ",r.useSum, " NO ",r.useNormalization,\
+    #                     "RRT ", r.ratioReferenceTime, "RRD", r.ratioReferenceDose,\
+    #                     "MOL", r.molecules," RRE ", r.ratioReferenceEntity,\
+    #                     "ER ", r.experimentalReadout, "XL ", r.useXlog, "YL ",r.useYlog,\
+    #                     "DATA ",r.data
+    # print " \nmodel ",model.modelSource, " \ncit ", model.citation, " \nCITID ",model.citationId, " \nAut: ",model.authors, "\ndetails: ",\
+    #                 model.detail, "\nsubset: ",model.modelSubset,"\nFILE: ", model.fileName, " \nsolver: ",model.solver, "\nnotes: ",\
+    #                 model.notes, " \nparameterChange: ",model.parameterChange, " \nitemstodelete: ",model.itemstodelete
     return expt,stims,readouts,model
-
+    
 def main():
     """ This program handles loading a kinetic model, and running it
  with the specified stimuli. The output is then compared with expected output to generate a model score.
     """
     solver = "gsl"  # Pick any of gsl, gssa, ee..
-    mfile = 'acc86.g'
+    mfile = 'FindSim_compositeModel_1.g'
+    modelWarning = ""
+    #mfile = "/home/harsha/genesis_files/gfile/acc90.g"
     if ( len( sys.argv ) < 2 ):
         print( "Usage: " + sys.argv[0] + " file.tsv [modelfile]" )
         quit()
-    expt = loadTsv( sys.argv[1] )
+    expt, stims, readouts, model = loadTsv( sys.argv[1] )
+    if ( len( sys.argv ) >= 3 ):
+        model.fileName = sys.argv[2]
+    else:
+        model.fileName = mfile
+    #This list holds the entire models Reac/Enz sub/prd list for reference
+    erSPlist = {}
+    # First we load in the model using EE so it is easier to tweak
+    if os.path.isfile(model.fileName):
+        modelId = moose.loadModel( model.fileName, 'model', 'ee' )
+        # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
+        for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
+            erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
+        # Then we apply whatever modifications are specified by user or protocol
+        moose.Neutral('/model/plots')
+        modleWarning = ""
+        model.modify( modelId, erSPlist,modelWarning )
+        # print " ################# "
+        #moose.mooseWriteKkit('/model', '/tmp/finalmodel4c.g')
 
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
