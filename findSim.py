@@ -41,6 +41,11 @@
 **********************************************************************/
 
 2018
+Mar 17:
+    checked for 
+        dangling Reac/Enz, 
+        if sub/prd is altered RateLaw
+        if func's input have chaged
 Mar 16: 
     string checked for comma, 
     function to check unique Id is provided in modelmapping
@@ -468,7 +473,7 @@ class Model:
             for dc in set(set(allCompts) - set(directCompts+indirectCompts)):
                 moose.delete(dc)
             
-            #pruneDanglingObj( kinpath, erSPlist)
+            pruneDanglingObj( kinpath, erSPlist)
 
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset','readoutMolecules','stimulusMolecules', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
@@ -528,7 +533,8 @@ def readData( fd, data, width ):
         row = []
         for c in cols:
             if c != '':
-                row.append( float( c ) )
+                #row.append( float( c ) )
+                row.append( ( c ) )
                 if len( row ) >= width:
                     break;
         data.append( row )
@@ -628,8 +634,12 @@ def ornamentPools( elms ):
     
 def pruneDanglingObj( kinpath, erSPlist):
     erlist = moose.wildcardFind(kinpath+"/##[ISA=Enz],"+kinpath+ "/##[ISA=Reac]")
-    modelWarning = " \nWarning: found dangling Reaction/Enzyme, model's need to specify this in itemstodelete for deletion "
-    modelRateLaw = " \n Warning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting "
+    subprdNotfound = False
+    ratelawchanged = False
+    funcIPchanged  = False
+    mWarning = ""
+    mRateLaw = ""
+    mFunc = ""
     #modelWarning = ""
     for i in erlist:
         isub = i.neighbors["sub"]
@@ -637,11 +647,15 @@ def pruneDanglingObj( kinpath, erSPlist):
         tobedelete = False
         if moose.exists(i.path):
             if len(isub) == 0 or len(iprd) == 0 :
-                print (modelWarning +"\n"+i.path)
-                exit()
+                subprdNotfound = True
+                mWarning = mWarning+"\n"+i.path
+                # print (modelWarning +"\n"+i.path)
+                # exit()
             elif len(isub) != erSPlist[i]["s"] or len(iprd) != erSPlist[i]["p"]:
-                print (modelRateLaw + "\n"+ i.path)
-                exit()
+                ratelawchanged = True
+                mRateLaw = mRateLaw+"\n"+i.path
+                # print (modelRateLaw + "\n"+ i.path)
+                # exit()
 
     flist = moose.wildcardFind( kinpath + "/##[ISA=Function]" )
     for i in flist:
@@ -649,10 +663,17 @@ def pruneDanglingObj( kinpath, erSPlist):
             moose.delete(moose.element(i))
         if len(moose.element(moose.element(i).path+'/x').neighbors['input']) == 0 or  \
             len(moose.element(moose.element(i).path+'/x').neighbors['input']) != i.numVars:
-            print ("Warning: while subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion \n",
-                    i.path)
-            exit()
+            funcIPchanged = True
+            mFunc = mFunc+"\n"+i.path
 
+    if subprdNotfound:
+        print (" \nWarning: Found dangling Reaction/Enzyme, model's need to specify this in the itemstodelete for deletion, program exit now "+mWarning)
+    if ratelawchanged:
+        print ("\nWarning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting, program exit now"+mRateLaw)
+    if funcIPchanged:
+        print ("\nWhile subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion, program exit now"+mFunc)
+    if subprdNotfound or ratelawchanged or funcIPchanged:
+        exit()
 ##########################################################################
 
 
