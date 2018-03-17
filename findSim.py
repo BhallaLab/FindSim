@@ -667,11 +667,11 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        print (" \nWarning: Found dangling Reaction/Enzyme, model's need to specify this in the itemstodelete for deletion, program exit now "+mWarning)
+        print (" \nWarning: Found dangling Reaction/Enzyme, model's need to specify this in the itemstodelete for deletion, program will exit now "+mWarning)
     if ratelawchanged:
-        print ("\nWarning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting, program exit now"+mRateLaw)
+        print ("\nWarning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting, program will exit now"+mRateLaw)
     if funcIPchanged:
-        print ("\nWhile subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion, program exit now"+mFunc)
+        print ("\nWhile subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion, program will exit now"+mFunc)
     if subprdNotfound or ratelawchanged or funcIPchanged:
         exit()
 ##########################################################################
@@ -718,6 +718,21 @@ def loadTsv( fname ):
     #                 model.notes, " \nparameterChange: ",model.parameterChange, " \nitemstodelete: ",model.itemstodelete
     return expt,stims,readouts,model
     
+def buildSolver( modelId, solver ):
+    compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
+    for compt in compts:
+        if solver.lower() in ['ee', 'exponential euler method (ee)']:
+            return
+        if solver.lower() in ['gssa','stochastic simulation (gssa)']:
+            ksolve = moose.Gsolve ( compt.path + '/gsolve' )
+        elif solver.lower() in ['gsl','runge kutta method (gsl)']:
+            ksolve = moose.Ksolve( compt.path + '/ksolve' )
+        stoich = moose.Stoich( compt.path + '/stoich' )
+        stoich.compartment = moose.element( compt.path )
+        stoich.ksolve = ksolve
+        stoich.path = compt.path + '/##'
+
+    
 def main():
     """ This program handles loading a kinetic model, and running it
  with the specified stimuli. The output is then compared with expected output to generate a model score.
@@ -746,6 +761,8 @@ def main():
         moose.Neutral('/model/plots')
         modleWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
+        #Then we build the solver.
+        buildSolver( modelId, model.solver )
         # print " ################# "
         #moose.mooseWriteKkit('/model', '/tmp/finalmodel4c.g')
 
