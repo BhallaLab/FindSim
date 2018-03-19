@@ -133,6 +133,7 @@ class Stimulus:
     the Readout, which contains the dose-response table.
     """
     def __init__( self,
+            stimulusType = 'timeSeries',
             timeUnits = 's',
             quantityUnits = 'mM',
             molecules = [],
@@ -140,7 +141,7 @@ class Stimulus:
             settleTime = 300.0, 
             data = []
         ):
-        #self.stimulusType = stimulusType
+        self.stimulusType = stimulusType
         """This is the most elementary stimulus: assign some model 
         value at a succesion of points in time. Other options are
         timeSeriesWithRestart, doseResponse, and more.
@@ -305,18 +306,27 @@ class Model:
         self.notes = notes
         self.parameterChange = []
         self.itemstodelete = []
+        self.stimulusMolecules = []
+        self.readoutMolecules = []
 
     def load( fd ):
         '''
         Model::load builds a model instance from a file and returns it.
         '''
-        arg, data, param, struct, ent, refent = innerLoad( fd, Model.argNames )
+        arg, data, param, struct, stim, readOut = innerLoad( fd, Model.argNames )
+        
         model = Model( **arg )
         for i in param:
             model.addParameterChange( i[0], i[1], i[2] )
-        for i in struct[:]:
+        for j in struct[:]:
             #model.addStructuralChange( i[0], i[1] )
-            model.addStructuralChange(i.lstrip(),"delete")
+            model.addStructuralChange(j.lstrip(),"delete")
+        #stimulus molecules  
+        model.stimulusMolecules = stim
+        #readoutModlecules
+        model.readoutMolecules = readOut
+
+
         return model
 
     load = staticmethod( load )
@@ -497,9 +507,10 @@ def innerLoad( fd, argNames, dataWidth = 2):
         #         param.append( (cols[1], cols[2], float( cols[3] ) ) )
         #     else:
         #         print( "Warning: Model::load parameterChange: need 3 args: entity, field, value. Instead got: '" + line + "'" )
-        if keywordMatches( cols[0], 'molecules' ):
+        if keywordMatches( cols[0], 'stimulusMolecules' ):
             ent=cols[1].split(',')
-        
+        if keywordMatches( cols[0], 'readoutMolecules' ):
+            refent=cols[1].split(',')
         if keywordMatches( cols[0], 'Data' ):
             readData( fd, data, dataWidth ) 
             #print "Ret READ DATA from INNERLOAD", len( data )
@@ -674,8 +685,10 @@ def pruneDanglingObj( kinpath, erSPlist):
         print ("\nWhile subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion, program will exit now"+mFunc)
     if subprdNotfound or ratelawchanged or funcIPchanged:
         exit()
+
 ##########################################################################
 
+##########################################################################
 
 def loadTsv( fname ):
     stims = []
@@ -717,7 +730,7 @@ def loadTsv( fname ):
     #                 model.detail, "\nsubset: ",model.modelSubset,"\nFILE: ", model.fileName, " \nsolver: ",model.solver, "\nnotes: ",\
     #                 model.notes, " \nparameterChange: ",model.parameterChange, " \nitemstodelete: ",model.itemstodelete
     return expt,stims,readouts,model
-    
+
 def buildSolver( modelId, solver ):
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
@@ -732,7 +745,7 @@ def buildSolver( modelId, solver ):
         stoich.ksolve = ksolve
         stoich.path = compt.path + '/##'
 
-    
+
 def main():
     """ This program handles loading a kinetic model, and running it
  with the specified stimuli. The output is then compared with expected output to generate a model score.
@@ -763,6 +776,11 @@ def main():
         model.modify( modelId, erSPlist,modelWarning )
         #Then we build the solver.
         buildSolver( modelId, model.solver )
+
+        for i in range( 10, 20 ):
+            moose.setClock( i, 0.1 )
+
+        #score, plots = runit( model,stims, readouts )
         # print " ################# "
         #moose.mooseWriteKkit('/model', '/tmp/finalmodel4c.g')
 
