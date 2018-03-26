@@ -25,7 +25,7 @@ molecules	S6K_thr_252
 field	conc	
 Data		
 Time	Value	
-0	1.67E-06	
+0	0.00000167	
 		
 		
 		
@@ -69,5 +69,5 @@ notes
 parameterChange		
 Object	parameter	Value
 S6K_basal	concInit	0
-CaMKIII	concInit	0.000068
+CaMKIII/CaMKIII	concInit	0.000068
 CaMKIII_dephospho	Kf	0
