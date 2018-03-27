@@ -25,7 +25,7 @@ molecules	Glutamate
 field	conc	
 Data		
 Time	Value	
-300	0.00E+00	
+300	0	
 		
 		
 		
@@ -37,8 +37,8 @@ useRatio	TRUE
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	300	
-ratioReferenceEntity	phosphorylated beta2AR	
-molecules	phosphorylated beta2AR	
+ratioReferenceEntity	phosphorylated_surface_beta2AR,phosphorylated_internal_beta2AR	
+molecules	phosphorylated_surface_beta2AR,phosphorylated_internal_beta2AR	
 experimentalReadout	conc	
 useSum	TRUE	
 useNormalization	FALSE	
