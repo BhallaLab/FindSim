@@ -64,7 +64,7 @@ stimulusMolecules	BDNF/BDNF
 readoutMolecules	TrKB/BDNF_TrKB2_p_clx	
 referenceMolecule		
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete		
+itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho,BDNF_TrKB2_p_clx/SHC_phospho	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
