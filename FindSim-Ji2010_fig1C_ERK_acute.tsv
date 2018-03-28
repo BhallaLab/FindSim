@@ -57,12 +57,12 @@ fileName
 citationId		
 citation		
 authors		
-modelSubset	kinetics/Ca,Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,AKT_activation,mTORC1,S6Kinase,TSC1_TSC2	
+modelSubset	kinetics/Ca,Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,AKT_activation,mTORC1,S6Kinase,kinetics/TSC1_TSC2	
 stimulusMolecules	BDNF/BDNF	
-readoutMolecules	MAPK/MAPK_p_p,MAPK/MAPK_p	
+readoutMolecules	MAPK/MAPK_p_p+MAPK/MAPK_p	
 referenceMolecule	MAPK/MAPK	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	MAPK/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaMKIII_bind_CaM_Ca4,S6K_basal,CaMKIII_phospho	
+itemstodelete	MAPK_p_p/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaMKIII_bind_CaM_Ca4,S6K_basal/CaMKIII_basal,CaMKIII_phospho,S6_dephosph,Dephos_AKTser473,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,phosp_AKTser473,TOR_4E_BP_phospho,TOR_4E_BP_p,S6_phos,S6_phospho,PP2A_dephospho_PP1_I_p,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
