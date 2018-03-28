@@ -24,17 +24,17 @@ molecules	EGF
 field	conc	
 Data		
 Time	Value	
-0	1.00E-04	
+0	0.0001	
 		
 		
 Readouts		
 readoutType	Time-Series	
 timeUnits	sec	
-quantityUnits	nM	
-useRatio	FALSE	
+quantityUnits	ratio	
+useRatio	True	
 useXlog	FALSE	
 useYlog	FALSE	
-ratioReferenceTime	0	
+ratioReferenceTime	300	
 ratioReferenceEntity	MAPK_p,MAPK/MAPK_p_p	
 molecules	MAPK_p,MAPK/MAPK_p_p	
 experimentalReadout	conc	
@@ -57,11 +57,12 @@ citation
 authors		
 modelSubset	kinetics/EGFR,kinetics/Sos,Ras,kinetics/MAPK,kinetics/Ca,PI3K_activation,PKC,Phosphatase,kinetics/CaM	
 stimulusMolecules	EGF	
-readoutMolecules	MAPK_p,MAPK/MAPK_p_p	
-referenceMolecule	MAPK_p,MAPK/MAPK_p_p	
+readoutMolecules	MAPK_p+MAPK/MAPK_p_p	
+referenceMolecule	MAPK_p+MAPK/MAPK_p_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	PP2A,CaMKIII_bind_CaM_Ca4,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,CaM(Ca)n_CaNAB/func,MEKp_phospho,mGluR_barr2_Raf_scaffolding	
+itemstodelete	PP2A,CaMKIII_bind_CaM_Ca4,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,CaM(Ca)n_CaNAB/func,MEKp_phospho,mGluR_barr2_Raf_scaffolding,cluster_phospho_S6K,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho,MAPK_p_p/MAPK_p_p,Ca.PLC_g_phospho,dephosph_inhib1,dephosph_PP1_I_p,dephosph_inhib1_noCaM[0]	
 solver	Runge kutta method (gsl)	
 notes	Fig2B	
 parameterChange		
 Object	parameter	Value
+EGFR/EGF	concInit	0.0001
