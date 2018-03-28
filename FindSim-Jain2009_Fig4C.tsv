@@ -63,7 +63,7 @@ stimulusMolecules	S6K_thr_252
 readoutMolecules	CaMKIII_p	
 referenceMolecule		
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete		
+itemstodelete	S6_dephosph,S6_phos,S6_phospho,phospho,eEF2thr56_basal	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
