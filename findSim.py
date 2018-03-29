@@ -81,6 +81,7 @@ import heapq
 import pylab
 import numpy
 import sys
+import argparse
 import moose
 import os
 import re
@@ -1253,16 +1254,16 @@ def loadTsv( fname ):
                 if len( cols ) > 0:
                     if cols[0] == 'Experiment metadata':
                         expt = Experiment.load(fd )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
                     if cols[0] == 'Stimuli':
-                       stims.append( Stimulus.load(fd ) )
-                       print "#########################", cols[0]
+                        stims.append( Stimulus.load(fd ) )
+                        #print "#########################", cols[0]
                     if cols[0] == 'Readouts':
                         readouts.append( Readout.load(fd) )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
                     if cols[0] == 'Model mapping':
                         model = Model.load(fd )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
     
     # print "expt ", expt.exptSource, expt.citationId, expt.journal, expt.authors
     # for s in stims:
@@ -1308,19 +1309,25 @@ def main():
     """ This program handles loading a kinetic model, and running it
  with the specified stimuli. The output is then compared with expected output to generate a model score.
     """
+    parser = argparse.ArgumentParser( description = 'FindSim argument parser\n'
+    'This program loads a kinetic model, and runs it with the \n'
+    'specified stimuli. The output is then compared with expected output \n'
+    'specified in the same file, to generate a model score.\n'
+    )
+
+    parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
+    parser.add_argument( '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
+    parser.add_argument( '--dump_subset', type = str, help='Optional: dump selected subset of model into named file' )
+    parser.add_argument( '--hide_display', action="store_true", help='Turn off display' )
+    args = parser.parse_args()
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hideDisplay = args.hide_display )
+
+
+def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hideDisplay = False ):
     solver = "gsl"  # Pick any of gsl, gssa, ee..
-    mfile = 'FindSim_compositeModel_1.g'
     modelWarning = ""
-    #mfile = "/home/harsha/genesis_files/gfile/acc90.g"
-    if ( len( sys.argv ) < 2 ):
-        print( "Usage: " + sys.argv[0] + " file.tsv [modelfile]" )
-        quit()
-    expt, stims, readouts, model = loadTsv( sys.argv[1] )
-    if ( len( sys.argv ) >= 3 ):
-        model.fileName = sys.argv[2]
-    else:
-        model.fileName = mfile
-    print " fileName ",model.fileName
+    expt, stims, readouts, model = loadTsv( script )
+    model.fileName = modelFile
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
     # First we load in the model using EE so it is easier to tweak
@@ -1338,11 +1345,14 @@ def main():
         for i in range( 10, 20 ):
             moose.setClock( i, 0.1 )
 
-        score, plots = runit( model,stims, readouts,modelId )
-        for name, p in plots.items():
-            #pylab.figure()
-            p.plotme(sys.argv[1])
-        pylab.show()
+        score, plots = runit( model,stims, readouts )
+        if not hideDisplay:
+            for name, p in plots.items():
+                #pylab.figure()
+                p.plotme( script )
+            pylab.show()
+        print( "Script = {}, score = {}".format( script, score ) )
+        return score
         
         
 # Run the 'main' if this script is executed standalone.
