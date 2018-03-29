@@ -1063,16 +1063,16 @@ def loadTsv( fname ):
                 if len( cols ) > 0:
                     if cols[0] == 'Experiment metadata':
                         expt = Experiment.load(fd )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
                     if cols[0] == 'Stimuli':
-                       stims.append( Stimulus.load(fd ) )
-                       print "#########################", cols[0]
+                        stims.append( Stimulus.load(fd ) )
+                        #print "#########################", cols[0]
                     if cols[0] == 'Readouts':
                         readouts.append( Readout.load(fd) )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
                     if cols[0] == 'Model mapping':
                         model = Model.load(fd )
-                        print "#########################", cols[0]
+                        #print "#########################", cols[0]
     
     # print "expt ", expt.exptSource, expt.citationId, expt.journal, expt.authors
     # for s in stims:
@@ -1161,6 +1161,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
                 #pylab.figure()
                 p.plotme( script )
             pylab.show()
+        print( "Script = {}, score = {}".format( script, score ) )
         return score
         
         
