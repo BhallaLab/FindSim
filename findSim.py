@@ -1139,7 +1139,7 @@ def main():
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
         # Then we apply whatever modifications are specified by user or protocol
         moose.Neutral('/model/plots')
-        modleWarning = ""
+        modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
         #Then we build the solver.
         buildSolver( modelId, model.solver )
