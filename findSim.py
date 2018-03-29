@@ -42,6 +42,8 @@
 **********************************************************************/
 
 2018
+Mar28:
+    cleaned up in parseAndRun for running when useSum and useRation is true
 Mar 25:
     stimulus,readout,reference molecules in modelmapping are in list, Equivalent molcules from stimulus,readout block are picked
     up as per index order from the modelmapping: stimulusMolecules, readoutMolecules,referenceMolecule
@@ -208,8 +210,8 @@ class Readout:
             useNormalization=False,
             ratioReferenceTime = 0.0,
             ratioReferenceDose = 0.0,
-            molecules = [],
-            ratioReferenceEntity = [],
+            molecules = '',
+            ratioReferenceEntity = '',
             field = '',
             experimentalReadout = '',
             useXlog = False,
@@ -248,7 +250,8 @@ class Readout:
         else:
             self.useYlog = str2bool(useYlog)
         self.useNormalization = str2bool(useNormalization)
-        self.molecules = molecules.split(',')
+        
+        self.molecules = molecules
         """Name of the model entity to read. Typically a molecule name."""
         self.experimentalReadout = experimentalReadout
         """Name of the field associated with the entity. A bit of an
@@ -265,10 +268,9 @@ class Readout:
     
     def load( fd ):
         arg, data, param, struct, stim, readout, refentMol, ent, refent  = innerLoad( fd, Readout.argNames, 3 )
-
         readout = Readout( **arg )
-        for i in ent:
-            readout.entity=ent
+        # for i in ent:
+        #     readout.entity=ent
         for i in refent:
             readout.ratioReferenceEntity=refent
         readout.data = data
@@ -394,15 +396,15 @@ class Model:
         #print " findObj ",rootpath+'/'+name, moose.wildcardFind(rootpath+'/'+name)
         #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
-            print( "Bad: Too many entries. ", try1, try2)
-            return
+            #print( "Bad: Too many entries. ", try1, try2)
+            return moose.element('/'), ( "Bad: Too many entries. ", try1, try2)
         if len( try1 ) + len( try2 ) == 0:
-            print( "Bad: zero entries. ", name )
-            return 
+            #print( "Bad: zero entries. ", name )
+            return moose.element('/'),( "Bad: zero entries. ", name )
         if len( try1 ) == 1:
-            return try1[0]
+            return try1[0],""
         else:
-            return try2[0]
+            return try2[0],""
 
     def modify( self, modelId, erSPlist, odelWarning):
         # Start off with things explicitly specified for deletion.
@@ -410,8 +412,12 @@ class Model:
         if self.itemstodelete:
             for ( entity, change ) in self.itemstodelete[:]:
                 if entity != "":
-                    foundobj = self.findObj(kinpath, entity)
-                    if foundobj:
+                    foundobj,errormsg = self.findObj(kinpath, entity)
+ 
+                    if moose.element(foundobj).className == "Shell":
+                        print ("modify: ",errormsg)
+                        exit()
+                    else:
                         if moose.exists( moose.element(foundobj).path ):
                             obj = moose.element( foundobj.path )
                             if change == 'delete':
@@ -421,8 +427,7 @@ class Model:
                                     print ("modelId/rootPath is not allowed to delete ", obj)
                         else:
                             print "Object does not exist ", entity
-                    else:
-                        exit()
+                
         if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
             '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
                 specific is delete from the group.
@@ -447,8 +452,12 @@ class Model:
             #are specified in modelmapping
 
             for i in subsets: 
-                foundobj = self.findObj(kinpath, i)
-                if foundobj:
+                foundobj = ""
+                foundobj, errormsg = self.findObj(kinpath, i)
+                if moose.element(foundobj).className == "Shell":
+                    print ("Model Subsetting", errormsg)
+                    exit()
+                else:
                     if moose.exists( moose.element(foundobj).path ):
                         elm = moose.element( moose.element(foundobj).path  )
                         if isCompartment(elm):
@@ -509,13 +518,16 @@ class Model:
             
 
             for (entity, field, value) in self.parameterChange:
-                foundobj = self.findObj(kinpath, entity)
-                if foundobj:
+                foundobj,errormsg = self.findObj(kinpath, entity)
+                if moose.element(foundobj).className == 'Shell':
+                    print ("ParameterChange: ", errormsg)
+                    exit()
+                else:
                     if moose.exists( moose.element(foundobj).path ):
-                        obj = moose.element( foundobj.path )
-                        #print " self. parameterChange ",obj,self.parameterChange
+                        obj= moose.element( foundobj.path )
                         if field == "concInit (uM)":
                             field = "concInit"
+                        #print " obj ", obj, field, value
                         moose.element( obj ).setField( field, value )
                         # if field == "concInit (uM)":
                         #     print obj.concInit
@@ -523,19 +535,7 @@ class Model:
                         #     print " after ",obj.concInit
                         # else:
 
-                '''
-                ipath = kinpath + entity
-                print entity,ipath,"@213"
-                if moose.exists( ipath ):
-                    moose.element( ipath ).setField( field, value )
-                    print "@216",entity,field
-                    moose.showfields(moose.element( ipath ))
-                    #print( "Model::modify called with: " + entity + '.' + field  + ' = ' + str( value ) )
-                else:
-                    print( "Warning: Model::modify: object/field not found: " + ipath + '.' + field )
-                '''
-
-            #check for dangling Reaction/Enzyme/Function's
+            #Function call for checking dangling Reaction/Enzyme/Function's
             pruneDanglingObj( kinpath, erSPlist)
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset','readoutMolecules','stimulusMolecules', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
@@ -559,32 +559,24 @@ def innerLoad( fd, argNames, dataWidth = 2):
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             return arg, data, param, struct, stim, readout, refentMol, ent, refent 
 
-        # if keywordMatches( cols[0], 'parameterChange' ):
-        #     if len( cols ) >= 4:
-        #         param.append( (cols[1], cols[2], float( cols[3] ) ) )
-        #     else:
-        #         print( "Warning: Model::load parameterChange: need 3 args: entity, field, value. Instead got: '" + line + "'" )
         if keywordMatches( cols[0], 'stimulusMolecules' ):
             if cols[1] != "":
                 #stim = dict(map(lambda s : s.split(':'), cols[1].split(',')))
                 stim = cols[1].split(',')
+        
         if keywordMatches( cols[0], 'readoutMolecules' ):
             if cols[1] != "":
                 #readout = dict(map(lambda s : s.split(':'), cols[1].split(',')))
                 readout = cols[1].split(',')
+        
         if keywordMatches( cols[0], 'referenceMolecule' ):
             #readout=cols[1].split(',')
             if cols[1] != "":
                 #refentMol = dict(map(lambda s : s.split(':'), cols[1].split(',')))
                 refentMol = cols[1].split(',')
-        if keywordMatches( cols[0], 'entity' ):
-            ent=cols[1].split(',')
-            #print "ENTITY",ent
-            #print "Ret READ DATA from INNERLOAD", len( data )
-            #return arg, data, param, struct, ent
-
+        
         if keywordMatches( cols[0], 'ratioReferenceEntity' ):
-            refent=cols[1].split(',')
+            refent=cols[1]#.split(',')
             #print "ratioReferenceENTITY",refent
 
         if keywordMatches( cols[0], 'Data' ):
@@ -620,7 +612,6 @@ def readData( fd, data, width ):
         row = []
         for c in cols:
             if c != '':
-                #row.append( float( c ) )
                 row.append( ( c ) )
                 if len( row ) >= width:
                     break;
@@ -700,28 +691,13 @@ def ornamentPools( elms ):
             appendees.extend( i.children )
             for j in set( i.children ):
                 appendees.extend( j[0].children )
-    '''
-    print " s1 ",s1
-    for i in s1:
-        print " i .feing ",i, i.className.find('Pool')
-        if i.className.find( 'Pool' ) != -1:
-            print i.children
-            for iis in i:
-                f
-            if i.className != "Annotator":
-                appendees.extend( i.children )
-                for j in set( i.children ):
-                    if j.className != "Annotator":
-                        appendees.extend( j[0].children )
-                #print [k.name for k in j[0].children]
-    print " appendees ",appendees
-    '''
+
     ret = set( elms + [k[0] for k in appendees] )
     return ret
     #elms.extend( list(set(appendees)) ) # make it unique.
     
 def pruneDanglingObj( kinpath, erSPlist):
-    erlist = moose.wildcardFind(kinpath+"/##[ISA=Enz],"+kinpath+ "/##[ISA=MMenz],"+kinpath+ "/##[ISA=Reac]")
+    erlist = moose.wildcardFind(kinpath+"/##[ISA=ReacBase],"+kinpath+ "/##[ISA=EnzBase]")
     subprdNotfound = False
     ratelawchanged = False
     funcIPchanged  = False
@@ -737,14 +713,10 @@ def pruneDanglingObj( kinpath, erSPlist):
             if len(isub) == 0 or len(iprd) == 0 :
                 subprdNotfound = True
                 mWarning = mWarning+"\n"+i.className + " "+i.path
-                # print (modelWarning +"\n"+i.path)
-                # exit()
             elif len(isub) != erSPlist[i]["s"] or len(iprd) != erSPlist[i]["p"]:
                 ratelawchanged = True
                 mRateLaw = mRateLaw+"\n"+i.path
-                # print (modelRateLaw + "\n"+ i.path)
-                # exit()
-
+                
     flist = moose.wildcardFind( kinpath + "/##[ISA=Function]" )
     for i in flist:
         if len(i.neighbors['valueOut']) == 0:
@@ -755,23 +727,22 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        print (" \nWarning: Found dangling Reaction/Enzyme, model's need to specify this in the itemstodelete for deletion, program will exit now "+mWarning)
+        print (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
     if ratelawchanged:
-        print ("\nWarning: This reaction or enzyme's, RateLaw needs correction as it's sub or prd were delete while subsetting, program will exit now"+mRateLaw)
+        print ("\nWarning: This reaction or enzyme's, RateLaw needs to be correction as it's sub or prd were delete while subsetting. Program will exit now"+mRateLaw)
     if funcIPchanged:
-        print ("\nWhile subsetting the either one or more input's to the function is missing, this need's to be specified in itemstodelete for deletion, program will exit now"+mFunc)
+        print ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
     if subprdNotfound or ratelawchanged or funcIPchanged:
         exit()
+        pass
 
 ##########################################################################
 def parseAndRun( model,stims, readout ):
-    # for i in stims:
-    #     for j in range(0,len(i.argNames)):
-    #         print "j ",j, i.argNames[j]
     q = []
     score = 0.0
     numScore = 0
     elm={}
+    elmDict = {}
     tabl={}
     stimuli={}
     reference=0.0
@@ -782,115 +753,112 @@ def parseAndRun( model,stims, readout ):
     yerror=[]
     extraplots=[]
     plots ={}
+
     #************************************************************
-    #extraplots=["Phosphatase/PPhosphatase2A","Phosphatase/PP2A","Phosphatase/MKP_1","PKC/PKC_active","MAPK/Raf_p_GTP_Ras","Ras/GTP_Ras","Ca/Ca","PKC/DAG","PKC/Arachidonic_Acid"]
-    # dp = moose.Neutral('/model/graph1')    
-    # d = dp.path
-    # for i in extraplots:
-    #     moose.connect(moose.Table2((d+'/'+(moose.element('/model/kinetics/'+i)).name)+'.Co'),'requestOut',moose.element('/model/kinetics/'+i),'getConc')
-    #     print "@607"
-
-
-    #scoreTab = { i.entity: [[],[],[]] for i in readout }
-
-
-
+    #If extra plots need to ploted, populate extraplots list
+    '''
+    extraplots=[]
+    dp = moose.Neutral('/model/graph1')
+    for i in extraplots:
+        extraplt,errormsg= model.findObj('/model',i)
+        if moose.element(extraplt).className == "Shell":
+            #This check is for multiple entry
+            print ("Extra plots: ",errormsg)
+            exit()
+        else:
+            if not moose.exists( extraplt.path ):
+                print( "Error: Object does not exist: '" + i + "'")
+                quit()
+            else:
+                moose.connect(moose.Table2((d.path+'/'+(moose.element(extraplt)).name)+'.Co'),'requestOut',moose.element(extraplt),'getConc')
+    scoreTab = { i.entity: [[],[],[]] for i in readout }
+    '''
     # *************************************************************''
     moose.reinit()
     for i in stims:
         if i.entity:
             #Here going blinding assuming user/modeler has entered the stim block and modelmapping stimulusMolecules in order
             s = model.stimulusMolecules[stims.index(i)]
-            mSource = model.findObj('/model',s)
-            if not moose.exists( mSource.path ):
-                print( "Error: Object does not exist: '" + s + "'")
-                quit()
+            mSource,errormsg= model.findObj('/model',s)
+            if moose.element(mSource).className == "Shell":
+                #This check is for multiple entry
+                print ("ModelMapping->Stimululs Molecule: ",errormsg)
+                exit()
             else:
-                stimuli[i.entity[0]]=mSource
-            for j in i.data:
-                heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
-                #heapq.heappush( q, (j[0]*i.timeScale, [i.entity, i.field, j[1]*i.concScale, '' ] ) )
-    for i in readout:
-        if i.useSum: 
-            if not ((len( i.molecules )>= 2 or len( i.ratioReferenceEntity )>= 2 )):
-                print "ReadOut: Error: useSum is TRUE and list is not given."
-                quit()
-            elif (len( i.molecules ) < 2  and len( i.ratioReferenceEntity ) < 2 ):
-                print "ReadOut: Error: useSum is TRUE but not enough entities."
-                quit()
-            elif ((len( i.molecules )>= 2 or len( i.ratioReferenceEntity )>= 2 ) ):
-                for r in i.molecules:
-                    ro = model.readoutMolecules[i.molecules.index(r)]
-                    mReadout = model.findObj('/model',ro)
-
-                    if not moose.exists( mReadout.path ):
-                        print 'ReadOut : Error: Summation object does not exist: ', mReadout
-                        quit()
-                    else:
-                        elm[r] = mReadout
-                        ####################################################################################################################
-                        plotstr = '/model/plots/' + ntpath.basename(mReadout.name) + '.Co'
-                        #print " plotstr ",plotstr
-                        tabl[r] = moose.Table2(plotstr )
-                        moose.connect( tabl[r],'requestOut',elm[r],'getConc' )
-                        t_dt = moose.element( '/model/plots/' + ntpath.basename(r) + '.Co' )
-                        ####################################################################################################################
-                        #plotstr = i.plotLegend
-                if i.useRatio and len(i.ratioReferenceEntity)>=1:
-                    reflen = 0
-                    for r in i.ratioReferenceEntity:
-                        RRE = model.referenceMol[i.ratioReferenceEntity.index(r)]
-                        mRef = model.findObj('/model',RRE)
-                        if not moose.exists( mRef.path ):
-                            print 'Error: Summation object does not exist: ', r
-                            quit()
-                        else:
-                            ro = model.referenceMol[reflen]
-                            mRefMol = model.findObj('/model',ro)
-                            #referenceMol[r] = moose.element( '/model/kinetics/' + r )
-                            referenceMol[r] = mRefMol
-                        reflen =+1
-                elif i.useRatio and len(i.ratioReferenceEntity)<1:
-                    print "Error: ratioReferenceEntity is not given"
-                elif not i.useRatio and len(i.ratioReferenceEntity)>1:
-                    print "Error: useRatio is FALSE."
-            else:
-                if not moose.exists( '/model/kinetics/' + i.entity[0] ):
-                    print 'Error: Object does not exist: ', i.entity[0] 
+                if not moose.exists( mSource.path ):
+                    print( "Error: Object does not exist: '" + s + "'")
                     quit()
-        
-        else:
-            ####################################################################################################################
-            for r in i.molecules:
-                rO = model.readoutMolecules[i.molecules.index(r)]
-                mSource = model.findObj('/model',rO)
-                elm[r] = moose.element(mSource)
-                tabl[r] = moose.Table2( '/model/plots/' + mSource.name + '.Co' )
-                moose.connect( tabl[r],'requestOut',elm[r],'getConc' )
-                t_dt = moose.element( '/model/plots/' + mSource.name+ '.Co' )
-            plotstr = mSource.name
-            # for af  in i.additionalFigures:
-            #     addFigs[af] = moose.element( '/model/kinetics/' + af )
-            #     tabl[af] = moose.Table2( '/model/plots/' + ntpath.basename( af ) + '.Co' )
-            #     moose.connect( tabl[af],'requestOut',addFigs[af],'getConc' )
-            #     x = moose.element ( '/model/plots/' + af + '.co' )
-            #     t = numpy.arange( 0, x.vector.size, 1 ) * x.dt
-            #     addFigs_vals[x] = [[t],[x.vector]]
-            #     plotstrAF = af
-            ####################################################################################################################
-            if i.useRatio and len(i.ratioReferenceEntity)>=1:
-                for re in i.ratioReferenceEntity:
-                    RRE = model.referenceMol[i.ratioReferenceEntity.index(re)]
-                    mRef = model.findObj('/model',RRE)
-                    if not moose.exists( mRef.path ):
-                        print 'Error: Object does not exist: ', re
-                        quit()
-                    else:
-                        #referenceMol[re] = moose.element( '/model/kinetics/' + re )
-                        referenceMol[re] = moose.element( mRef )
-            if i.ratioReferenceDose > 0:
+                else:
+                    stimuli[i.entity[0]]=mSource
+                for j in i.data:
+                    heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
+                    #heapq.heappush( q, (j[0]*i.timeScale, [i.entity, i.field, j[1]*i.concScale, '' ] ) )
+    for i in readout:
+        noOfMolecule_refMol = True
+        if i.useSum:
+            if not (len(model.readoutMolecules[readout.index(i)]) > 1 or len(model.referenceMol[readout.index(i)]) > 1):
+                print "ReadOut: useSum is TRUE, expecting atleast two molecules either in \"readoutMolecules\" or \"referenceMolecules\" in ModelMapping"
+                noOfMolecule_refMol = False
+                quit()
+        if i.useRatio:
+            if len(i.ratioReferenceEntity)<=1:
+                print "ReadOut UseRation is TRUE, expecting atleast two molecules in  \"referenceMolecule\" in ModelMapping"
+                noOfMolecule_refMol = False
+        if i.ratioReferenceDose > 0:
                 print 'Error: TimeSeries experiment does not require a ratioReferenceDose: ', i.ratioReferenceDose
                 quit()
+        if noOfMolecule_refMol:
+            if len(model.readoutMolecules):
+                if '+' in (model.readoutMolecules[readout.index(i)]):
+                    readoutMolecules = (model.readoutMolecules[readout.index(i)]).split('+')
+                else:
+                    readoutMolecules = (model.readoutMolecules[readout.index(i)])
+            if isinstance(readoutMolecules,str):
+                foo = readoutMolecules 
+                readoutMolecules = []
+                readoutMolecules.append(foo)
+                
+            for readMol in readoutMolecules:
+                mReadout,errormsg = model.findObj('/model',readMol)
+                if moose.element(mReadout).className == "Shell":
+                    print ("ModelMapping->readoutMolecules: ",errormsg)
+                    exit()
+                else:
+                    if i.molecules not in elm:
+                        elm[i.molecules] = [mReadout]
+                    else:
+                        elm[i.molecules].append(mReadout)
+
+                    ########################Creating table for molecules for plotting full run #######################################################################
+                    plotstr = '/model/plots/' + ntpath.basename(mReadout.name) + '.Co'
+                    tabl[mReadout.name] = moose.Table2(plotstr )
+                    moose.connect( tabl[mReadout.name],'requestOut',mReadout,'getConc' )
+                    t_dt = moose.element( '/model/plots/' + ntpath.basename(mReadout.name) + '.Co' )
+                    ####################################################################################################################
+            if len(model.referenceMol):
+                if '+' in model.referenceMol[readout.index(i)]:
+                    readoutRefMole = model.referenceMol[readout.index(i)].split('+')
+                else:
+                    readoutRefMole = model.referenceMol[readout.index(i)]
+
+                if isinstance(readoutRefMole,str):
+                    foo = readoutRefMole
+                    readoutRefMole = []
+                    readoutRefMole.append(foo)
+                
+                #RRE = (model.referenceMol[readout.index(i)]).split("+")
+                for rres in readoutRefMole:
+                    mRef,errormsg = model.findObj('/model',rres)
+                    if moose.element(mRef).className == "Shell":
+                        print ("ModelMapping->RationReferenceMolecule: ",errormsg)
+                        exit()
+                    else:
+                        if not moose.exists( mRef.path ):
+                            print 'Error: Object does not exist: ', re
+                            quit()
+                        else:
+                            referenceMol[rres] = moose.element( mRef )
+            
         plots = { plotstr: PlotPanel( i )}
         for j in i.data:
             heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
@@ -908,7 +876,6 @@ def parseAndRun( model,stims, readout ):
             for k in referenceMol.keys():   
                 reference += referenceMol[k].getField( i.experimentalReadout ) 
 
-    #moose.mooseWriteKkit('/model','/tmp/pipe.g')
     sumsl=[]
     sumslist=[]
     xptslist=[]
@@ -931,6 +898,7 @@ def parseAndRun( model,stims, readout ):
         if isinstance( event[0], Stimulus ):
             s = event[0]
             if t == 0:
+                ##This condition is still check with new Excel sheet
                 if s.field == 'conc':
                     stimuli[s.entity[0]].setField( 'concInit', val )
                 elif s.field == 'n':
@@ -941,22 +909,14 @@ def parseAndRun( model,stims, readout ):
         else: # Should be a Readout object
             r = event[0]
             if not ( val < 0 ): expt = val
-            for j in r.molecules:
-                rO = model.readoutMolecules[r.molecules.index(j)]
-                mSource = model.findObj('/model',rO)
-                elm[r] = moose.element(mSource)
-                '''
-                sm = moose.element( 'model/kinetics/' + j )
-                elm[j] = sm.getField( r.field )
-                print "sim", elm[j] #remove - nisha
-                '''
-                elm[j] = mSource.getField(r.experimentalReadout)
-                sim += elm[j] # summation of readouts at one time point -nisha
+            for j in elm[r.molecules]:
+                sim += j.getField(r.experimentalReadout)
             if r.useRatio:
                 if r.ratioReferenceTime < 0.0:
                     # Compute ratio reference every time data is sampled.
                     for k in referenceMol.keys():
                         ref += referenceMol[k].getField(r.field)
+
                     ratioRef.append(ref)
                 if r.ratioReferenceTime == 0.0:
                     # Take concInit as ratio reference.
@@ -975,8 +935,8 @@ def parseAndRun( model,stims, readout ):
 
     for i in readout:
         ###############################################################################################################
-        for j in i.molecules:
-            list_of_lists.append((tabl[j].vector).tolist())
+        for j in elm[i.molecules]:
+            list_of_lists.append((tabl[j.name].vector).tolist())
         ###############################################################################################################
         tab_values = [(sum(x)/(i.concScale)) for x in zip(*list_of_lists)]
         tab_vals = [j/ratioRef for j in tab_values]
@@ -1001,10 +961,7 @@ def parseAndRun( model,stims, readout ):
                 sumslist.append(sim)
             for k in range(int(xptslist[0]),int(xptslist[-1])):
                 tab.append( tab_vals[int(k/t_dt.dt)] )
-        #else:
-        #    for k in range(int(xptslist[0]),int(xptslist[-1])):
-        #        tab.append(tab_values[int(k/t_dt.dt)])
-        #sumslist=sumsl
+
     ###############################################################################################################
     time_full=numpy.arange( xptslist[0], xptslist[-1] )
     # for i in range(int(time_full[0]/t_dt.dt),int(time_full[-1]/t_dt.dt)+1):
@@ -1013,7 +970,6 @@ def parseAndRun( model,stims, readout ):
     ###############################################################################################################
     for key in plots:
         plots[key].sim = sumslist
-        #print "SCORING:::::::::: ", event, sc, sim, expt
         plots[key].xpts = xptslist
         plots[key].expt = exptlist
         plots[key].yerror = yerror
@@ -1029,9 +985,10 @@ def parseAndRun( model,stims, readout ):
 class PlotPanel:
     def __init__( self, readout, xlabel = '' ):
         self.name=[]
+
+
         for i in readout.molecules:
-            self.name.append(ntpath.basename(i))
-        #print "name",self.name
+            self.name.append(ntpath.basename(readout.molecules))
         self.exptType = readout.readoutType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
@@ -1147,14 +1104,6 @@ def buildSolver( modelId, solver ):
 
 def runit( model,stims, readouts ):
     doDoser = False
-    # for i in stims:
-    #     print i.stimulusType
-    
-    # for i in stims:
-    #     stims.stimulusType
-    #     if keywordMatches( i.stimulusType, 'doseResponse' ):
-    #         doDoser = True
-
     for i in readouts:
         if keywordMatches( i.readoutType, 'doseResponse' ):
             doDoser = True
@@ -1194,19 +1143,16 @@ def main():
         model.modify( modelId, erSPlist,modelWarning )
         #Then we build the solver.
         buildSolver( modelId, model.solver )
-
+        #moose.mooseWriteKkit('/model', '/tmp/finalmodel4c.g')
         for i in range( 10, 20 ):
             moose.setClock( i, 0.1 )
 
         score, plots = runit( model,stims, readouts )
-        print plots
-        print "Score = ", score
         for name, p in plots.items():
-        #pylab.figure()
+            #pylab.figure()
             p.plotme(sys.argv[1])
         pylab.show()
-        # print " ################# "
-        #moose.mooseWriteKkit('/model', '/tmp/finalmodel4c.g')
+        
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
