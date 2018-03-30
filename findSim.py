@@ -841,7 +841,7 @@ def parseAndRun( model,stims, readout,modelId ):
                 if '+' in model.referenceMol[readout.index(i)]:
                     readoutRefMole = model.referenceMol[readout.index(i)].split('+')
                 else:
-                    readoutRefMole = model.referenceMol[readouindex(i)]
+                    readoutRefMole = model.referenceMol[readout.index(i)]
 
                 if isinstance(readoutRefMole,str):
                     foo = readoutRefMole
