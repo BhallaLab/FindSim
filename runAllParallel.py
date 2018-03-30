@@ -57,14 +57,18 @@ def main():
     parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located.')
     parser.add_argument( '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     args = parser.parse_args()
+    location = args.location
+    if location[-1] != '/':
+        location += '/'
 
-    fnames = [ i for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
+    fnames = [ (location + i) for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
     pool = Pool( processes = args.numProcesses )
     #ret = findSim.innerMain(fnames[0], hideDisplay=True)
 
     ret = [pool.apply_async( findSim.innerMain, (i,), dict(hideDisplay=True)) for i in fnames ]
     print( "scores = " )
-    for i, j in zip( fnames, ret ):
+    results = [ i.get() for i in ret ]
+    for i, j in zip( fnames, results ):
         print i, j
         #print( "{0} : {1:.2f}".format( i, j ) )
 

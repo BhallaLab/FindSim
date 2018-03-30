@@ -792,7 +792,7 @@ def parseAndRun( model,stims, readout,modelId ):
                 else:
                     stimuli[i.entity[0]]=mSource
                 for j in i.data:
-                    print " j ", j
+                    #print " j ", j
                     heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
                     #heapq.heappush( q, (j[0]*i.timeScale, [i.entity, i.field, j[1]*i.concScale, '' ] ) )
     for i in readout:
@@ -1324,6 +1324,7 @@ def main():
 
 
 def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hideDisplay = False ):
+    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hideDisplay ) )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     expt, stims, readouts, model = loadTsv( script )
@@ -1345,13 +1346,14 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         for i in range( 10, 20 ):
             moose.setClock( i, 0.1 )
 
-        score, plots = runit( model,stims, readouts )
+        score, plots = runit( model,stims, readouts, modelId )
         if not hideDisplay:
             for name, p in plots.items():
                 #pylab.figure()
                 p.plotme( script )
             pylab.show()
-        print( "Script = {}, score = {}".format( script, score ) )
+            print( "Script = {}, score = {}".format( script, score ) )
+        moose.delete( modelId )
         return score
         
         
