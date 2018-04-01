@@ -732,7 +732,7 @@ def pruneDanglingObj( kinpath, erSPlist):
     if subprdNotfound:
         print (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
     if ratelawchanged:
-        print ("\nWarning: This reaction or enzyme's, RateLaw needs to be correction as it's sub or prd were delete while subsetting. Program will exit now"+mRateLaw)
+        print ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
     if funcIPchanged:
         print ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
     if subprdNotfound or ratelawchanged or funcIPchanged:
@@ -1317,7 +1317,7 @@ def main():
 
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
     parser.add_argument( '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
-    parser.add_argument( '--dump_subset', type = str, help='Optional: dump selected subset of model into named file' )
+    parser.add_argument( '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '--hide_display', action="store_true", help='Turn off display' )
     args = parser.parse_args()
     innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hideDisplay = args.hide_display )
@@ -1341,6 +1341,14 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         moose.Neutral('/model/plots')
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
+        if len(dumpFname) > 2:
+            if dumpFname[-2:] == '.g':
+                moose.mooseWriteKkit( modelId.path, dumpFname )
+            elif len(dumpFname) > 4 and dumpFname[-4:] == '.xml':
+                moose.mooseWriteSBML( modelId.path, dumpFname )
+            else:
+                print( "Error: Subset file type not known for '{}'".format( dumpFname ) )
+            return 0.0
         #Then we build the solver.
         buildSolver( modelId, model.solver )
         for i in range( 10, 20 ):
