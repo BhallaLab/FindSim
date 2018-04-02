@@ -42,8 +42,10 @@
 **********************************************************************/
 
 2018
+
 Apr 2:
     Added runInitialReferenceDoser code
+    added runRatioDoser code
 Mar29: 
     Added Dose-Response code
 Mar28:
@@ -1087,8 +1089,8 @@ def parseAndRunDoser( model,stims, readout,modelId ):
             if not i.useRatio:              
                 return runDoser(model,plots, stims[0], i, runTime, ent, modelId) # Use absolute quantities 
             
-            elif i.ratioReferenceTime < 0:               
-                return runRatioDoser( plots, stims[0], i, runTime,ent ) # Takes ratio of quantities for each sample.
+            elif i.ratioReferenceTime < 0:    
+                return runRatioDoser( model,plots, stims[0],doseMol, i, mapReadoutmoose,referenceMol,runTime,ent,modelId ) # Takes ratio of quantities for each sample.
             
             elif i.ratioReferenceTime >= 0:
                 return runInitialReferenceDoser ( model,plots, stims[0],doseMol,i,mapReadoutmoose, referenceMol, runTime, ent)
@@ -1133,12 +1135,6 @@ def runDoser( model, plots, stim, readout, runTime, ent, modelId ):
                     responseMol[i] = [mReadout]
                 else:
                     responseMol[i].append(mReadout)
-    # if readout.useSum:
-    #     print "useSum ",useSum  
-    #     responseMol = { i : moose.element( '/model/kinetics/' + i ) for i in readout.entity }
-    # else:
-    #     print " readout ",readout.molecules
-    #     responseMol = moose.element( '/model/kinetics/' + readout.entity[0] )
     responseScale = readout.concScale
     doseScale = stim.concScale
     for dose, response, stderr in readout.data:
@@ -1163,7 +1159,7 @@ def runDoser( model, plots, stim, readout, runTime, ent, modelId ):
         plots[ent].yerror = yerror
     return score / len(readout.data), plots
 #################################################################
-def runInitialReferenceDoser( model,plots, stim,stimMol, iofReadout,responseMol,referenceMol, runTime, ent ):
+def runInitialReferenceDoser( model, plots, stim,stimMol, iofReadout,responseMol,referenceMol, runTime, ent ):
     score = 0.0
     reference=0.0
     yerror=[]
@@ -1205,6 +1201,38 @@ def runInitialReferenceDoser( model,plots, stim,stimMol, iofReadout,responseMol,
     return score / len(iofReadout.data), plots#, full_run
 
 ##########################################################################
+def runRatioDoser( model, plots, stim, stimMol, iofReadout,readoutsReadoutMol, readoutsRatioreferenceMol, runTime, ent,modelId ):
+    score = 0.0
+    reference = 0.0
+    yerror=[]
+    s = model.stimulusMolecules[0]
+    stimMol,errormsg = model.findObj(modelId.path,s)
+    if moose.element(stimMol).className == "Shell":
+        print ("Model Subsetting", errormsg)
+        exit()
+    else:    
+        doseMol = stimMol
+    for k in readoutsRatioreferenceMol.keys():
+        reference += readoutsRatioreferenceMol[k].getField( iofReadout.experimentalReadout)
+    doseScale = stim.concScale
+    for dose, response, stderr in iofReadout.data:
+        sim = 0.0
+        yerror.append(float(stderr))
+        doseMol.concInit = float(dose) * doseScale
+        moose.reinit()
+        moose.start( runTime )
+        for i in readoutsReadoutMol[iofReadout.molecules]:
+            sim += i.getField( iofReadout.experimentalReadout )
+        sim = float(sim / reference)
+        expt = float(response)
+        score += eval(model.scoringFormula )
+        plots[ent].xpts.append( dose )
+        plots[ent].sim.append( sim )
+        plots[ent].expt.append( expt )
+        plots[ent].yerror = yerror
+    return score / len(iofReadout.data), plots
+##########################################################################
+
 class PlotPanel:
     def __init__( self, readout, xlabel = '' ):
         self.name=[]
