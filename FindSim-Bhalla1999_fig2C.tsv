@@ -23,7 +23,7 @@ quantityUnits	uM
 molecules	Ca/Ca	
 field	conc	
 Data		
-settleTime	5000	
+settleTime	300	
 		
 		
 		
@@ -36,7 +36,7 @@ useRatio	TRUE
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	300	
-ratioReferenceDose	88888	
+ratioReferenceDose	100	
 ratioReferenceEntity	Ca.PLC_g_p	
 molecules	Ca.PLC_g_p	
 experimentalReadout	conc	
