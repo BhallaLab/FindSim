@@ -181,14 +181,19 @@ class Stimulus:
         on till steady-state."""
         self.data = data
         """List of pairs of numbers, [time, quantity]"""
-
+        
     def load( fd ):
         arg, data, param, struct, stim, readout, refentMol, ent, refent = innerLoad( fd, Stimulus.argNames, 2 )
         stim = Stimulus( **arg )
+        # if keywordMatches( cols[0], 'settleTime' ):
+        #     self.settleTime = cols[1]
         #stim.data = data
         for i in ent:
             stim.entity=ent
         stim.data = data
+        
+        if stim.data[0][0] =="settleTime":
+            stim.settleTime = stim.data[0][1]
         return stim
 
     load = staticmethod( load )
@@ -268,7 +273,7 @@ class Readout:
         """Formula to use to score how well the model matches expt"""
         self.data = data
         """List of triplets of numbers, [time, quantity, stderr]"""
-    
+        
     def load( fd ):
         arg, data, param, struct, stim, readout, refentMol, ent, refent  = innerLoad( fd, Readout.argNames, 3 )
         readout = Readout( **arg )
@@ -282,7 +287,7 @@ class Readout:
 
 Readout.argNames = ['readoutType', 'timeUnits', 'quantityUnits', 
         'useRatio', 'useXlog', 'useYlog', 'useSum', 'useNormalization', 'molecules', 'experimentalReadout', 
-        'ratioReferenceTime', 'ratioReferenceEntity']
+        'ratioReferenceTime', 'ratioReferenceDose','ratioReferenceEntity']
 
 ##########################################################################
 
@@ -583,7 +588,8 @@ def innerLoad( fd, argNames, dataWidth = 2):
             #print "ratioReferenceENTITY",refent
 
         if keywordMatches( cols[0], 'Data' ):
-            readData( fd, data, dataWidth ) 
+            readData( fd, data, dataWidth )
+
             #print "Ret READ DATA from INNERLOAD", len( data )
             return arg, data, param, struct, stim, readout, refentMol, ent, refent 
 
@@ -1035,7 +1041,6 @@ def parseAndRunDoser( model,stims, readout,modelId ):
                 return runRatioDoser( plots, stims[0], i, runTime,ent ) # Takes ratio of quantities for each sample.
             elif i.ratioReferenceTime >= 0:
                 print " yet to add this function"
-                print "data@784", i.data[-1][0], i.ratioReferenceTime
                 #return runInitialReferenceDoser( plots, stimMol, readoutMolecules, runTime, ent ) # Does an initial run, obtains reference, and all readouts are referred to that.
             
         for k in i.ratioReferenceEntity:
@@ -1201,7 +1206,6 @@ class PlotPanel:
 
     def plotme( self,excelsheet ):
         if self.useXlog:
-            #print " 1 "
             if self.useYlog:
                 #pylab.loglog( self.xpts, self.expt, label = self.sumName + '_expt' )
                 pylab.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
@@ -1215,16 +1219,13 @@ class PlotPanel:
                 #pylab.semilogx( self.xpts, self.sim, label = self.sumName + '_sim' )
                 pylab.semilogx( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
         else:
-            #print " ## "
             if self.useYlog:
-                #print "## if"
                 #pylab.semilogy( self.xpts, self.expt, label = self.sumName +'_expt' )
                 pylab.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
                 #for i in range( len( self.name ) ):
                 #pylab.semilogy( self.xpts, self.sim, label = self.sumName + '_sim' )
                 pylab.semilogy( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
             else:
-                #print "## else"
                 #for i in range( len( self.name ) ):
                 #pylab.plot( self.xpts, self.expt, label = self.sumName + '_expt' )
                 pylab.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )

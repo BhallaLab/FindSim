@@ -23,7 +23,7 @@ quantityUnits	uM
 molecules	Ca/Ca	
 field	conc	
 Data		
-settleTime	300	
+settleTime	5000	
 		
 		
 		
@@ -36,7 +36,7 @@ useRatio	TRUE
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	300	
-ratioReferenceDose	100	
+ratioReferenceDose	88888	
 ratioReferenceEntity	Ca.PLC_g_p	
 molecules	Ca.PLC_g_p	
 experimentalReadout	conc	
@@ -66,7 +66,7 @@ stimulusMolecules	Ca/Ca
 readoutMolecules	Ca.PLC_g_p	
 referenceMolecule	Ca.PLC_g_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	PLCg_basal,PLC_g_p_dephospho,L.EGFR/SHC_phospho	
+itemstodelete	PLCg_basal,PLC_g_p_dephospho,L.EGFR/SHC_phospho,Ca.PLC_g/PIP2_hydrolysis,Ca.PLC_g_p/PIP2_hydrolysis	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
