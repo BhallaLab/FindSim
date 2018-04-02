@@ -33,7 +33,7 @@ readoutType	Dose-Response
 timeUnits	sec	
 quantityUnits	uM	
 useRatio	TRUE	
-useXlog	FALSE	
+useXlog	TRUE	
 useYlog	FALSE	
 ratioReferenceTime	300	
 ratioReferenceDose	100	
