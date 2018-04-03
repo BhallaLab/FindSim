@@ -514,7 +514,7 @@ class Model:
                     if moose.exists(elmGrpl.path):
                          moose.delete(elmGrpl)
             #getting rid of object which are not specified under compartment
-            for l in allCompts:
+            for l in set(allCompts)-set(directCompts):
                 elmCmpt = set(moose.wildcardFind(l.path+'/#[ISA=PoolBase]'+','+ l.path+'/#[ISA=ReacBase]'))
                 deleteObjsfromCompt = list(elmCmpt-nonComptSet)
                 deleteObjsfromCompt = [i for i in deleteObjsfromCompt if not isinstance(moose.element(i.parent), moose.EnzBase)]
@@ -525,7 +525,6 @@ class Model:
             for dc in set(set(allCompts) - set(directCompts+indirectCompts)):
                 moose.delete(dc)
             
-
             for (entity, field, value) in self.parameterChange:
                 foundobj,errormsg = self.findObj(kinpath, entity)
                 if moose.element(foundobj).className == 'Shell':
@@ -546,6 +545,7 @@ class Model:
 
             #Function call for checking dangling Reaction/Enzyme/Function's
             pruneDanglingObj( kinpath, erSPlist)
+            
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset','readoutMolecules','stimulusMolecules', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
 
