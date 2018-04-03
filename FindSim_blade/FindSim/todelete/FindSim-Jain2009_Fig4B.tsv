@@ -1,0 +1,77 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 8514778	
+authors	Mitsui K et al.	
+journal	J Biol Chem. 1993	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	CaM,CaMKIII,eEF2	
+details	JainFig4B	
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	M	
+molecules	CaM	
+field	conc	
+Data		
+settleTime	300	
+		
+		
+		
+Readouts		
+readoutType	DoseResponse	
+timeUnits	sec	
+quantityUnits	uM	
+useRatio	FALSE	
+useXlog	TRUE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	eEFthr56	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Dose	Value	stderr
+5E-12	0	0
+3E-11	0.01	0
+3.2E-10	0.12	0
+5E-10	0.22	0
+1.75E-09	0.35	0
+3.16E-09	0.44	0
+0.000000008	0.5	0
+0.00000001	0.5	0
+0.000000031	0.51	0
+0.000000062	0.51	0
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	CaM/CaM_Ca4,CaM/CaMKIII_bind_CaM_Ca4,kinetics/CaMKIII,Translation_elongation,Phosphatase/PP2A	
+stimulusMolecules	CaM_Ca4	
+readoutMolecules	eEFthr_56	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	CaM_Ca3_bind_Ca,elongation,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,pro_syn,rad_pro_syn,basal_syn,rad_basal_syn,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,mGluR_dephosph,activation	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+Translation_elongation/eEF2	concInit	0.00054555
+CaMKIII/CaMKIII	concInit	0.0000365
+CaMKIII/CaMKIII_basal	concInit	0
