@@ -192,9 +192,9 @@ class Stimulus:
         for i in ent:
             stim.entity=ent
         stim.data = data
-
-        if stim.data[0][0] =="settleTime":
-            stim.settleTime = stim.data[0][1]
+        if len(stim.data) != 0:
+            if stim.data[0][0] =="settleTime":
+                stim.settleTime = stim.data[0][1]
         return stim
 
     load = staticmethod( load )
