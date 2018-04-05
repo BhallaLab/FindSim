@@ -482,6 +482,9 @@ class Model:
                             if (moose.element(obj).className == "Neutral"):
                                 indirectGroups.append( obj )
                                 nonGroups.append(elm)
+                                objCompt = findCompartment(obj)
+                                if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
+                                    indirectCompts.append(objCompt)
                             elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
                                 indirectCompts.append(obj)
                                 nonCompts.append(elm)
@@ -800,6 +803,8 @@ def parseAndRun( model,stims, readout,modelId ):
                     stimuli[i.entity[0]]=mSource
                 for j in i.data:
                     #print " j ", j
+                    if j[0] =="settleTime":
+                        j[0] = i.settleTime
                     heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
                     #heapq.heappush( q, (j[0]*i.timeScale, [i.entity, i.field, j[1]*i.concScale, '' ] ) )
     for i in readout:
@@ -870,6 +875,8 @@ def parseAndRun( model,stims, readout,modelId ):
             
         plots = { plotstr: PlotPanel( i )}
         for j in i.data:
+            if j[0] =="settleTime":
+                j[0] = i.settleTime
             heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
             yerror.append(float(j[2]))
 
