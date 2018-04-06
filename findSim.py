@@ -97,6 +97,12 @@ convertConcUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 'nM':1.0e-6, 'pM': 1.0e-
 def keywordMatches( k, m ):
     return k.lower() == m.lower()
 
+class SimError( Exception ):
+    def __init__( self, value ):
+        self.value = value
+    def __str__( self ):
+        return repr( self.value )
+
 ##########################################################################
 
 class Experiment:
@@ -424,8 +430,7 @@ class Model:
                     foundobj,errormsg = self.findObj(kinpath, entity)
  
                     if moose.element(foundobj).className == "Shell":
-                        print ("modify: ",errormsg)
-                        exit()
+                        raise SimError("modify: " + errormsg)
                     else:
                         if moose.exists( moose.element(foundobj).path ):
                             obj = moose.element( foundobj.path )
@@ -433,9 +438,9 @@ class Model:
                                 if obj.path != modelId.path and obj.path != '/model[0]':
                                     moose.delete( obj )
                                 else:
-                                    print ("modelId/rootPath is not allowed to delete ", obj)
+                                    raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
                         else:
-                            print "Object does not exist ", entity
+                            raise SimError("Object does not exist {}".format( entity ) )
                 
         if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
             '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
@@ -464,8 +469,7 @@ class Model:
                 foundobj = ""
                 foundobj, errormsg = self.findObj(kinpath, i)
                 if moose.element(foundobj).className == "Shell":
-                    print ("Model Subsetting", errormsg)
-                    exit()
+                    raise SimError("Model Subsetting" + errormsg)
                 else:
                     if moose.exists( moose.element(foundobj).path ):
                         elm = moose.element( moose.element(foundobj).path  )
@@ -531,8 +535,7 @@ class Model:
             for (entity, field, value) in self.parameterChange:
                 foundobj,errormsg = self.findObj(kinpath, entity)
                 if moose.element(foundobj).className == 'Shell':
-                    print ("ParameterChange: ", errormsg)
-                    exit()
+                    raise SimError("ParameterChange: ", errormsg)
                 else:
                     if moose.exists( moose.element(foundobj).path ):
                         obj= moose.element( foundobj.path )
@@ -740,14 +743,11 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        print (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
+        raise SimError("\nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
     if ratelawchanged:
-        print ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
+        raise SimError("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
     if funcIPchanged:
-        print ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
-    if subprdNotfound or ratelawchanged or funcIPchanged:
-        exit()
-        pass
+        raise SimError("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
 
 ##########################################################################
 def parseAndRun( model,stims, readout,modelId ):
@@ -793,12 +793,10 @@ def parseAndRun( model,stims, readout,modelId ):
             mSource,errormsg= model.findObj(modelId.path,s)
             if moose.element(mSource).className == "Shell":
                 #This check is for multiple entry
-                print ("ModelMapping->Stimululs Molecule: ",errormsg)
-                exit()
+                raise SimError("ModelMapping->Stimulus Molecule: ",errormsg)
             else:
                 if not moose.exists( mSource.path ):
-                    print( "Error: Object does not exist: '" + s + "'")
-                    quit()
+                    raise SimError( "Error: Object does not exist: '" + s + "'")
                 else:
                     stimuli[i.entity[0]]=mSource
                 for j in i.data:
@@ -811,16 +809,14 @@ def parseAndRun( model,stims, readout,modelId ):
         noOfMolecule_refMol = True
         if i.useSum:
             if not (len(model.readoutMolecules[readout.index(i)]) > 1 or len(model.referenceMol[readout.index(i)]) > 1):
-                print "ReadOut: useSum is TRUE, expecting atleast two molecules either in \"readoutMolecules\" or \"referenceMolecules\" in ModelMapping"
                 noOfMolecule_refMol = False
-                quit()
+                raise SimError( "ReadOut: useSum is TRUE, expecting at least two molecules either in \"readoutMolecules\" or \"referenceMolecules\" in ModelMapping" )
         if i.useRatio:
             if len(i.ratioReferenceEntity)<=1:
                 print "ReadOut UseRation is TRUE, expecting atleast two molecules in  \"referenceMolecule\" in ModelMapping"
                 noOfMolecule_refMol = False
         if i.ratioReferenceDose > 0:
-                print 'Error: TimeSeries experiment does not require a ratioReferenceDose: ', i.ratioReferenceDose
-                quit()
+                raise SimError( 'Error: TimeSeries experiment does not require a ratioReferenceDose: ' + str( i.ratioReferenceDose ) )
         if noOfMolecule_refMol:
             if len(model.readoutMolecules):
                 if '+' in (model.readoutMolecules[readout.index(i)]):
@@ -835,8 +831,7 @@ def parseAndRun( model,stims, readout,modelId ):
             for readMol in readoutMolecules:
                 mReadout,errormsg = model.findObj(modelId.path,readMol)
                 if moose.element(mReadout).className == "Shell":
-                    print ("ModelMapping->readoutMolecules: ",errormsg)
-                    exit()
+                    raise SimError("ModelMapping->readoutMolecules: " + errormsg)
                 else:
                     if i.molecules not in elm:
                         elm[i.molecules] = [mReadout]
@@ -864,12 +859,10 @@ def parseAndRun( model,stims, readout,modelId ):
                 for rres in readoutRefMole:
                     mRef,errormsg = model.findObj(modelId.path,rres)
                     if moose.element(mRef).className == "Shell":
-                        print ("ModelMapping->RationReferenceMolecule: ",errormsg)
-                        exit()
+                        raise SimError("ModelMapping->RationReferenceMolecule: " + errormsg)
                     else:
                         if not moose.exists( mRef.path ):
-                            print 'Error: Object does not exist: ', re
-                            quit()
+                            raise SimError( 'Error: Object does not exist:  {}'.format( re ) )
                         else:
                             referenceMol[rres] = moose.element( mRef )
             
@@ -1001,16 +994,13 @@ def parseAndRun( model,stims, readout,modelId ):
 def parseAndRunDoser( model,stims, readout,modelId ):
     
     if len( stims ) != 1:
-        print( "Error: Dose response run needs exactly one stimulus molecule, {} defined".format( len( stims ) ) )
-        quit()
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus molecule, {} defined".format( len( stims ) ) )
     if len( readout ) != 1:
-        print( "Error: Dose response run needs exactly one readout molecule, {} defined".format( len( readout ) ) )
-        quit()
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout molecule, {} defined".format( len( readout ) ) )
     numLevels = len( readout[0].data )
     
     if numLevels == 0:
-        print( "Error: no dose (stimulus) levels defined for run" )
-        quit()
+        raise SimError( "parseAndRunDoser: no dose (stimulus) levels defined for run" )
     
     runTime = float(stims[0].settleTime)
     
@@ -1024,14 +1014,12 @@ def parseAndRunDoser( model,stims, readout,modelId ):
     stimMol,errormsg = model.findObj(modelId.path,s)
     
     if moose.element(stimMol).className == "Shell":
-        print ("Model Subsetting", errormsg)
-        exit()
+        raise SimError("parseAndRunDoser: Model Subsetting"+ errormsg)
     else:
         if moose.exists(stimMol.path):
             doseMol = stimMol
         else:
-            print ("Obj doesn't exist")
-            exit()
+            raise SimError("parseAndRunDoser: Obj doesn't exist")
     readoutMols =[]
     mapReadoutmoose = {}
     responseMol = {}
@@ -1056,8 +1044,7 @@ def parseAndRunDoser( model,stims, readout,modelId ):
             for readMol in readoutMolecules:
                 mReadout,errormsg = model.findObj(modelId.path,readMol)
                 if moose.element(mReadout).className == "Shell":
-                    print ("ModelMapping->readoutMolecules: ",errormsg)
-                    exit()
+                    raise SimError("parseAndRunDoser: ModelMapping->readoutMolecules: ",errormsg)
                 else:
                     if readMol not in mapReadoutmoose:
                         mapReadoutmoose[readMol] = [mReadout]
@@ -1084,12 +1071,10 @@ def parseAndRunDoser( model,stims, readout,modelId ):
                     for rres in readoutRefMole:
                         mRef,errormsg = model.findObj(modelId.path,rres)
                         if moose.element(mRef).className == "Shell":
-                            print ("ModelMapping->RationReferenceMolecule: ",errormsg)
-                            exit()
+                            raise SimError("parseAndRunDoser: ModelMapping->RationReferenceMolecule: ",errormsg)
                         else:
                             if not moose.exists( mRef.path ):
-                                print 'Error: Object does not exist: ', re
-                                quit()
+                                raise SimError( 'parseAndRunDoser: Error: Object does not exist: {}'.format( re ) )
                             else:
                                 referenceMol[rres] = moose.element( mRef )
 
@@ -1114,8 +1099,7 @@ def runDoser( model, plots, stim, readout, runTime, ent, modelId ):
     stimMol,errormsg = model.findObj(modelId.path,s)
 
     if moose.element(stimMol).className == "Shell":
-        print ("Model Subsetting", errormsg)
-        exit()
+        raise SimError("runDoser: Model Subsetting" + errormsg)
     else:    
         doseMol = stimMol
     readoutMols = []
@@ -1135,8 +1119,7 @@ def runDoser( model, plots, stim, readout, runTime, ent, modelId ):
         for readMol in readoutMolecules:
             mReadout,errormsg = model.findObj(modelId.path,readMol)
             if moose.element(mReadout).className == "Shell":
-                print ("ModelMapping->readoutMolecules: ",errormsg)
-                exit()
+                raise SimError("runDoser: ModelMapping->readoutMolecules: " + errormsg)
             else:
                 if i not in responseMol:
                     responseMol[i] = [mReadout]
@@ -1215,8 +1198,7 @@ def runRatioDoser( model, plots, stim, stimMol, iofReadout,readoutsReadoutMol, r
     s = model.stimulusMolecules[0]
     stimMol,errormsg = model.findObj(modelId.path,s)
     if moose.element(stimMol).className == "Shell":
-        print ("Model Subsetting", errormsg)
-        exit()
+        raise SimError ("runRatioDoser: Model Subsetting" + errormsg)
     else:    
         doseMol = stimMol
     for k in readoutsRatioreferenceMol.keys():
@@ -1307,8 +1289,7 @@ def loadTsv( fname ):
     fs = fname.split('.')
     if len(fs) < 2:
         if fs[-1] != 'tsv':
-            print( "Error: file '" + fname + "' should end in .tsv" )
-            quit()
+            raise SimError( " file '" + fname + "' should end in .tsv" )
     with open( fname ) as fd:
         for line in fd:
             if len( line ) > 1 and line[0] != '#':
@@ -1366,6 +1347,7 @@ def runit( model,stims, readouts,modelId ):
         return parseAndRunDoser( model,stims, readouts, modelId)
     else:
         return parseAndRun( model,stims, readouts,modelId )
+    
 
 def main():
     """ This program handles loading a kinetic model, and running it
@@ -1394,7 +1376,10 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
     # First we load in the model using EE so it is easier to tweak
-    if os.path.isfile(model.fileName):
+    try:
+        if not os.path.isfile(model.fileName):
+            raise SimError( "Model file name {} not found".format( model.fileName ) )
+
         modelId = moose.loadModel( model.fileName, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
         for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
@@ -1409,8 +1394,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             elif len(dumpFname) > 4 and dumpFname[-4:] == '.xml':
                 moose.mooseWriteSBML( modelId.path, dumpFname )
             else:
-                print( "Error: Subset file type not known for '{}'".format( dumpFname ) )
-            return 0.0
+                raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
         #Then we build the solver.
         buildSolver( modelId, model.solver )
         for i in range( 10, 20 ):
@@ -1425,6 +1409,10 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             print( "Script = {}, score = {}".format( script, score ) )
         moose.delete( modelId )
         return score
+
+    except SimError as msg:
+        print( "Error: findSim failed for script {}: {}".format(script, msg ))
+        return -1.0
         
         
 # Run the 'main' if this script is executed standalone.
