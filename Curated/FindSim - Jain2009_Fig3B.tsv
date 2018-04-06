@@ -1,0 +1,71 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 15896331	
+authors	Toral-Barza L et al.	
+journal	Biochem Biophys Res Commun. 2005	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	S6K,mTOR	
+details	Jain2009_fig3B	
+notes	Dose Response	
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	nM	
+molecules	mTOR	
+field	conc	
+Data		
+settleTime	3600	
+		
+		
+		
+		
+Readouts		
+readoutType	DoseResponse	
+timeUnits	sec	
+quantityUnits	uM	
+useRatio	FALSE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	S6Kthr412	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Dose	Value	stderr
+0.45	0.01	0
+0.66935	0.05	0
+0.8925	0.08	0
+1.785	0.15	0
+3.57	0.21	0
+7.14	0.53	0
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	S6Kinase,mTORC1	
+stimulusMolecules	TOR_clx	
+readoutMolecules	S6K_thr_412	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	S6_phos,S6_phospho,CaMKIII_phospho,S6K_basal,TOR_4E_BP_p,TOR_4E_BP_phospho,S6_dephosph	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+S6K	concInit	0.0009
