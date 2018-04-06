@@ -1,0 +1,71 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 10486198	
+authors	Yuen and Mobley	
+journal	Exp Neurol 1999	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	BDNF,TrKB	
+details	JainFig2B	
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	nM	
+molecules	BDNF	
+field	conc	
+Data		
+Time	Value	
+0	7.3	
+		
+		
+		
+Readouts		
+readoutType	TimeSeries	
+timeUnits	sec	
+quantityUnits	nM	
+useRatio	FALSE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	BDNF_TrKB	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+0	0	0
+30	1	0
+300	14.5	0
+900	9.5	0
+1800	7.5	0
+		
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	kinetics/BDNF,kinetics/TrKB	
+stimulusMolecules	BDNF/BDNF	
+readoutMolecules	TrKB/BDNF_TrKB2_p_clx	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho,BDNF_TrKB2_p_clx/SHC_phospho	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value

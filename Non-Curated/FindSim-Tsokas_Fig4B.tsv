@@ -1,0 +1,78 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 15958750	
+authors	Tsokas et al.	
+journal	Journal of Neuroscience, 2005	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	Ca,Phosphatase,CaM,CaMKIII,mTORC1,S6Kinase,Ras,PI3K_activation,AKT_activation,TSC1_TSC2,PKC	
+details	Fig4B	
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+molecules	Ca	
+field	conc	
+Data		
+Time	Value	
+3000	2	
+3001	0.08	
+3021	2	
+3022	0.08	
+		
+		
+Readouts		
+readoutType	TimeSerieswithRatio	
+timeUnits	sec	
+quantityUnits	ratio	
+useRatio	TRUE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	3000	
+ratioReferenceEntity	phospho mTOR	
+molecules	phospho mTOR	
+experimentalReadout	conc	
+useSum	TRUE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+3322	2.45	0
+4822	2	0
+6622	1.2	0
+13822	0.85	0
+		
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	kinetics/Ca,Phosphatase,Ras,kinetics/CaM,PKC,PI3K_activation,AKT_activation,mTORC1,S6Kinase,kinetics/TSC1_TSC2,kinetics/CaMKIII 	
+stimulusMolecules	Ca/Ca	
+readoutMolecules	mTORC1/TOR_Rheb_GTP_clx	
+referenceMolecule	mTORC1/TOR_Rheb_GTP_clx	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	"S6_dephosph,Ras_act_craf,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,TOR_4E_BP_phospho,TOR_4E_BP_p,S6_phos,S6_phospho,CaMKIII_CaM_Ca4[0]/phospho,eEF2thr56_basal,PKC_act_raf,MKP1_tyr_deph,MKP1_thr_deph,craf_dephospho,MAPKK_dephospho,MAPKK_dephospho_ser,craf_p_p_dephospho,phosph_AC2,dephosph_inhib1,dephosph_PP1_I_p,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,dephosph_inhib1_noCaM,mGluR_dephosph,PIP3_AKT_t308_s473/Enz,CaM(Ca)n_CaNAB[0]/func,bind_Gab1,bg_act_GEF
+"	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+Ca/Ca	isBuffered	1
+DAG	isBuffered	0
+Arachidonic_Acid	isBuffered	0
+DAG	concInit	0
+Arachidonic_Acid	concInit	0
