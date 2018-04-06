@@ -865,10 +865,12 @@ def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolM
                             sm.setField( s.field, val )
         elif isinstance( event[0], Readout ):
             if not ( val < 0 ): expt = val
-            ''' if ratioReferenceTime is lessthan zero, then RatioReferenceEntity should calculated at every time point i.e every readout time point the ration shd be taken
-             and this should be applied or readoutmoleuclevalue should be divided by ratioRefMol
-             2. if ratioReferenceTime is zero then take concInit of molecule at time zero
-             3. > 0 calucalte at that point i.e withRT to ratioReferenceTime point
+            ''' 
+            1. if ratioReferenceTime is < zero,
+                -then RatioReferenceEntity should calculated at every time point i.e at every readout time point the ration shd be taken
+                and this should be applied to readoutmoleucle values while calculating the ratio sim/ratioRefMol
+            2. if ratioReferenceTime is zero then take concInit of molecule at time zero
+            3. if ratioReferenceTime > 0 calculate at ratioReferenceTime point 
              readoutvalues/rrValue
             '''
             if event[1] == -1:
@@ -958,15 +960,15 @@ def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolM
 
 
 ##########################################################################
-def parseAndRunDoser( model,stims, readout,modelId ):
+def parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
     
     if len( stims ) != 1:
         print( "Error: Dose response run needs exactly one stimulus molecule, {} defined".format( len( stims ) ) )
         quit()
-    if len( readout ) != 1:
+    if len( readouts ) != 1:
         print( "Error: Dose response run needs exactly one readout molecule, {} defined".format( len( readout ) ) )
         quit()
-    numLevels = len( readout[0].data )
+    numLevels = len( readouts[0].data )
     
     if numLevels == 0:
         print( "Error: no dose (stimulus) levels defined for run" )
@@ -980,87 +982,38 @@ def parseAndRunDoser( model,stims, readout,modelId ):
     
     doseMol = ""
     #Stimulus Molecules
-    s = model.stimulusMolecules[0]
-    stimMol,errormsg = model.findObj(modelId.path,s)
+    #Assuming one stimulus block, one molecule allowed
+    doseMol = stimuliMaptoMolMoose[stims[0]][stims[0].molecules][0]
     
-    if moose.element(stimMol).className == "Shell":
-        print ("Model Subsetting", errormsg)
-        exit()
-    else:
-        if moose.exists(stimMol.path):
-            doseMol = stimMol
-        else:
-            print ("Obj doesn't exist")
-            exit()
     readoutMols =[]
     mapReadoutmoose = {}
     responseMol = {}
     referenceMol = {}
 
-    for i in readout:
+    for r in readouts:
         ent=""
-        if isinstance(i.molecules, str):
-            readoutMols.append(i.molecules) 
-        for j in readoutMols:
-            if len(model.readoutMolecules):
-                if '+' in (model.readoutMolecules[readoutMols.index(j)]):
-                    readoutMolecules = (model.readoutMolecules[readoutMols(j)]).split('+')
-                else:
-                    readoutMolecules = (model.readoutMolecules[readoutMols.index(j)])
+        if readoutsMaptoMolMoose[r]:
+            if readoutsMaptoMolMoose[r][r.molecules]:
+                readoutMol = readoutsMaptoMolMoose[r][r.molecules]
+                for readMol in readoutMol:
+                    ent += readMol.name
+                    ent += " "
+                    #IS plot for dose response is in stimMol?
+                    plots = { ent: PlotPanel( r, moose.element(doseMol).name + ' ({})'.format( stims[0].quantityUnits ) )}
+        ### RatioReferenceEntity
+
+        if len(ratioRefMaptoMolMoose):
+            if ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]:
+                readoutreferenceMol = ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]
+
+        if not r.useRatio:              
+                return runDoser(model,plots, stims[0], r, runTime, ent, modelId) # Use absolute quantities 
             
-            if isinstance(readoutMolecules,str):
-                foo = readoutMolecules 
-                readoutMolecules = []
-                readoutMolecules.append(foo)
-                
-            for readMol in readoutMolecules:
-                mReadout,errormsg = model.findObj(modelId.path,readMol)
-                if moose.element(mReadout).className == "Shell":
-                    print ("ModelMapping->readoutMolecules: ",errormsg)
-                    exit()
-                else:
-                    if readMol not in mapReadoutmoose:
-                        mapReadoutmoose[readMol] = [mReadout]
-                    else:
-                        mapReadoutmoose[readMol].append(mReadout)
+        elif r.ratioReferenceTime < 0:    
+            return runRatioDoser( model,plots, stims[0],doseMol, r, mapReadoutmoose,referenceMol,runTime,ent,modelId ) # Takes ratio of quantities for each sample.
         
-                ent += readMol
-                ent += " "
-                plots = { ent: PlotPanel( i, stimMol.name + ' ({})'.format( stims[0].quantityUnits ) )}
-                
-                ### RatioReferenceEntity
-                if len(model.referenceMolecule):
-                    if '+' in model.referenceMol[readout.index(i)]:
-                        readoutRefMole = model.referenceMol[readout.index(i)].split('+')
-                    else:
-                        readoutRefMole = model.referenceMol[readout.index(i)]
-
-                    if isinstance(readoutRefMole,str):
-                        foo = readoutRefMole
-                        readoutRefMole = []
-                        readoutRefMole.append(foo)
-                    
-                    #RRE = (model.referenceMol[readout.index(i)]).split("+")
-                    for rres in readoutRefMole:
-                        mRef,errormsg = model.findObj(modelId.path,rres)
-                        if moose.element(mRef).className == "Shell":
-                            print ("ModelMapping->RationReferenceMolecule: ",errormsg)
-                            exit()
-                        else:
-                            if not moose.exists( mRef.path ):
-                                print 'Error: Object does not exist: ', re
-                                quit()
-                            else:
-                                referenceMol[rres] = moose.element( mRef )
-
-            if not i.useRatio:              
-                return runDoser(model,plots, stims[0], i, runTime, ent, modelId) # Use absolute quantities 
-            
-            elif i.ratioReferenceTime < 0:    
-                return runRatioDoser( model,plots, stims[0],doseMol, i, mapReadoutmoose,referenceMol,runTime,ent,modelId ) # Takes ratio of quantities for each sample.
-            
-            elif i.ratioReferenceTime >= 0:
-                return runInitialReferenceDoser ( model,plots, stims[0],doseMol,i,mapReadoutmoose, referenceMol, runTime, ent)
+        elif r.ratioReferenceTime >= 0:
+            return runInitialReferenceDoser ( model,plots, stims[0],doseMol,r,mapReadoutmoose, referenceMol, runTime, ent)
         # for k in i.ratioReferenceEntity:
         #     if i.useRatio and not moose.exists( '/model/kinetics/' + k ):
         #         print 'Error: Ratio object does not exist: ', k
@@ -1321,7 +1274,6 @@ def runit( model,stims, readouts,modelId ):
     for i in readouts:
         if keywordMatches( i.readoutType, 'Dose-Response' ) or  keywordMatches( i.readoutType, 'DoseResponse'):
             doDoser = True
-    print " i.readoutType ",i.readoutType
     stimuliMaptoMolMoose  = {}
     readoutsMaptoMolMoose = {}
     ratioRefMaptoMolMoose = {}
@@ -1331,7 +1283,7 @@ def runit( model,stims, readouts,modelId ):
     readoutsMaptoMolMoose,ratioRefMaptoMolMoose = mapReadoutdataToMoose(readouts,model,modelId)
     
     if doDoser:
-        return parseAndRunDoser( model,stims, readouts, modelId)
+        return parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId)
     else:
         return parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId )
 
