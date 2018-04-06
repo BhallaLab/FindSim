@@ -1,0 +1,78 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 10406811	
+authors	Ptushkina M et al.	
+journal	EMBO J. 1999	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway		
+details	Jain2009_fig3F	
+notes	20ug of GAL4-4EBP2 and 20ug of eIF4E in 300ul buffer	
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	mM	
+molecules	eIF4E	
+field	conc	
+Data		
+Time	Value	
+		
+		
+		
+		
+Readouts		
+readoutType	TimeSeries	
+timeUnits	sec	
+quantityUnits	uM	
+useRatio	FALSE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	eIF4E_BP	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+0	0	0
+13	50	0
+20	80	0
+25	95	0
+35	115	0
+50	123	0
+80	131	0
+100	132	0
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	eIF4E_BP,eIF4E_bind_BP2,4E_BP/4E_BP,eIF4E	
+stimulusMolecules	eIF4E	
+readoutMolecules	eIF4E_BP	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete		
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+eIF4E	concInit	1.60E-03
+eIF4E	isBuffered	1
+eIF4E_BP	concInit	0
+4E_BP/4E_BP	isBuffered	1
+4E_BP/4E_BP	concInit	2.70E-04

@@ -1,0 +1,82 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	National Centre for Biological Sciences	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 7657647	
+authors	Teng KK et al.	
+journal	J Biol Chem. 1995	
+		
+		
+		
+Experiment context		
+species	Rat	
+cell-types	Pheochromocytoma cell line (PC12)	
+temperature (Celsius)		
+Include pathway	EGFR,Sos,PLCg,PKC,Ras,MAPK	
+details	Fig 9A	
+notes	Simulation MAPK activity using calicum.	
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	mM	
+molecules	EGF	
+field	conc	
+Data		
+Time	Value	
+		
+		
+Readouts		
+readoutType	TimeSerieswithRatio	
+timeUnits	sec	
+quantityUnits	ratio	
+useRatio	TRUE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	600	
+ratioReferenceEntity	MAPK_p+MAPK/MAPK_p_p	
+molecules	MAPK_p+MAPK/MAPK_p_p	
+experimentalReadout	conc	
+useSum	TRUE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+300	0.02	0
+600	1	0
+2100	0.12	0
+3900	0.1	0
+7500	0.08	0
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	kinetics/EGFR,kinetics/Sos,Ras,kinetics/MAPK,kinetics/Ca,PKC,Phosphatase,kinetics/PLC_g,PLCbeta,PLA2,PC,IP3,PIP2	
+stimulusMolecules	EGF	
+readoutMolecules	MAPK_p+MAPK/MAPK_p_p	
+referenceMolecule	MAPK_p+MAPK/MAPK_p_p	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	PP2A,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,MEKp_phospho,mGluR_barr2_Raf_scaffolding,MAPK_p_p/cluster_phospho_S6K,MAPK_p_p/MAPK_4E_BP_p_p,MAPK_p_p/MAPK_4E_BP_phospho,Act_PLC_by_Gq,Inact_PLC_Gq,PLC_bind_Gq,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,PIP2_PLA2_act,PIP2_Ca_PLA2_act,CaM_bind_GEF,PI3K_bind_Ras_GTP,PIP2_phospho_Ras_GTP	
+solver	Runge kutta method (gsl)	
+notes	Fig2B	
+parameterChange		
+Object	parameter	Value
+EGF	concInit	1.00E-04
+PKC_basal_p	concInit	2.00E-05
+GAP	concInit	2.00E-05
+PIP2	concInit	0.007
+GDP_Ras	concInit	0.0005
+SHC_p_dephospho	Kf	0.2
+Ras_act_craf	Kf	9999.26667999
+PKC_act_raf	Km	0.02098
+MKP1_tyr_deph	Km	0.00734
+MKP1_thr_deph	Km	0.00734
+MKP1_thr_deph	kcat	4
+MKP1_tyr_deph	kcat	4
+Raf_p_GTP_Ras.1	kcat	0.3
+Raf_p_GTP_Ras.2	kcat	0.3
+CaM_GEF_act_Ras	kcat	0.2
+Sos.Ras_GEF	kcat	0.2

@@ -1,0 +1,76 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 15514998	
+authors	Dijkhuizen and Ghosh	
+journal	J Neurobiol. 2005	
+		
+		
+		
+Experiment context		
+species	Long-Evans rat	
+cell-types	E18 primary cortical neurons	
+temperature (Celsius)	37C	
+Include pathway	BDNF,TrKB,PLC_g,PI3K,AKT,PP2A	
+details	Jain2009_fig5B	
+notes	Dose Response	
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	nM	
+molecules	BDNF	
+field	conc	
+Data		
+Time	Value	
+900	2	
+		
+		
+		
+Readouts		
+readoutType	TimeSeries-Ratio	
+timeUnits	sec	
+quantityUnits	uM	
+useRatio	FALSE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	PIP3_AKT_p_p	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+900	0.001	0
+930	0.01	0
+1020	0.082	0
+1200	0.078	0
+1500	0.072	0
+2700	0.07	0
+		
+		
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	AKT_activation,kinetics/BDNF,PI3K_activation,kinetics/TrKB,PP2A,kinetics/Sos,PIP2	
+stimulusMolecules	BDNF/BDNF	
+readoutMolecules	PIP3_AKT_t308_s473	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	Sos.Ras_GEF,BDNF_TrKB2_p_clx/PLC_g_phospho,PIP3_AKT_t308_s473/Enz,TSC2_phospho,PDK1/S6K_phospho,mGluR_dephosph,PP2A_4EBP,PP2A_4E_BP,PP2A_4E_BP_p,PP2A_4E_BP_p_p,eEF2thr_56_dephospho,dephosp_S6K,dephos_clus_S6K,dephos_S6K,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,PI3K_bind_Ras_GTP,Ras_GTP_PI3K	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+BDNF/BDNF	concInit	0
+AKT	concInit	0.00017
+SHC_p_dephospho	Kf	0.2
