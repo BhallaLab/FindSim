@@ -1411,6 +1411,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         return score
 
     except SimError as msg:
+        moose.delete( modelId )
         print( "Error: findSim failed for script {}: {}".format(script, msg ))
         return -1.0
         
