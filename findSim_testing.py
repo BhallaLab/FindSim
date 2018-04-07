@@ -636,8 +636,9 @@ def readData( fd, data, width ):
         row = []
         for c in cols:
             if c != '':
-                row.append( ( re.sub('[^A-Za-z0-9.]+', '', c) ) )
-                #row.append(c)
+                #check what datatypes 
+                #row.append( ( re.sub('[^A-Za-z0-9.]+', '', c) ) )
+                row.append(c)
                 if len( row ) >= width:
                     break;
         data.append( row )
@@ -903,10 +904,11 @@ def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolM
                         # Don't do any calculation of score for this queue entry
                         continue
                     sim /= ratioRefVal
+
                 xptslist.append( t )
                 exptlist.append( expt/r.concScale )
                 sumsl.append( sim/r.concScale )
-
+        
     for i in readouts:
         ###############################################################################################################
         if readoutsMaptoMolMoose[r]:
@@ -1272,6 +1274,7 @@ def buildSolver( modelId, solver ):
 def runit( model,stims, readouts,modelId ):
     doDoser = False
     for i in readouts:
+        #print i.readoutType
         if keywordMatches( i.readoutType, 'Dose-Response' ) or  keywordMatches( i.readoutType, 'DoseResponse'):
             doDoser = True
     stimuliMaptoMolMoose  = {}
@@ -1331,6 +1334,7 @@ def mapReadoutdataToMoose(readout,model,modelId):
             else:
                 try:
                     ratioRefMolMaptoMoose = {}
+                    ratioRefMolMap = [] 
                     modelratioRefMol = model.referenceMolecule[readout.index(j)]
                     if '+' in modelratioRefMol:
                         ratioRefMolMap = ((modelratioRefMol.replace("\n","")).split('+'))
