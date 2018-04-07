@@ -1,0 +1,73 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 11500364	
+authors	Wang X et al.	
+journal	EMBO J. 2001	
+		
+		
+		
+Experiment context		
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	S6K,CaMKIII	
+details	JainFig4C	
+notes	The Wang et al paper says they put in 1 ug in 40 ul, of GST-tagged eEF2K (CaMKIII). This has an estimated mol wt of 26 + 82 = 108kDa. So the concentration is about 230 nM. However, Pragati seems to have used 60 nM which is the level in her model. The concInit for S6Kthr_252 is based on the number of units of activity reported in Wang et al as 1U/ml. 1U of activity is the amount of enzyme that phopshrylates 1nmol of peptide in 1min. Dividing 1U/ml by S6K kcat of 10/s	
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	mM	
+molecules	S6K_thr_252	
+field	conc	
+Data		
+Time	Value	
+0	1.67E-06	
+		
+		
+		
+Readouts		
+readoutType	TimeSeries	
+timeUnits	sec	
+quantityUnits	nM	
+useRatio	FALSE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	0	
+ratioReferenceEntity		
+molecules	CaMKIII_p	
+experimentalReadout	conc	
+useSum	FALSE	
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+60	8	0
+180	12	0
+300	26	0
+600	25	0
+900	50	0
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName		
+citationId		
+citation		
+authors		
+modelSubset	kinetics/CaMKIII,S6Kinase	
+stimulusMolecules	S6K_thr_252	
+readoutMolecules	CaMKIII_p	
+referenceMolecule		
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	S6_phos,S6_phospho,S6_dephosph,CaMKIII_CaM_Ca4[0]/phospho,eEF2thr56_basal	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+S6K_basal	concInit	0
+CaMKIII/CaMKIII	concInit	0.000068
+CaMKIII_dephospho	Kf	0
