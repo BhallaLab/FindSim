@@ -1360,15 +1360,15 @@ def main():
     )
 
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
-    parser.add_argument( '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
-    parser.add_argument( '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
-    parser.add_argument( '--hide_display', action="store_true", help='Turn off display' )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
+    parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
+    parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hideDisplay = args.hide_display )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot )
 
 
-def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hideDisplay = False ):
-    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hideDisplay ) )
+def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True ):
+    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hidePlot ) )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     expt, stims, readouts, model = loadTsv( script )
@@ -1401,7 +1401,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             moose.setClock( i, 0.1 )
 
         score, plots = runit( model,stims, readouts, modelId )
-        if not hideDisplay:
+        if not hidePlot:
             for name, p in plots.items():
                 #pylab.figure()
                 p.plotme( script )
