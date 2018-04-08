@@ -412,10 +412,10 @@ class Model:
         #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
             #print( "Bad: Too many entries. ", try1, try2)
-            return moose.element('/'), ( "Bad: Too many entries. ", try1, try2)
+            return moose.element('/'), "findObj: Too many entries on {0}/{1}={2} or {0}/##/{1}={3} ".format( rootpath, name, len(try1), len(try2))
         if len( try1 ) + len( try2 ) == 0:
             #print( "Bad: zero entries. ", name )
-            return moose.element('/'),( "Bad: zero entries. ", name )
+            return moose.element('/'), "findObj: Zero entries on {0}/{1} and {0}/##/{1}".format( rootpath, name )
         if len( try1 ) == 1:
             return try1[0],""
         else:
@@ -535,7 +535,7 @@ class Model:
             for (entity, field, value) in self.parameterChange:
                 foundobj,errormsg = self.findObj(kinpath, entity)
                 if moose.element(foundobj).className == 'Shell':
-                    raise SimError("ParameterChange: ", errormsg)
+                    raise SimError("ParameterChange: "+ errormsg)
                 else:
                     if moose.exists( moose.element(foundobj).path ):
                         obj= moose.element( foundobj.path )
