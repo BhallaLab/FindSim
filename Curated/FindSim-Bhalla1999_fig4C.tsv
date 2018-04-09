@@ -152,11 +152,11 @@ MAPK/craf_1	concInit (uM)	0.0002
 MAPK/MAPKK	concInit (uM)	0.00018
 Phosphatase/PP2A	concInit (uM)	0.00012
 Phosphatase/PPhosphatase2A	concInit (uM)	0.000224
-PI3K_activation/PIP2	concInit (uM)	0.01
-PKC/DAG	isBuffered	0
-PKC/Arachidonic_Acid	isBuffered	0
-PKC/Arachidonic_Acid	concInit (uM)	0
-PKC/DAG	concInit (uM)	0
+PLCbeta/PIP2	concInit (uM)	0.01
+PLCbeta/DAG	isBuffered	0
+PLA2/Arachidonic_Acid	isBuffered	0
+PLA2/Arachidonic_Acid	concInit (uM)	0
+PLCbeta/DAG	concInit (uM)	0
 PLC_g/PLC_g	concInit (uM)	0.00082
 Ras/GAP	concInit (uM)	0.000002
 Ras/GDP_Ras	concInit (uM)	0.0002
