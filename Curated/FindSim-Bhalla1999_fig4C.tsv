@@ -119,7 +119,7 @@ fileName
 citationId		
 citation		
 authors		
-modelSubset	kinetics/Ca,Phosphatase,Gprotein,kinetics/mGluR,AC,PKA,PP2B,kinetics/PLC_g,Ras,MAPK/MAPK,kinetics/MAPK/,PP1,kinetics/CaM,kinetics/CaMKII,kinetics/mGluRAntag,PLCbeta,PLA2,PKC,PIP2,temp_PIP2,IP3,kinetics/EGFR,kinetics/Sos,PIP2,IP3,DAG	
+modelSubset	kinetics/Ca,Phosphatase,Gprotein,kinetics/mGluR,AC,PKA,PP2B,kinetics/PLC_g,Ras,MAPK/MAPK,kinetics/MAPK/,PP1,kinetics/CaM,kinetics/CaMKII,kinetics/mGluRAntag,PLCbeta,PLA2,PKC,PIP2,temp_PIP2,IP3,kinetics/EGFR,kinetics/Sos,PC,AMP	
 stimulusMolecules	Ca/Ca	
 readoutMolecules	MAPK/MAPK_p_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
@@ -130,33 +130,33 @@ parameterChange
 Object	parameter	value
 Ca/Ca	concInit (uM)	0.00008
 Ca/Ca	isBuffered	1
-MKP_1	concInit (uM)	0.000002
-Ras_act_craf	Kf	24000
-CaM_bind_GEF	Kf	60000
+Phosphatase/MKP_1	concInit (uM)	0.000002
+Ras/Ras_act_craf	Kf	24000
+Ras/CaM_bind_GEF	Kf	60000
 MAPK/MAPK	concInit (uM)	0.00036
-MAPKKthr	kcat	0.15
-MAPKKtyr	kcat	0.15
-Raf_p_GTP_Ras.1	kcat	0.105
-Raf_p_GTP_Ras.2	kcat	0.105
-MKP1_thr_deph	kcat	1
-MKP1_tyr_deph	kcat	1
-MKP1_thr_deph	Km	0.0000697
-MKP1_tyr_deph	Km	0.0000697
-SHC_phospho	Km	0.000871
-SHC_p_dephospho	Kf	0.00167
-Sos.Ras_GEF	kcat	0.02
-PKC_act_raf	Km	0.0697
-CaM_GEF_act_Ras	kcat	0.02
-PKC_basal_p	concInit (uM)	0
+MAPK/MAPKK_p_p/MAPKKthr	kcat	0.15
+MAPK/MAPKK_p_p/MAPKKtyr	kcat	0.15
+MAPK/Raf_p_GTP_Ras/Raf_p_GTP_Ras.1	kcat	0.105
+MAPK/Raf_p_GTP_Ras/Raf_p_GTP_Ras.2	kcat	0.105
+Phosphatase/MKP_1/MKP1_thr_deph	kcat	1
+Phosphatase/MKP_1/MKP1_tyr_deph	kcat	1
+Phosphatase/MKP_1/MKP1_thr_deph	Km	0.0000697
+Phosphatase/MKP_1/MKP1_tyr_deph	Km	0.0000697
+EGFR/L.EGFR/SHC_phospho	Km	0.000871
+Sos/SHC_p_dephospho	Kf	0.00167
+Sos/SHC_p.Sos.Grb2/Sos.Ras_GEF	kcat	0.02
+PKC/PKC_active/PKC_act_raf	Km	0.0697
+Ras/CaM_GEF/CaM_GEF_act_Ras	kcat	0.02
+PKC/PKC_basal_p	concInit (uM)	0
 MAPK/craf_1	concInit (uM)	0.0002
-MAPKK	concInit (uM)	0.00018
-PP2A	concInit (uM)	0.00012
-PPhosphatase2A	concInit (uM)	0.000224
-PIP2	concInit (uM)	0.01
-DAG	isBuffered	0
-Arachidonic_Acid	isBuffered	0
-Arachidonic_Acid	concInit (uM)	0
-DAG	concInit (uM)	0
+MAPK/MAPKK	concInit (uM)	0.00018
+Phosphatase/PP2A	concInit (uM)	0.00012
+Phosphatase/PPhosphatase2A	concInit (uM)	0.000224
+PI3K_activation/PIP2	concInit (uM)	0.01
+PKC/DAG	isBuffered	0
+PKC/Arachidonic_Acid	isBuffered	0
+PKC/Arachidonic_Acid	concInit (uM)	0
+PKC/DAG	concInit (uM)	0
 PLC_g/PLC_g	concInit (uM)	0.00082
-GAP	concInit (uM)	0.000002
-GDP_Ras	concInit (uM)	0.0002
+Ras/GAP	concInit (uM)	0.000002
+Ras/GDP_Ras	concInit (uM)	0.0002
