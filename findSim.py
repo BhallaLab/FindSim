@@ -42,7 +42,14 @@
 **********************************************************************/
 
 2018
-
+#check if stimulus quantityUnits is blank in excel sheet it shd take mM which was not taking
+Apr 10:
+    clean up in timeUnits and quantityUnits for blank, space etc
+    runit: check are made for condition for useSum and useRatio if satifies then moved further
+           Also created a dictionaries for stimuli, readout and reference Molecules which is passed
+           to parseAndRun and parseAndRunDoser
+           cleaned RunDoser and runReferenceDoser 
+           
 Apr 2:
     Added runInitialReferenceDoser code
     added runRatioDoser code
@@ -167,19 +174,23 @@ class Stimulus:
         value at a succesion of points in time. Other options are
         timeSeriesWithRestart, doseResponse, and more.
         """
-        self.timeUnits = timeUnits
+        if timeUnits != " ":
+            self.timeUnits = timeUnits
         """timeUnits may be us, ms, s, min, hours, days"""
         #self.timeScale = convertTimeUnits[ timeUnits ]
         self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
         """timeScale is timeUnits scaled to seconds"""
-        self.quantityUnits = quantityUnits
+        if quantityUnits and quantityUnits.strip():
+            self.quantityUnits = quantityUnits
+        else:
+            self.quantityUnits = 'mM'
         """Quantity Units may be: M, mM, uM, nM, pM, number, ratio"""
-        self.concScale = convertConcUnits[ quantityUnits ]
+        self.concScale = convertConcUnits[ self.quantityUnits ]
         """concScale is quantityUnits scaled to mM"""
         #self.useRatio = useRatio
         #self.ratioReferenceTime = ratioReferenceTime
         """Timepoint at which to sample the quantity to use as a reference for calculating the ratio"""
-        self.entity = molecules
+        self.molecules = molecules
         """Name of the model entity to modify for the stimulus. 
         Typically a molecule name."""
         self.field = field
@@ -196,7 +207,7 @@ class Stimulus:
         arg, data, param, struct, stim, readout, refentMol, ent, refent = innerLoad( fd, Stimulus.argNames, 2 )
         stim = Stimulus( **arg )
         for i in ent:
-            stim.entity=ent
+            stim.molecules=ent
         stim.data = data
         if len(stim.data) != 0:
             if stim.data[0][0] =="settleTime":
@@ -327,6 +338,7 @@ class Model:
             itemstodelete = [], # topology change
             stimulusMolecules = [], # stimulusMolecules with in model mapped to stumuli's molecules
             readoutMolecules = [],  # readoutsMolecules with in model mapped to readouts's molecules
+            referenceMolecule = [], # reference molecules with in model mapped to readout's referenceMolecules
             scoringFormula = 'abs(1-(sim+1e-9)/(expt+1e-9))',
             parameterChange = [] # Param of model to change at run start.
 
@@ -344,7 +356,7 @@ class Model:
         self.itemstodelete = []
         self.stimulusMolecules = []
         self.readoutMolecules = []
-        self.refMolecules = []
+        self.referenceMolecule = []
         self.scoringFormula = scoringFormula
     def load( fd ):
         '''
@@ -363,7 +375,7 @@ class Model:
         #readoutModlecules
         model.readoutMolecules = readout
         
-        model.referenceMol = refentMol
+        model.referenceMolecule = refentMol
         
         return model
 
@@ -412,10 +424,10 @@ class Model:
         #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
             #print( "Bad: Too many entries. ", try1, try2)
-            return moose.element('/'), "findObj: Too many entries on {0}/{1}={2} or {0}/##/{1}={3} ".format( rootpath, name, len(try1), len(try2))
+            return moose.element('/'), ( "Bad: Too many entries. ", try1, try2)
         if len( try1 ) + len( try2 ) == 0:
             #print( "Bad: zero entries. ", name )
-            return moose.element('/'), "findObj: Zero entries on {0}/{1} and {0}/##/{1}".format( rootpath, name )
+            return moose.element('/'),( "Bad: zero entries. ", name )
         if len( try1 ) == 1:
             return try1[0],""
         else:
@@ -430,7 +442,7 @@ class Model:
                     foundobj,errormsg = self.findObj(kinpath, entity)
  
                     if moose.element(foundobj).className == "Shell":
-                        raise SimError("modify: " + errormsg)
+                       raise SimError("modify: " + errormsg)
                     else:
                         if moose.exists( moose.element(foundobj).path ):
                             obj = moose.element( foundobj.path )
@@ -553,7 +565,7 @@ class Model:
             pruneDanglingObj( kinpath, erSPlist)
             
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
-            'modelSubset','readoutMolecules','stimulusMolecules', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
+            'modelSubset','stimulusMolecules', 'readoutMolecules','referenceMolecule', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
 
 #######################################################################
 def list_to_dict(rlist):
@@ -628,7 +640,9 @@ def readData( fd, data, width ):
         row = []
         for c in cols:
             if c != '':
-                row.append( ( c ) )
+                #check what datatypes 
+                #row.append( ( re.sub('[^A-Za-z0-9.]+', '', c) ) )
+                row.append(c)
                 if len( row ) >= width:
                     break;
         data.append( row )
@@ -649,7 +663,6 @@ def readParameter(fd, para, width):
                     row.append(float(c))
                 else:
                     row.append(c)
-
                 if len( row ) > width:
                     break;
                 lcols = lcols+1
@@ -743,212 +756,160 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        raise SimError("\nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
+        raise SimError (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
     if ratelawchanged:
-        raise SimError("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
+        raise SimError ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
     if funcIPchanged:
-        raise SimError("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
-
+        raise SimError ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
+    
 ##########################################################################
-def parseAndRun( model,stims, readout,modelId ):
-    q = []
+def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
+    print " timeSeries"
     score = 0.0
-    numScore = 0
-    elm={}
-    tabl={}
-    stimuli={}
-    reference=0.0
-    referenceMol={}
-    addFigs={}
-    addFigs_vals={}
-    plotstr=""
-    yerror=[]
-    extraplots=[]
-    plots ={}
-    #************************************************************
-    #If extra plots need to ploted, populate extraplots list
-    '''
-    extraplots=[]
-    dp = moose.Neutral('/model/graph1')
-    for i in extraplots:
-        extraplt,errormsg= model.findObj('/model',i)
-        if moose.element(extraplt).className == "Shell":
-            #This check is for multiple entry
-            print ("Extra plots: ",errormsg)
-            exit()
-        else:
-            if not moose.exists( extraplt.path ):
-                print( "Error: Object does not exist: '" + i + "'")
-                quit()
-            else:
-                moose.connect(moose.Table2((d.path+'/'+(moose.element(extraplt)).name)+'.Co'),'requestOut',moose.element(extraplt),'getConc')
-    scoreTab = { i.entity: [[],[],[]] for i in readout }
-    '''
-    # *************************************************************''
-    moose.reinit()
+    q       = []
+    stdError  = []
+    
+    plots = {}
+    tabl  = {}
+    numScore  = 0
+    clock = moose.element( '/clock' )
+    ##################If extra plots need, populate extraplots list ###########################
+    # extraplots=[]
+    # dp = moose.Neutral('/model/graph1')
+    # for i in extraplots:
+    #     extraplt,errormsg= model.findObj('/model',i)
+    #     if moose.element(extraplt).className == "Shell":
+    #         #This check is for multiple entry
+    #         print ("Extra plots: ",errormsg)
+    #         exit()
+    #     else:
+    #         if not moose.exists( extraplt.path ):
+    #             print( "Error: Object does not exist: '" + i + "'")
+    #             quit()
+    #         else:
+    #             moose.connect(moose.Table2((d.path+'/'+(moose.element(extraplt)).name)+'.Co'),'requestOut',moose.element(extraplt),'getConc')
+    # scoreTab = { i.entity: [[],[],[]] for i in readout }
+    ##################### End #################################################
     for i in stims:
-        if i.entity:
-            #Here going blinding assuming user/modeler has entered the stim block and modelmapping stimulusMolecules in order
-            s = model.stimulusMolecules[stims.index(i)]
-            mSource,errormsg= model.findObj(modelId.path,s)
-            if moose.element(mSource).className == "Shell":
-                #This check is for multiple entry
-                raise SimError("ModelMapping->Stimulus Molecule: ",errormsg)
-            else:
-                if not moose.exists( mSource.path ):
-                    raise SimError( "Error: Object does not exist: '" + s + "'")
-                else:
-                    stimuli[i.entity[0]]=mSource
-                for j in i.data:
-                    #print " j ", j
-                    if j[0] =="settleTime":
-                        j[0] = i.settleTime
-                    heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
-                    #heapq.heappush( q, (j[0]*i.timeScale, [i.entity, i.field, j[1]*i.concScale, '' ] ) )
-    for i in readout:
-        noOfMolecule_refMol = True
-        if i.useSum:
-            if not (len(model.readoutMolecules[readout.index(i)]) > 1 or len(model.referenceMol[readout.index(i)]) > 1):
-                noOfMolecule_refMol = False
-                raise SimError( "ReadOut: useSum is TRUE, expecting at least two molecules either in \"readoutMolecules\" or \"referenceMolecules\" in ModelMapping" )
-        if i.useRatio:
-            if len(i.ratioReferenceEntity)<=1:
-                print "ReadOut UseRation is TRUE, expecting atleast two molecules in  \"referenceMolecule\" in ModelMapping"
-                noOfMolecule_refMol = False
-        if i.ratioReferenceDose > 0:
-                raise SimError( 'Error: TimeSeries experiment does not require a ratioReferenceDose: ' + str( i.ratioReferenceDose ) )
-        if noOfMolecule_refMol:
-            if len(model.readoutMolecules):
-                if '+' in (model.readoutMolecules[readout.index(i)]):
-                    readoutMolecules = (model.readoutMolecules[readout.index(i)]).split('+')
-                else:
-                    readoutMolecules = (model.readoutMolecules[readout.index(i)])
-            if isinstance(readoutMolecules,str):
-                foo = readoutMolecules 
-                readoutMolecules = []
-                readoutMolecules.append(foo)
-                
-            for readMol in readoutMolecules:
-                mReadout,errormsg = model.findObj(modelId.path,readMol)
-                if moose.element(mReadout).className == "Shell":
-                    raise SimError("ModelMapping->readoutMolecules: " + errormsg)
-                else:
-                    if i.molecules not in elm:
-                        elm[i.molecules] = [mReadout]
-                    else:
-                        elm[i.molecules].append(mReadout)
-
-                    ########################Creating table for molecules for plotting full run #######################################################################
-                    plotstr = modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co'
-                    tabl[mReadout.name] = moose.Table2(plotstr )
-                    moose.connect( tabl[mReadout.name],'requestOut',mReadout,'getConc' )
-                    t_dt = moose.element( modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co' )
-                    ####################################################################################################################
-            if len(model.referenceMol):
-                if '+' in model.referenceMol[readout.index(i)]:
-                    readoutRefMole = model.referenceMol[readout.index(i)].split('+')
-                else:
-                    readoutRefMole = model.referenceMol[readout.index(i)]
-
-                if isinstance(readoutRefMole,str):
-                    foo = readoutRefMole
-                    readoutRefMole = []
-                    readoutRefMole.append(foo)
-                
-                #RRE = (model.referenceMol[readout.index(i)]).split("+")
-                for rres in readoutRefMole:
-                    mRef,errormsg = model.findObj(modelId.path,rres)
-                    if moose.element(mRef).className == "Shell":
-                        raise SimError("ModelMapping->RationReferenceMolecule: " + errormsg)
-                    else:
-                        if not moose.exists( mRef.path ):
-                            raise SimError( 'Error: Object does not exist:  {}'.format( re ) )
-                        else:
-                            referenceMol[rres] = moose.element( mRef )
-            
-        plots = { plotstr: PlotPanel( i )}
         for j in i.data:
             if j[0] =="settleTime":
                 j[0] = i.settleTime
             heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
-            yerror.append(float(j[2]))
+    
+    for i in readouts:
+        readoutMol = readoutsMaptoMolMoose[i][i.molecules]
+        for mReadout in readoutMol:
+            ########################Creating table's for plotting for full run ################################################
+            plotstr = modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co'
+            tabl[mReadout.name] = moose.Table2(plotstr)
+            moose.connect( tabl[mReadout.name],'requestOut',mReadout,'getConc' )
+            t_dt = moose.element( modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co' )
+            ####################################################################################################################
+            plots = {plotstr: PlotPanel(i)}
+        for j in i.data:
+            if j[0] =="settleTime":
+                j[0] = i.settleTime
+            heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
+            stdError.append(float(j[2]))
+        if ratioRefMaptoMolMoose:  
+            if ratioRefMaptoMolMoose[i][i.ratioReferenceEntity]:
+                t = 0
+                t = i.ratioReferenceTime * i.timeScale
+                heapq.heappush( q, (t, [i, -1] ) )
 
-        #Runs start here 
-        i.ratioReference = 1.0 # Default value.
-        if i.ratioReferenceTime > 0.0:
-            # the -1 is an ugly hack to tell the q handler to set up ratio
-            t = 0
-            t = i.ratioReferenceTime * i.timeScale
-            heapq.heappush( q, (t, [i, -1] ) )
-            moose.reinit()
-            moose.start( i.ratioReferenceTime )
-            for k in referenceMol.keys():   
-                reference += referenceMol[k].getField( i.experimentalReadout ) 
-
-    sumsl=[]
-    sumslist=[]
-    xptslist=[]
-    exptlist=[]
-    list_of_lists=[]
-    tab_values=[]
-    tab_full=[]
-    tab=[]
-    ratioRef=1.0
-    clock = moose.element( '/clock' )
-
+    readoutMolsReadout = []
+    readoutRefReadout = []
+    moose.reinit()
+    ratioRefVal = 1
+    sumsl = []
+    xptslist = []
+    exptlist = []  
+    list_of_lists = []
+    sumslist = []
+    tab = []
     for i in range( len( q ) ):
         ref=0.0
+        ratioRefValues = 0
+
         t, event = heapq.heappop( q )
         val = event[1]
         sim = 0.0
         currt = clock.currentTime
+        #print q, t, event
         if ( t > currt ):
             moose.start( t - currt )
         if isinstance( event[0], Stimulus ):
             s = event[0]
-            if t == 0:
-                ##This condition is still check with new Excel sheet
-                if s.field == 'conc':
-                    stimuli[s.entity[0]].setField( 'concInit', val )
-                elif s.field == 'n':
-                    stimuli[s.entity[0]].setField( 'nInit', val )
-                moose.reinit()
-            else:
-                stimuli[s.entity[0]].setField( s.field, val )
-        else: # Should be a Readout object
-            r = event[0]
+            if stimuliMaptoMolMoose[s]:
+                if stimuliMaptoMolMoose[s][s.molecules]:
+                    stimMol = stimuliMaptoMolMoose[s][s.molecules]
+                    for sm in stimMol:
+                        if t == 0:
+                            ##At time zero we initial the value concInit or nInit
+                            if s.field == 'conc':
+                                sm.setField("concInit",val)
+                                moose.reinit()
+                            elif s.field == "n":
+                                sm.setField( 'nInit', val )
+                            else:
+                                raise SimError("\""+ s.field+"\" specified field name in Stimuli->field name is not valid field in moose ")
+                        else:
+                            sm.setField( s.field, val )
+        elif isinstance( event[0], Readout ):
             if not ( val < 0 ): expt = val
-            for j in elm[r.molecules]:
-                sim += j.getField(r.experimentalReadout)
-            if r.useRatio:
-                if r.ratioReferenceTime < 0.0:
-                    # Compute ratio reference every time data is sampled.
-                    for k in referenceMol.keys():
-                        ref += referenceMol[k].getField(r.field)
+            ''' 
+            1. if ratioReferenceTime is < zero,
+                -then RatioReferenceEntity should calculated at every time point i.e at every readout time point the ration shd be taken
+                and this should be applied to readoutmoleucle values while calculating the ratio sim/ratioRefMol
+            2. if ratioReferenceTime is zero then take concInit of molecule at time zero
+            3. if ratioReferenceTime > 0 calculate at ratioReferenceTime point 
+             readoutvalues/rrValue
+            '''
+            if event[1] == -1:
+                #event[1] returns -1 then this is for getting RationReferencevalue
+                for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
+                    ratioRefValues+=moose.element(rrM).getField(event[0].experimentalReadout)
+                ratioRefVal = ratioRefValues
+            else:
+                r = event[0]
+                if readoutsMaptoMolMoose[r]:
+                    if readoutsMaptoMolMoose[r][r.molecules]:
+                        readoutMol = readoutsMaptoMolMoose[r][r.molecules]
+                        for outputmol in readoutMol:
+                            sim+= outputmol.getField(r.experimentalReadout)
+                if r.useRatio:
+                    if r.ratioReferenceTime < 0.0:
+                        # Compute ratio reference every time data is sampled.
+                        for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
+                            ratioRefValues += moose.element(rrM).getField(event[0].experimentalReadout)
+                        ratioRefVal.append(ratioRefValues)
 
-                    ratioRef.append(ref)
-                if r.ratioReferenceTime == 0.0:
-                    # Take concInit as ratio reference.
-                    for k in referenceMol.keys():
-                        ref += referenceMol[k].getField( 'concInit' )
-                    ratioRef = ref
-                if r.ratioReferenceTime > 0.0 and val < 0:
-                    # Compute ratio reference only at specified time.
-                    ratioRef = reference
-                    # Don't do any calculation of score for this queue entry
-                    continue
-                sim /= ratioRef
-            xptslist.append( t )
-            exptlist.append( expt/r.concScale )
-            sumsl.append( sim/r.concScale )
+                    if r.ratioReferenceTime == 0.0:
+                        # Take concInit as ratio reference.
+                        for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
+                            ratioRefValues += moose.element(rrM).getField('concInit')
+                        ratioRefVal = ratioRefValues
+                    if r.ratioReferenceTime > 0.0 and val < 0:
+                        # Compute ratio reference only at specified time.
+                        ratioRefVal = ratioRefValues
+                        # Don't do any calculation of score for this queue entry
+                        continue
+                    sim /= ratioRefVal
 
-    for i in readout:
+                xptslist.append( t )
+                exptlist.append( expt/r.concScale )
+                sumsl.append( sim/r.concScale )
+        
+    for i in readouts:
         ###############################################################################################################
-        for j in elm[i.molecules]:
-            list_of_lists.append((tabl[j.name].vector).tolist())
+        if readoutsMaptoMolMoose[r]:
+            if readoutsMaptoMolMoose[r][r.molecules]:
+                readoutMol = readoutsMaptoMolMoose[r][r.molecules]
+                for outputmol in readoutMol:
+                    list_of_lists.append((tabl[outputmol.name].vector).tolist())
         ###############################################################################################################
         tab_values = [(sum(x)/(i.concScale)) for x in zip(*list_of_lists)]
-        tab_vals = [j/ratioRef for j in tab_values]
+        tab_vals = [j/ratioRefVal for j in tab_values]
 
         if i.useNormalization:
             for m in range(0,len(sumsl)):
@@ -981,7 +942,7 @@ def parseAndRun( model,stims, readout,modelId ):
         plots[key].sim = sumslist
         plots[key].xpts = xptslist
         plots[key].expt = exptlist
-        plots[key].yerror = yerror
+        plots[key].yerror = stdError
     pylab.figure(1)
     
 
@@ -990,14 +951,15 @@ def parseAndRun( model,stims, readout,modelId ):
         return score / numScore, plots#, full_run#, addFigs_vals
     return 0, plots, #full_run#, addFigs_vals
 
+
 ##########################################################################
-def parseAndRunDoser( model,stims, readout,modelId ):
+def parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
     
     if len( stims ) != 1:
         raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus molecule, {} defined".format( len( stims ) ) )
-    if len( readout ) != 1:
+    if len( readouts ) != 1:
         raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout molecule, {} defined".format( len( readout ) ) )
-    numLevels = len( readout[0].data )
+    numLevels = len( readouts[0].data )
     
     if numLevels == 0:
         raise SimError( "parseAndRunDoser: no dose (stimulus) levels defined for run" )
@@ -1010,176 +972,96 @@ def parseAndRunDoser( model,stims, readout,modelId ):
     
     doseMol = ""
     #Stimulus Molecules
-    s = model.stimulusMolecules[0]
-    stimMol,errormsg = model.findObj(modelId.path,s)
-    
-    if moose.element(stimMol).className == "Shell":
-        raise SimError("parseAndRunDoser: Model Subsetting"+ errormsg)
-    else:
-        if moose.exists(stimMol.path):
-            doseMol = stimMol
-        else:
-            raise SimError("parseAndRunDoser: Obj doesn't exist")
-    readoutMols =[]
-    mapReadoutmoose = {}
-    responseMol = {}
-    referenceMol = {}
-
-    for i in readout:
+    #Assuming one stimulus block, one molecule allowed
+    doseMol = stimuliMaptoMolMoose[stims[0]][stims[0].molecules][0]
+    for r in readouts:
         ent=""
-        if isinstance(i.molecules, str):
-            readoutMols.append(i.molecules) 
-        for j in readoutMols:
-            if len(model.readoutMolecules):
-                if '+' in (model.readoutMolecules[readoutMols.index(j)]):
-                    readoutMolecules = (model.readoutMolecules[readoutMols(j)]).split('+')
-                else:
-                    readoutMolecules = (model.readoutMolecules[readoutMols.index(j)])
-            
-            if isinstance(readoutMolecules,str):
-                foo = readoutMolecules 
-                readoutMolecules = []
-                readoutMolecules.append(foo)
-                
-            for readMol in readoutMolecules:
-                mReadout,errormsg = model.findObj(modelId.path,readMol)
-                if moose.element(mReadout).className == "Shell":
-                    raise SimError("parseAndRunDoser: ModelMapping->readoutMolecules: ",errormsg)
-                else:
-                    if readMol not in mapReadoutmoose:
-                        mapReadoutmoose[readMol] = [mReadout]
-                    else:
-                        mapReadoutmoose[readMol].append(mReadout)
+        if readoutsMaptoMolMoose[r]:
+            if readoutsMaptoMolMoose[r][r.molecules]:
+                readoutMol = readoutsMaptoMolMoose[r][r.molecules]
+                for readMol in readoutMol:
+                    ent += readMol.name
+                    ent += " "
+                    #IS plot for dose response is in stimMol?
+                    plots = { ent: PlotPanel( r, moose.element(doseMol).name + ' ({})'.format( stims[0].quantityUnits ) )}
+        ### RatioReferenceEntity
+
+        if len(ratioRefMaptoMolMoose):
+            if ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]:
+                readoutreferenceMol = ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]
+
+        if not r.useRatio:              
+            print " runDoser"
+            return runDoser(model,plots, stims[0],doseMol, r, readoutsMaptoMolMoose, ratioRefMaptoMolMoose,ent) # Use absolute quantities 
+        elif r.ratioReferenceTime >= 0:
+            print " runReferenceDoser "
+            return runReferenceDoser ( model,plots, stims[0],doseMol,r,readoutsMaptoMolMoose, ratioRefMaptoMolMoose, ent)
         
-                ent += readMol
-                ent += " "
-                plots = { ent: PlotPanel( i, stimMol.name + ' ({})'.format( stims[0].quantityUnits ) )}
-                
-                ### RatioReferenceEntity
-                if len(model.referenceMol):
-                    if '+' in model.referenceMol[readout.index(i)]:
-                        readoutRefMole = model.referenceMol[readout.index(i)].split('+')
-                    else:
-                        readoutRefMole = model.referenceMol[readout.index(i)]
-
-                    if isinstance(readoutRefMole,str):
-                        foo = readoutRefMole
-                        readoutRefMole = []
-                        readoutRefMole.append(foo)
-                    
-                    #RRE = (model.referenceMol[readout.index(i)]).split("+")
-                    for rres in readoutRefMole:
-                        mRef,errormsg = model.findObj(modelId.path,rres)
-                        if moose.element(mRef).className == "Shell":
-                            raise SimError("parseAndRunDoser: ModelMapping->RationReferenceMolecule: ",errormsg)
-                        else:
-                            if not moose.exists( mRef.path ):
-                                raise SimError( 'parseAndRunDoser: Error: Object does not exist: {}'.format( re ) )
-                            else:
-                                referenceMol[rres] = moose.element( mRef )
-
-            if not i.useRatio:              
-                return runDoser(model,plots, stims[0], i, runTime, ent, modelId) # Use absolute quantities 
-            
-            elif i.ratioReferenceTime < 0:    
-                return runRatioDoser( model,plots, stims[0],doseMol, i, mapReadoutmoose,referenceMol,runTime,ent,modelId ) # Takes ratio of quantities for each sample.
-            
-            elif i.ratioReferenceTime >= 0:
-                return runInitialReferenceDoser ( model,plots, stims[0],doseMol,i,mapReadoutmoose, referenceMol, runTime, ent)
-        # for k in i.ratioReferenceEntity:
-        #     if i.useRatio and not moose.exists( '/model/kinetics/' + k ):
-        #         print 'Error: Ratio object does not exist: ', k
-        #         quit()
 ##########################################################################
-def runDoser( model, plots, stim, readout, runTime, ent, modelId ):
+def runDoser( model, plots, stim, doseMol, readout, readoutsMaptoMolMoose,ratioRefMaptoMolMoose,ent ):
     score = 0.0
-    yerror=[]   
-    responseMol ={}
-    s = model.stimulusMolecules[0]
-    stimMol,errormsg = model.findObj(modelId.path,s)
-
-    if moose.element(stimMol).className == "Shell":
-        raise SimError("runDoser: Model Subsetting" + errormsg)
-    else:    
-        doseMol = stimMol
-    readoutMols = []
-    if isinstance(readout.molecules, str):
-        readoutMols.append(readout.molecules) 
-    for i in readoutMols:
-        if len(model.readoutMolecules):
-            if '+' in (model.readoutMolecules[readout.molecules.index(i)]):
-                readoutMolecules = (model.readoutMolecules[readout.molecules.index(i)]).split('+')
-            else:
-                readoutMolecules = (model.readoutMolecules[readout.molecules.index(i)])
-        if isinstance(readoutMolecules,str):
-            foo = readoutMolecules 
-            readoutMolecules = []
-            readoutMolecules.append(foo)
-            
-        for readMol in readoutMolecules:
-            mReadout,errormsg = model.findObj(modelId.path,readMol)
-            if moose.element(mReadout).className == "Shell":
-                raise SimError("runDoser: ModelMapping->readoutMolecules: " + errormsg)
-            else:
-                if i not in responseMol:
-                    responseMol[i] = [mReadout]
-                else:
-                    responseMol[i].append(mReadout)
+    stdError=[]   
     responseScale = readout.concScale
     doseScale = stim.concScale
+    runTime = float(stim.settleTime)
+    sim = 0.0
     for dose, response, stderr in readout.data:
-        yerror.append(float(stderr))
+        stdError.append(float(stderr))
         dose = float(dose)
-        #print dose, response, stderr
         doseMol.concInit = dose * doseScale
         moose.reinit()
         moose.start( runTime )
         if readout.useSum:
-           for i in responseMol:
-                sim += responseMol[i].getField( readout.field )
-        else:   
-            for r,s in responseMol.items():
-                for listS in s:
-                    sim = listS.getField( readout.experimentalReadout)
+            for r in readoutsMaptoMolMoose[readout][readout.molecules]:
+                sim += r.getField( readout.experimentalReadout )
+        else:
+            sim = readoutsMaptoMolMoose[readout][readout.molecules][0].getField( readout.experimentalReadout)
+
         expt = float(response) * responseScale
         score += eval( model.scoringFormula )
         plots[ent].xpts.append( dose )
         plots[ent].sim.append( sim / responseScale )
         plots[ent].expt.append( expt / responseScale )
-        plots[ent].yerror = yerror
+        plots[ent].yerror = stdError
     return score / len(readout.data), plots
+
 #################################################################
-def runInitialReferenceDoser( model, plots, stim,stimMol, iofReadout,responseMol,referenceMol, runTime, ent ):
+def runReferenceDoser( model, plots, stim,stimMol, iofReadout,readoutMaptoMooseMol,ratioReferenceMol, ent ):
+    print " runReferenceDoser"
     score = 0.0
     reference=0.0
-    yerror=[]
+    stdError=[]
     doseMol = stimMol
     doseScale = stim.concScale
+    runTime = float(stim.settleTime)
     
     if iofReadout.ratioReferenceDose>=0.0:
         doseMol.concInit = iofReadout.ratioReferenceDose * doseScale
     else:
         doseMol.concInit = iofReadout.data[0][0] * doseScale
-
     moose.reinit()
-    for k in referenceMol.keys():
+
+    referenceMol = ratioReferenceMol[iofReadout]
+    for k in referenceMol[iofReadout.molecules]:
         moose.reinit()
         if iofReadout.ratioReferenceTime == 0:
-            reference += referenceMol[k].getField('concInit')
+            reference += k.getField('concInit')
             continue
         else:
             moose.start( iofReadout.ratioReferenceTime)
-            reference += referenceMol[k].getField( iofReadout.experimentalReadout)
+            reference += k.getField( iofReadout.experimentalReadout)
     
     for dose, response, stderr in iofReadout.data:
         sim = 0.0
-        #yerror.append(stderr)
+        #stdError.append(stderr)
         dose = float(dose)
-        yerror.append(float(stderr))
+        stdError.append(float(stderr))
         doseMol.concInit = float(dose) * doseScale
         moose.reinit()
         moose.start( runTime )
-        for i in responseMol[iofReadout.molecules]:
+        #readoutMolecule = readoutMaptoMooseMol[iofReadout]
+        readoutsMolecules = readoutMaptoMooseMol[iofReadout][iofReadout.molecules]
+        for i in readoutsMolecules:
             sim += i.getField( iofReadout.experimentalReadout )
         sim = float(sim / reference)
         expt = float(response)
@@ -1187,39 +1069,10 @@ def runInitialReferenceDoser( model, plots, stim,stimMol, iofReadout,responseMol
         plots[ent].xpts.append( dose )
         plots[ent].sim.append( sim )
         plots[ent].expt.append( expt )
-        plots[ent].yerror = yerror
+        plots[ent].yerror = stdError
     return score / len(iofReadout.data), plots#, full_run
 
 ##########################################################################
-def runRatioDoser( model, plots, stim, stimMol, iofReadout,readoutsReadoutMol, readoutsRatioreferenceMol, runTime, ent,modelId ):
-    score = 0.0
-    reference = 0.0
-    yerror=[]
-    s = model.stimulusMolecules[0]
-    stimMol,errormsg = model.findObj(modelId.path,s)
-    if moose.element(stimMol).className == "Shell":
-        raise SimError ("runRatioDoser: Model Subsetting" + errormsg)
-    else:    
-        doseMol = stimMol
-    for k in readoutsRatioreferenceMol.keys():
-        reference += readoutsRatioreferenceMol[k].getField( iofReadout.experimentalReadout)
-    doseScale = stim.concScale
-    for dose, response, stderr in iofReadout.data:
-        sim = 0.0
-        yerror.append(float(stderr))
-        doseMol.concInit = float(dose) * doseScale
-        moose.reinit()
-        moose.start( runTime )
-        for i in readoutsReadoutMol[iofReadout.molecules]:
-            sim += i.getField( iofReadout.experimentalReadout )
-        sim = float(sim / reference)
-        expt = float(response)
-        score += eval(model.scoringFormula )
-        plots[ent].xpts.append( dose )
-        plots[ent].sim.append( sim )
-        plots[ent].expt.append( expt )
-        plots[ent].yerror = yerror
-    return score / len(iofReadout.data), plots
 ##########################################################################
 
 class PlotPanel:
@@ -1342,12 +1195,138 @@ def runit( model,stims, readouts,modelId ):
     for i in readouts:
         if keywordMatches( i.readoutType, 'Dose-Response' ) or  keywordMatches( i.readoutType, 'DoseResponse'):
             doDoser = True
+    stimuliMaptoMolMoose  = {}
+    readoutsMaptoMolMoose = {}
+    ratioRefMaptoMolMoose = {}
 
-    if doDoser:
-        return parseAndRunDoser( model,stims, readouts, modelId)
-    else:
-        return parseAndRun( model,stims, readouts,modelId )
+    stimuliMaptoMolMoose = mapStimdataToMoose(stims,model,modelId)
     
+    readoutsMaptoMolMoose,ratioRefMaptoMolMoose = mapReadoutdataToMoose(readouts,model,modelId)
+    for i in readouts:
+        readoutsMolecules =[]
+        ratioMolecules = []
+        if i in readoutsMaptoMolMoose:
+            if i.molecules in readoutsMaptoMolMoose[i]:
+                readoutsMolecules = readoutsMaptoMolMoose[i][i.molecules]
+            
+        if i in ratioRefMaptoMolMoose:
+            if i.ratioReferenceEntity in ratioRefMaptoMolMoose[i]:
+                ratioMolecules = ratioRefMaptoMolMoose[i][i.ratioReferenceEntity]
+
+        if i.useSum:
+            if not len(readoutsMolecules) >1 and not len(ratioMolecules) >1:
+                raise SimError (" Readout->useSum is True but ModelMapping->readoutMolecules or ModelMapping->referenceMolecule has less than two entry. Program will exit")
+                
+            if i.useRatio:
+                if len(ratioMolecules) < 1:
+                    raise SimError(" Readout->useRatio is True, expect referenceMolecule in ModelMapping has atleast one entry. Program will exit")
+                    
+    if doDoser:
+        return parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId)
+    else:
+        return parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId )
+
+def mapReadoutdataToMoose(readout,model,modelId):
+    readoutsMaptoMolMoose = {}
+    ratioRefMaptoMolMoose = {}
+    for j in readout:
+        if len(j.molecules):
+            if ',' in j.molecules:
+                raise SimError (" Warning: In excel sheet, Readouts->molecules has 2 molecules \""+ j.molecules +"\" which is not allowed in a single Readout block. \n If one wish to keep this seperate out to a seperate Readout block or if this was for summation then use \'+\' sign, progran will exist")
+            else:
+                try:
+                    readoutMolMap = []
+                    readoutsMolMaptoMoose = {}
+                    modelReadoutMol = model.readoutMolecules[readout.index(j)]
+                    if '+' in modelReadoutMol:
+                        readoutMolMap = ((modelReadoutMol.replace("\n","")).split('+'))
+                    else:
+                        readoutMolMap.append(modelReadoutMol.replace("\n",""))
+                    for rm in readoutMolMap:
+                        mReadout,errormsg = model.findObj(modelId.path,rm)
+                        if moose.element(mReadout).className == "Shell":
+                            #This check is for multiple entry
+                            raise SimError("ModelMapping->Readout Molecule: ",errormsg)
+                        else:
+                            if not moose.exists( mReadout.path ):
+                                raise SimError("Error: Object does not exist: '" + s + "'")
+                                
+                            else:
+                                if j.molecules not in readoutsMolMaptoMoose :
+                                    readoutsMolMaptoMoose [j.molecules] = [mReadout]
+                                else:
+                                    readoutsMolMaptoMoose [j.molecules].append(mReadout)
+                    if readoutsMolMaptoMoose:
+                        readoutsMaptoMolMoose[j] = readoutsMolMaptoMoose
+                except IndexError:
+                    pass
+        #RatioReferenceMolecules
+        if len(j.ratioReferenceEntity):
+            if ',' in j.ratioReferenceEntity:
+                raise SimError(" Warning: In excel sheet, Readouts->ratioReferenceEntity has 2 molecules \""+ j.ratioReferenceEntity +"\" which is not allowed in a single Readout block. \n If one wish to keep this, seperate out to a seperate Readout block  with ratioReferenceEntity or if this was for summation then use \'+\' sign, progran will exist")
+            else:
+                try:
+                    ratioRefMolMaptoMoose = {}
+                    ratioRefMolMap = [] 
+                    modelratioRefMol = model.referenceMolecule[readout.index(j)]
+                    if '+' in modelratioRefMol:
+                        ratioRefMolMap = ((modelratioRefMol.replace("\n","")).split('+'))
+                    else:
+                        ratioRefMolMap.append(modelratioRefMol.replace("\n",""))
+                    for rm in ratioRefMolMap:
+                        mRefmol,errormsg = model.findObj(modelId.path,rm)
+                        if moose.element(mRefmol).className == "Shell":
+                            #This check is for multiple entry
+                            raise SimError("ModelMapping->Readout Molecule: ",errormsg)
+                        else:
+                            if not moose.exists( mRefmol.path ):
+                                raise SimError( "Error: Object does not exist: '" + s + "'")
+                            else:
+                                if j.ratioReferenceEntity not in ratioRefMolMaptoMoose :
+                                    ratioRefMolMaptoMoose [j.ratioReferenceEntity] = [mRefmol]
+                                else:
+                                    ratioRefMolMaptoMoose [j.ratioReferenceEntity].append(mRefmol)
+                    if ratioRefMolMaptoMoose:
+                        ratioRefMaptoMolMoose[j] = ratioRefMolMaptoMoose
+                except IndexError:
+                    pass          
+    
+    return readoutsMaptoMolMoose,ratioRefMaptoMolMoose
+
+def mapStimdataToMoose(stims,model,modelId):
+    stimuliMaptoMolMoose  = {}
+    for i in stims:
+        if len(i.molecules):
+            if ('+' in i.molecules) or (',' in i.molecules):
+                raise SimError(" Warning: In excel sheet, Stimuli->molecules has 2 molecules \""+ i.molecules +"\" which is not allowed, progran will exist")
+            else:
+                stimMolMap = []
+                stimuliMolMaptoMoose ={}
+                try:
+                    modelStimModel = model.stimulusMolecules[stims.index(i)]
+                    if '+' in model.stimulusMolecules[stims.index(i)]:
+                        stimMolMap = ((model.stimulusMolecules[stims.index(i)].replace('\n', "")).split('+'))
+                    else:
+                        stimMolMap.append(model.stimulusMolecules[stims.index(i)].replace("\n",""))
+                    for sm in stimMolMap:
+                        mSource,errormsg= model.findObj(modelId.path,sm)
+                        if moose.element(mSource).className == "Shell":
+                            #This check is for multiple entry
+                            raise SimError ("ModelMapping->Readout Molecule: ",errormsg)
+                           
+                        else:
+                            if not moose.exists( mSource.path ):
+                                raise SimError( "Error: Object does not exist: '" + s + "'")
+                            else:
+                                if i.molecules not in stimuliMolMaptoMoose :
+                                    stimuliMolMaptoMoose[i.molecules] = [mSource]
+                                else:
+                                    stimuliMolMaptoMoose[i.molecules].append(mSource)
+                except IndexError:
+                    raise SimError( "Warning: model->stimulusMolecules doesn't have entry as many as stimuli block")
+            if stimuliMolMaptoMoose:
+                stimuliMaptoMolMoose[i] = stimuliMolMaptoMoose
+    return stimuliMaptoMolMoose
 
 def main():
     """ This program handles loading a kinetic model, and running it
@@ -1368,7 +1347,7 @@ def main():
 
 
 def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True ):
-    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hidePlot ) )
+    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hideDisplay ) )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     expt, stims, readouts, model = loadTsv( script )
@@ -1395,6 +1374,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
                 moose.mooseWriteSBML( modelId.path, dumpFname )
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
+
         #Then we build the solver.
         buildSolver( modelId, model.solver )
         for i in range( 10, 20 ):
@@ -1409,13 +1389,11 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             print( "Script = {}, score = {}".format( script, score ) )
         moose.delete( modelId )
         return score
-
+        
     except SimError as msg:
         moose.delete( modelId )
         print( "Error: findSim failed for script {}: {}".format(script, msg ))
         return -1.0
-        
-        
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()
