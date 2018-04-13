@@ -1,5 +1,6 @@
 # FindSim
-Framework for Integration of Neuronal Data and SIgnaling Models
+Framework for Integration of Neuronal Data and SIgnaling Models.
+
 The template for experiment worksheet can be found here https://docs.google.com/spreadsheets/d/13J5jZD461OZjtJgsnXYnuXN7MRo9VQPE6JM3kbfrpIs/edit?usp=sharing
 
 To run FindSim script one needs to install moose which can be found here
