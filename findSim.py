@@ -442,7 +442,7 @@ class Model:
                     foundobj,errormsg = self.findObj(kinpath, entity)
  
                     if moose.element(foundobj).className == "Shell":
-                       raise SimError("modify: " + errormsg)
+                       raise SimError("modify: " + ', '.join(map(str, errormsg)))
                     else:
                         if moose.exists( moose.element(foundobj).path ):
                             obj = moose.element( foundobj.path )
