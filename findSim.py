@@ -358,6 +358,7 @@ class Model:
         self.readoutMolecules = []
         self.referenceMolecule = []
         self.scoringFormula = scoringFormula
+
     def load( fd ):
         '''
         Model::load builds a model instance from a file and returns it.
@@ -481,7 +482,7 @@ class Model:
                 foundobj = ""
                 foundobj, errormsg = self.findObj(kinpath, i)
                 if moose.element(foundobj).className == "Shell":
-                    raise SimError("Model Subsetting" + errormsg)
+                    raise SimError("Model Subsetting" + ', '.join(map(str, errormsg)))
                 else:
                     if moose.exists( moose.element(foundobj).path ):
                         elm = moose.element( moose.element(foundobj).path  )
@@ -547,7 +548,7 @@ class Model:
             for (entity, field, value) in self.parameterChange:
                 foundobj,errormsg = self.findObj(kinpath, entity)
                 if moose.element(foundobj).className == 'Shell':
-                    raise SimError("ParameterChange: "+ errormsg)
+                    raise SimError("ParameterChange: "+ ', '.join(map(str, errormsg)))
                 else:
                     if moose.exists( moose.element(foundobj).path ):
                         obj= moose.element( foundobj.path )
@@ -756,15 +757,14 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        raise SimError (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section else take of molecules. Program will exit for now "+mWarning)
+        raise SimError (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section. Program will exit for now. "+mWarning)
     if ratelawchanged:
-        raise SimError ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now"+mRateLaw)
+        raise SimError ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now. \n"+mRateLaw)
     if funcIPchanged:
-        raise SimError ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now"+mFunc)
+        raise SimError ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now.\n"+mFunc)
     
 ##########################################################################
 def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
-    print " timeSeries"
     score = 0.0
     q       = []
     stdError  = []
@@ -991,10 +991,8 @@ def parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMapto
                 readoutreferenceMol = ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]
 
         if not r.useRatio:              
-            print " runDoser"
             return runDoser(model,plots, stims[0],doseMol, r, readoutsMaptoMolMoose, ratioRefMaptoMolMoose,ent) # Use absolute quantities 
         elif r.ratioReferenceTime >= 0:
-            print " runReferenceDoser "
             return runReferenceDoser ( model,plots, stims[0],doseMol,r,readoutsMaptoMolMoose, ratioRefMaptoMolMoose, ent)
         
 ##########################################################################
@@ -1027,7 +1025,6 @@ def runDoser( model, plots, stim, doseMol, readout, readoutsMaptoMolMoose,ratioR
 
 #################################################################
 def runReferenceDoser( model, plots, stim,stimMol, iofReadout,readoutMaptoMooseMol,ratioReferenceMol, ent ):
-    print " runReferenceDoser"
     score = 0.0
     reference=0.0
     stdError=[]
@@ -1246,7 +1243,7 @@ def mapReadoutdataToMoose(readout,model,modelId):
                         mReadout,errormsg = model.findObj(modelId.path,rm)
                         if moose.element(mReadout).className == "Shell":
                             #This check is for multiple entry
-                            raise SimError("ModelMapping->Readout Molecule: ",errormsg)
+                            raise SimError("ModelMapping->Readout Molecule: "+ ', '.join(map(str, errormsg)))
                         else:
                             if not moose.exists( mReadout.path ):
                                 raise SimError("Error: Object does not exist: '" + s + "'")
@@ -1277,7 +1274,7 @@ def mapReadoutdataToMoose(readout,model,modelId):
                         mRefmol,errormsg = model.findObj(modelId.path,rm)
                         if moose.element(mRefmol).className == "Shell":
                             #This check is for multiple entry
-                            raise SimError("ModelMapping->Readout Molecule: ",errormsg)
+                            raise SimError("ModelMapping->Readout Molecule: ",+ ', '.join(map(str, errormsg)))
                         else:
                             if not moose.exists( mRefmol.path ):
                                 raise SimError( "Error: Object does not exist: '" + s + "'")
@@ -1312,7 +1309,7 @@ def mapStimdataToMoose(stims,model,modelId):
                         mSource,errormsg= model.findObj(modelId.path,sm)
                         if moose.element(mSource).className == "Shell":
                             #This check is for multiple entry
-                            raise SimError ("ModelMapping->Readout Molecule: ",errormsg)
+                            raise SimError ("ModelMapping->Readout Molecule: "+ ', '.join(map(str, errormsg)))
                            
                         else:
                             if not moose.exists( mSource.path ):
