@@ -1347,6 +1347,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
     #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hideDisplay ) )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
+    modelId = ""
     expt, stims, readouts, model = loadTsv( script )
     model.fileName = modelFile
     #This list holds the entire models Reac/Enz sub/prd list for reference
@@ -1355,8 +1356,11 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
     try:
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
-
-        modelId = moose.loadModel( model.fileName, 'model', 'ee' )
+        filename, file_extension = os.path.splitext(model.fileName)
+        if file_extension == '.xml':
+            modelId, errormsg = moose.mooseReadSBML( model.fileName, 'model', 'ee' )
+        elif file_extension == '.g':
+            modelId = moose.loadModel( model.fileName, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
         for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
@@ -1388,7 +1392,8 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         return score
         
     except SimError as msg:
-        moose.delete( modelId )
+        if modelId:
+            moose.delete( modelId )
         print( "Error: findSim failed for script {}: {}".format(script, msg ))
         return -1.0
 # Run the 'main' if this script is executed standalone.
