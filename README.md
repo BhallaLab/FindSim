@@ -14,9 +14,9 @@ FindSim script, model files and Curated and NonCurated folder where experimental
  `Non-Curated` worksheet which are yet to test.
  
  To run the script one need to run the command in python
- >python findSim.py experiment_worksheet.tsv 
- one can pass the arguments  
  >python findSim.py experiment_worksheet.tsv --model (model filename) --hide_plot
-or 
-python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn)
- This script runs the findSim program on all tsv files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.
+
+runAllParallel.py script runs the findSim program on all tsv files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.
+
+>python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn)
+
