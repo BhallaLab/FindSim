@@ -11,7 +11,7 @@ journal	Nat Neurosci. 2010
 		
 Experiment context		
 species	Rat	
-cell-types	Embryonic hippocmpal neurons E18	
+cell-types	Embryonic hippocampal neurons E18	
 temperature (Celsius)		
 Include pathway	BDNF,TrKB,PLCg,PI3K,AKT,Ras,MAPK	
 details		
@@ -59,39 +59,41 @@ citation
 authors		
 modelSubset	kinetics/Ca,Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,AKT_activation,mTORC1,S6Kinase,kinetics/TSC1_TSC2,Ras_GTP_PI3K,PI3K_bind_Ras_GTP,DAG,IP3,PIP2,Arachidonic_Acid	
 stimulusMolecules	BDNF/BDNF	
-readoutMolecules	MAPK/MAPK_p_p+MAPK_p	
+readoutMolecules	MAPK/MAPK_p_p+MAPK/MAPK_p	
 referenceMolecule	MAPK/MAPK	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
-itemstodelete	MAPK_p_p/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaMKIII_bind_CaM_Ca4,S6K_basal,CaMKIII_phospho,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho,Ca.PLC_g/PIP2_hydrolysis,Ca.PLC_g_p/PIP2_hydrolysis,PP2A_dephospho_PP1_I_p,Dephos_AKTser473,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,SHC_p_Grb2_Gab1_PI3K_clx/Phospho,basal_phosp,PIP3_dephosp,PIP2_phospho_Ras_GTP,phosp_AKTser473,TOR_4E_BP_phospho,TOR_4E_BP_p,S6_phos,S6K_thr_252/S6_phospho,S6_dephosph,PKC_act_by_DAG,PKC_act_by_Ca_AA,PKC_act_by_AA,PKC_n_DAG,PKC_n_DAG_AA	
+itemstodelete	MAPK_p_p/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaMKIII_bind_CaM_Ca4,S6K_basal/CaMKIII_basal,CaMKIII_phospho,S6_dephosph,Dephos_AKTser473,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,phosp_AKTser473,TOR_4E_BP_phospho,TOR_4E_BP_p,S6_phos,S6_phospho,PP2A_dephospho_PP1_I_p,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho	
 solver	Runge kutta method (gsl)	
 notes		
 parameterChange		
 Object	parameter	Value
-kinetics/BDNF/BDNF	concInit	0
-PKC_basal_p	concInit	2.00E-05
+BDNF/BDNF	concInit	0
+PLC_g/PLC_g	concInit	0.000100003
+PP2A	concInit	0.0001500050002
 craf_1	concInit	0.0005
-MAPKK	concInit	0.0036
-MAPK/MAPK	concInit	0.0005
-GDP_Ras	concInit	0.0036
+MAPK/MAPKK	concInit	0.000500016
+MAPK/MAPK	concInit	0.0036001
+PPhosphatase2A	concInit	0.001000033334
+GDP_Ras	concInit	0.0005
 GAP	concInit	1.00E-05
-PLC_g/PLC_g	concInit	0.0001
-PPhosphatase2A	concInit	0.001
-PP2A	concInit	0.00015
-Ras_act_craf	Kf	9999.26667999
-CaM_bind_GEF	Kf	199991.333401
-SHC_p_dephospho	Kf	0.2
-PKC_act_raf	Km	0.0209818384
+Ca/Ca	isBuffered	0
+PKC_act_raf	Km	0.02090469484
 MAPKKtyr	kcat	0.3
 MAPKKthr	kcat	0.3
 Raf_p_GTP_Ras.1	kcat	0.3
 Raf_p_GTP_Ras.2	kcat	0.3
+MKP1_tyr_deph	Km	0.007316357844
+MKP1_tyr_deph	kcat	4
+MKP1_thr_deph	Km	0.007316357844
+MKP1_thr_deph	kcat	4
 CaM_GEF_act_Ras	kcat	0.2
 Sos.Ras_GEF	kcat	0.2
-MKP1_tyr_deph	kcat	4
-MKP1_thr_deph	kcat	4
-MKP1_tyr_deph	Km	7.34E-03
-MKP1_thr_deph	Km	7.34E-03
-DAG	concInit	0
-Arachidonic_Acid	concInit	0
+SHC_p_dephospho	Kf	0.2
+Ras_act_craf	Kf	9999.26668
+CaM_bind_GEF	Kf	199991.3
+PKC_basal_p	concInit	2.00E-05
+PIP2	concInit	0.007
+DAG	concInit	0.011
+Arachidonic_Acid	concInit	0.005
 DAG	isBuffered	1
 Arachidonic_Acid	isBuffered	1
