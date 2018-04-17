@@ -13,10 +13,10 @@ FindSim script, model files and Curated and NonCurated folder where experimental
 `Curated` folder contains the FindSim worksheet which is tested again the model.
  `Non-Curated` worksheet which are yet to test.
  
- To run the script one need to run the command in python
- >python findSim.py experiment_worksheet.tsv --model (model filename) --hide_plot
+ To run the script one need to run the command in python and synSynth7.g is the latest model that is tested out the worksheets.
+ >python findSim.py Curated/worksheet.tsv --model (synSynth7.g) --hide_plot
 
 runAllParallel.py script runs the findSim program on all tsv files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.
 
->python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn)
+>python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn) --model (synSynth7.g)
 
