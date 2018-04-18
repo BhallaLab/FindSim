@@ -43,6 +43,9 @@
 
 2018
 #check if stimulus quantityUnits is blank in excel sheet it shd take mM which was not taking
+Apr 18:
+    duplicate code is deleted/cleaned up
+    RatioRefValue's value is devided after the loop which ensure that the division is done for all the values from zero to endtime
 Apr 10:
     clean up in timeUnits and quantityUnits for blank, space etc
     runit: check are made for condition for useSum and useRatio if satifies then moved further
@@ -894,12 +897,16 @@ def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolM
                         ratioRefVal = ratioRefValues
                         # Don't do any calculation of score for this queue entry
                         continue
-                    sim /= ratioRefVal
-
+                    #sim /= ratioRefVal
                 xptslist.append( t )
                 exptlist.append( expt/r.concScale )
                 sumsl.append( sim/r.concScale )
-        
+    #This is done bcos the ratioRefVal will be divided to all the values instead of value after RatioReferenceTime
+    suml1 = []
+    suml1 = [x / ratioRefVal for x in sumsl]
+    sumsl = suml1
+    del(suml1)
+
     for i in readouts:
         ###############################################################################################################
         if readoutsMaptoMolMoose[r]:
@@ -911,29 +918,24 @@ def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolM
         tab_values = [(sum(x)/(i.concScale)) for x in zip(*list_of_lists)]
         tab_vals = [j/ratioRefVal for j in tab_values]
 
-        if i.useNormalization:
-            for m in range(0,len(sumsl)):
+        for m in range(0,len(sumsl)):
+            if i.useNormalization:
                 sim=sumsl[m]/sumsl[0]
-                expt=exptlist[m]
-                sc = eval( model.scoringFormula )
-                score += sc
-                numScore += 1
-                sumslist.append(sim)
-            for k in range(int(xptslist[0]),int(xptslist[-1])):
-                tab.append(tab_values[int(k/t_dt.dt)]/tab_values[int(xptslist[0]/t_dt.dt)])
-        else:
-            for m in range(0,len(sumsl)):
+            else:
                 sim=sumsl[m]
-                expt=exptlist[m]
-                sc = eval( model.scoringFormula )
-                score += sc
-                numScore += 1
-                sumslist.append(sim)
-            for k in range(int(xptslist[0]),int(xptslist[-1])):
+            expt=exptlist[m]
+            sc = eval( model.scoringFormula )
+            score += sc
+            numScore += 1
+            sumslist.append(sim)
+        for k in range(0,int(xptslist[-1])):
+            if i.useNormalization:
+                tab.append(tab_values[int(k/t_dt.dt)]/tab_values[int(xptslist[0]/t_dt.dt)])
+            else:
                 tab.append( tab_vals[int(k/t_dt.dt)] )
 
     ###############################################################################################################
-    time_full=numpy.arange( xptslist[0], xptslist[-1] )
+    time_full=numpy.arange( 0, xptslist[-1] )
     # for i in range(int(time_full[0]/t_dt.dt),int(time_full[-1]/t_dt.dt)+1):
     #     tab_full.append(tab[i])
     full_run=[tab,time_full]
