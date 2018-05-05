@@ -39,13 +39,8 @@ FindSim/FindSim1.x.x/ExptSheet.xlsx	: Template worksheet with inline help
 						and units, for Microsoft Excel.
 FindSim/FindSim1.x.x/ExptSheet.ods	: Template worksheet with inline help
 						and units, for Libre Office.
-FindSim/FindSim1.x.x/ExptSchemaTimeSeries.xml	: Schema for tsv files 
-						for time-series experiments.
-FindSim/FindSim1.x.x/ExptSchemaDoseResp.xml	: Schema for tsv files 
-						for Dose-response experiments.
-FindSim/FindSim1.x.x/ExptSchemaMultiStim.xml	: Schema for tsv files 
-						for multi-stimulus experiments.
-
+FindSim/FindSim1.x.x/ExptSheetSchema.xml: Schema for tsv files 
+						for worksheet.
 FindSim/core				: Development branch. More features, 
 						more models, more experiments,
 						less stability.
@@ -64,17 +59,17 @@ directory
 to run these.
 
 Figure 6: bottom
-python findSim.py Curated/FindSim-Jain2009-Fig????????????????????
+python findSim.py Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
 
 Figure 7B:
-python findSim.py Curated/X
+python findSim.py Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
 python findSim.py Curated/Y
 
 Figure 7C:
-python findSim.py Curated/P
+python findSim.py Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
 
 Figure 7D:
-python findSim.py Curated/Q
+python findSim.py Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
 
 =============================================================================
 Other resources

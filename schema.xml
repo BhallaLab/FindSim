@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="https://www.w3schools.com" xmlns="https://www.w3schools.com" elementFormDefault="qualified">
+<xs:element name="FindSim">
+  <xs:complexType>
+    <xs:sequence>
+<xs:element name="ExperimentMetadata">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="transcriber" type="xs:string"/>
+      <xs:element name="organization" type="xs:string"/>
+      <xs:element name="emailId" type="xs:string"/>
+      <xs:element name="exptSource">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="Paper"/>
+                <xs:enumeration value="InHouse"/>
+                <xs:enumeration value="experiment"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="citationId" type="xs:string"/>
+      <xs:element name="authors" type="xs:string"/>
+      <xs:element name="journal" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+<xs:element name="ExperimentContext">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="species" type="xs:string"/>
+      <xs:element name="cell-types" type="xs:string"/>
+      <xs:element name="temperature-in-Celsius" type="xs:int"/>
+      <xs:element name="includePathway" type="xs:string"/>
+      <xs:element name="details" type="xs:string"/>
+      <xs:element name="notes" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+<xs:element name="Stimuli">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="timeUnits">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="sec"/>
+                <xs:enumeration value="millisec"/>
+                <xs:enumeration value="nanosec"/>
+                <xs:enumeration value="min"/>
+                <xs:enumeration value="hrs"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="quantityUnits">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="mM"/>
+                <xs:enumeration value="uM"/>
+                <xs:enumeration value="nM"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="entities" type="xs:string"/>
+      <xs:element name="field">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="nInit"/>
+                <xs:enumeration value="n"/>
+                <xs:enumeration value="conc"/>
+                <xs:enumeration value="concInit"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="Data">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Time" type="xs:decimal"/>
+            <xs:element name="Value" type="xs:decimal"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+</xs:element>
+<xs:element name="ReadOut">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="readoutType">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="Time-Series"/>
+                <xs:enumeration value="TimeSeries-withRefTimeRatio"/>
+                <xs:enumeration value="TimeSeries-WithinstantaneousRatio"/>
+                <xs:enumeration value="TimeSeries-RatioNormalization"/>
+                <xs:enumeration value="DoseResponse"/>
+                <xs:enumeration value="DoseResponsewithRatio"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="timeUnits">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="sec"/>
+                <xs:enumeration value="millisec"/>
+                <xs:enumeration value="nanosec"/>
+                <xs:enumeration value="min"/>
+                <xs:enumeration value="hrs"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="quantityUnits">
+         <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="mM"/>
+                <xs:enumeration value="uM"/>
+                <xs:enumeration value="nM"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>
+      <xs:element name="useXlog" type="xs:boolean"/>
+      <xs:element name="useYlog" type="xs:boolean"/>
+      <xs:element name="useNormalization" type="xs:boolean"/>
+      <xs:element name="settleTime" type="xs:decimal"/>
+      <xs:element name="ratioReferenceEntities" type="xs:string"/>
+      <xs:element name="ratioReferenceTime" type="xs:decimal"/>
+      <xs:element name="ratioReferenceDose" type="xs:string"/>
+      <xs:element name="entities" type="xs:string"/>
+      <xs:element name="field">
+        <xs:simpleType>
+             <xs:restriction base="xs:string">
+                <xs:enumeration value="conc"/>
+                <xs:enumeration value="n"/>
+                <xs:enumeration value="Vm"/>
+             </xs:restriction>
+         </xs:simpleType>
+      </xs:element>  
+      <xs:element name="Data">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Time" type="xs:decimal"/>
+            <xs:element name="Value" type="xs:decimal"/>
+            <xs:element name="SEM" type="xs:decimal"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  </xs:element>
+</xs:sequence>
+  </xs:complexType>
+</xs:element>
+</xs:schema> 
