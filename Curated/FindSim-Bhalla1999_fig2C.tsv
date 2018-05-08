@@ -20,30 +20,29 @@ notes	Dose Response
 Stimuli		
 timeUnits	sec	
 quantityUnits	uM	
-molecules	Ca/Ca	
+entities	Ca	
 field	conc	
 Data		
-settleTime	300	
+Time	Value	
 		
 		
 		
 		
 Readouts		
-readoutType	Dose-Response	
+readoutType	DoseResponse	
 timeUnits	sec	
-quantityUnits	uM	
-useRatio	TRUE	
+quantityUnits	ratio	
 useXlog	TRUE	
 useYlog	FALSE	
-ratioReferenceTime	300	
 ratioReferenceDose	100	
-ratioReferenceEntity	Ca.PLC_g_p	
-molecules	Ca.PLC_g_p	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceTime	300	
+ratioReferenceEntities	Ca.PLC_g_p	
+entities	Ca.PLC_g_p	
+settleTime	300	
+field	conc	
 useNormalization	FALSE	
 Data		
-Dose	Value	stderr
+Dose	Value	sem
 0	0	0
 0.032	0.15	0
 0.065	0.2	0
@@ -62,9 +61,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/Ca,kinetics/PLC_g,kinetics/EGFR	
-stimulusMolecules	Ca/Ca	
-readoutMolecules	Ca.PLC_g_p	
-referenceMolecule	Ca.PLC_g_p	
+modelLookup	Ca.PLC_g_p:Ca.PLC_g_p,Ca:Ca/Ca	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	PLC_g_p_dephospho,L.EGFR/SHC_phospho,Ca.PLC_g/PIP2_hydrolysis,Ca.PLC_g_p/PIP2_hydrolysis	
 solver	Runge kutta method (gsl)	

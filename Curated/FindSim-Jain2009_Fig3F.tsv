@@ -21,7 +21,7 @@ notes	20ug of GAL4-4EBP2 and 20ug of eIF4E in 300ul buffer
 Stimuli		
 timeUnits	sec	
 quantityUnits	mM	
-molecules	eIF4E	
+entities	eIF4E	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	uM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	eIF4E_BP	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceEntities		
+entities	eIF4E_BP	
+ratioReferenceDose	0	
+settleTime	0	
+field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 0	0	0
 13	50	0
 20	80	0
@@ -62,9 +62,7 @@ citationId
 citation		
 authors		
 modelSubset	eIF4E_BP,eIF4E_bind_BP2,4E_BP/4E_BP,eIF4E	
-stimulusMolecules	eIF4E	
-readoutMolecules	eIF4E_BP	
-referenceMolecule		
+modelLookup	eIF4E_BP:eIF4E_BP,eIF4E:eIF4E	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete		
 solver	Runge kutta method (gsl)	

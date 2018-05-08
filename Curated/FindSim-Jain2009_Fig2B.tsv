@@ -21,7 +21,7 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	BDNF	
+entities	BDNF	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
+settleTime	0	
+ratioReferenceDose	0	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	BDNF_TrKB	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceEntities		
+entities	BDNF_TrKB	
+field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 0	0	0
 30	1	0
 300	14.5	0
@@ -60,9 +60,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/BDNF,kinetics/TrKB	
-stimulusMolecules	BDNF/BDNF	
-readoutMolecules	TrKB/BDNF_TrKB2_p_clx	
-referenceMolecule		
+modelLookup	BDNF:BDNF/BDNF,BDNF_TrKB:TrKB/BDNF_TrKB2_p_clx	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho,BDNF_TrKB2_p_clx/SHC_phospho	
 solver	Runge kutta method (gsl)	

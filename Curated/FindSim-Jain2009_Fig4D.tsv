@@ -21,7 +21,7 @@ notes	1:400 dilution of reticulocyte lysate used as source for PP2A. Assuming 0.
 Stimuli		
 timeUnits	sec	
 quantityUnits	mM	
-molecules	eEFthr_56	
+entities	eEFthr_56	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
+ratioreferenceDose	0	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	eEF2	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceEntities		
+entities	eEF2	
+settleTime	0	
+field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 0	0	0
 300	0.24	0
 600	0.44	0
@@ -60,9 +60,7 @@ citationId
 citation		
 authors		
 modelSubset	eEF2,eEFthr_56,PP2A	
-stimulusMolecules	eEFthr_56	
-readoutMolecules	eEF2	
-referenceMolecule		
+modelLookup	eEFthr_56:eEFthr_56,eEF2:eEF2	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,mGluR_dephosph	
 solver	Runge kutta method (gsl)	

@@ -3,9 +3,9 @@ transcriber	Nisha Ann Viswan
 organization	National Centre for Biological Sciences	
 emailId	nishaav@ncbs.res.in	
 exptSource	Paper	
-citationId	PMID: 7657647	
-authors	Teng KK et al.	
-journal	J Biol Chem. 1995	
+citationId	PMID: 14576170	
+authors	Gu J et al.	
+journal	Glycobiology 2004	
 		
 		
 		
@@ -14,17 +14,17 @@ species	Rat
 cell-types	Pheochromocytoma cell line (PC12)	
 temperature (Celsius)		
 Include pathway	EGFR,Sos,PLCg,PKC,Ras,MAPK	
-details	Fig 9A	
-notes	Simulation MAPK activity using calicum.	
+details	Fig 3	
+notes		
 		
 Stimuli		
 timeUnits	sec	
-quantityUnits	mM	
+quantityUnits	nM	
 entities	EGF	
 field	conc	
 Data		
 Time	Value	
-2100	0.0001	
+3600	1.00E+00	
 		
 		
 Readouts		
@@ -35,18 +35,19 @@ useXlog	FALSE
 useYlog	FALSE	
 settleTime	0	
 ratioReferenceDose	0	
-ratioReferenceTime	2400	
+ratioReferenceTime	3600	
 ratioReferenceEntities	pERK1/2	
 entities	pERK1/2	
 field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	sem
-2100	0.02	0
-2400	1	0
-3900	0.12	0
-5700	0.1	0
-9300	0.08	0
+Time	Value	stderr
+3600	1	0
+3900	2.5	1.3
+5400	1.6	1
+7200	1.4	0.8
+14400	1.2	0.5
+36000	1	0.5
 		
 		
 Model mapping		
@@ -56,13 +57,14 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/EGFR,kinetics/Sos,Ras,kinetics/MAPK,kinetics/Ca,PKC,Phosphatase,kinetics/PLC_g,PLCbeta,PLA2,PC,IP3,PIP2	
-modelLookup	EGF:EGF,pERK1/2:MAPK_p+MAPK/MAPK_p_p	
+modelLookup	pERK1/2:MAPK_p+MAPK/MAPK_p_p,EGF:EGF	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	PP2A,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,MEKp_phospho,mGluR_barr2_Raf_scaffolding,MAPK_p_p/cluster_phospho_S6K,MAPK_p_p/MAPK_4E_BP_p_p,MAPK_p_p/MAPK_4E_BP_phospho,Act_PLC_by_Gq,Inact_PLC_Gq,PLC_bind_Gq,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,PIP2_PLA2_act,PIP2_Ca_PLA2_act,CaM_bind_GEF,PI3K_bind_Ras_GTP,PIP2_phospho_Ras_GTP	
 solver	Runge kutta method (gsl)	
-notes	Fig2B	
+notes		
 parameterChange		
 Object	parameter	Value
+EGF	concInit	0
 PKC_basal_p	concInit	2.00E-05
 GAP	concInit	2.00E-05
 PIP2	concInit	0.007

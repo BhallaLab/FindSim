@@ -21,7 +21,7 @@ notes	The Wang et al paper says they put in 1 ug in 40 ul, of GST-tagged eEF2K (
 Stimuli		
 timeUnits	sec	
 quantityUnits	mM	
-molecules	S6K_thr_252	
+entities	S6K_thr_252	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	CaMKIII_p	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceDose	0	
+ratioReferenceEntities		
+entities	CaMKIII_p	
+settleTime	0	
+field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 60	8	0
 180	12	0
 300	26	0
@@ -59,9 +59,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/CaMKIII,S6Kinase	
-stimulusMolecules	S6K_thr_252	
-readoutMolecules	CaMKIII_p	
-referenceMolecule		
+modelLookup	S6K_thr_252:S6K_thr_252,CaMKIII_p:CaMKIII_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	S6_phos,S6_phospho,S6_dephosph,CaMKIII_CaM_Ca4[0]/phospho,eEF2thr56_basal	
 solver	Runge kutta method (gsl)	

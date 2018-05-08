@@ -21,7 +21,7 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	uM	
-molecules	Glutamate	
+entities	Glutamate	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSerieswithRatio	
 timeUnits	sec	
 quantityUnits	ratio	
-useRatio	TRUE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity	mGluR1a	
-molecules	total surface mGluR1a	
-experimentalReadout	conc	
-useSum	TRUE	
+ratioReferenceDose	0	
+ratioReferenceEntities	mGluR1a	
+entities	total surface mGluR1a	
+settleTime	0	
+field	conc	
 useNormalization	TRUE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 0	1	0
 300	0.43	0
 600	0.38	0
@@ -59,9 +59,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/mGluR,barr2_signaling,PP2A	
-stimulusMolecules	Glutamate	
-readoutMolecules	mGluR/mGluR+Rec_Glu+L.mGluR_p+L.mGluR_p.barr2+mGluR_p.barr2	
-referenceMolecule	mGluR/mGluR	
+modelLookup	Glutamate:Glutamate,mGluR1a:mGluR/mGluR,total surface mGluR1a:mGluR/mGluR+Rec_Glu+L.mGluR_p+L.mGluR_p.barr2+mGluR_p.barr2	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	Rec_Gq,Rec_Glu_Gq,Rec_Glu_bind_Gq,Glu_bind_Rec_Gq,Activate_Gq,Rec_bind_Gq,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p	
 solver	Runge kutta method (gsl)	

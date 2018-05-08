@@ -20,10 +20,10 @@ notes	Dose Response
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	mTOR	
+entities	mTOR	
 field	conc	
 Data		
-settleTime	3600	
+Time	Value	
 		
 		
 		
@@ -32,17 +32,17 @@ Readouts
 readoutType	DoseResponse	
 timeUnits	sec	
 quantityUnits	uM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	S6Kthr412	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceDose	0	
+ratioReferenceEntities		
+entities	S6Kthr412	
+settleTime	3600	
+field	conc	
 useNormalization	FALSE	
 Data		
-Dose	Value	stderr
+Dose	Value	sem
 0.45	0.01	0
 0.66935	0.05	0
 0.8925	0.08	0
@@ -59,9 +59,7 @@ citationId
 citation		
 authors		
 modelSubset	S6Kinase,mTORC1	
-stimulusMolecules	TOR_clx	
-readoutMolecules	S6K_thr_412	
-referenceMolecule		
+modelLookup	mTOR:TOR_clx,S6Kthr412:S6K_thr_412	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	S6_phos,S6_phospho,CaMKIII_phospho,S6K_basal,TOR_4E_BP_p,TOR_4E_BP_phospho,S6_dephosph	
 solver	Runge kutta method (gsl)	

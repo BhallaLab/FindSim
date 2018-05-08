@@ -21,10 +21,11 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	40S	
+entities	40S	
 field	conc	
 Data		
-settleTime	2400	
+Time	Value	
+		
 		
 		
 		
@@ -36,13 +37,15 @@ useRatio	FALSE
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	43S	
-experimentalReadout	conc	
+ratioReferenceDose	0	
+ratioReferenceEntities		
+entities	43S	
+settleTime	2400	
+field	conc	
 useSum	FALSE	
 useNormalization	FALSE	
 Data		
-Dose	Value	stderr
+Dose	Value	sem
 6.8	3.61	0
 20.4	15.3	0
 68	30.7	0
@@ -59,9 +62,7 @@ citationId
 citation		
 authors		
 modelSubset	Translation_initiation,kinetics/40S,43S_complex	
-stimulusMolecules	40S/40S	
-readoutMolecules	43Scomplex	
-referenceMolecule		
+modelLookup	40S:40S/40S,43S:43Scomplex	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete		
 solver	Runge kutta method (gsl)	

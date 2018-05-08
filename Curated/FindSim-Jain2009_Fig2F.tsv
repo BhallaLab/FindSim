@@ -21,7 +21,7 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	PDK1	
+entities	PDK1	
 field	conc	
 Data		
 Time	Value	
@@ -33,17 +33,17 @@ Readouts
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	AKT_thr308	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceEntities		
+entities	AKT_thr308	
+ratioReferenceDose	0	
+settleTime	0	
+field	conc	
 useNormalization	FALSE	
 Data		
-Time	Value	stderr
+Time	Value	sem
 0	0	0
 300	18	0
 600	25	0
@@ -60,9 +60,7 @@ citationId
 citation		
 authors		
 modelSubset	AKT_activation,PI3K_activation	
-stimulusMolecules	PDK1	
-readoutMolecules	PIP3_AKT_thr308	
-referenceMolecule		
+modelLookup	AKT_thr308:PIP3_AKT_thr308,PDK1:PDK1	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	PTEN,Ras_GTP_PI3K,SHC_p_Grb2_Gab1_clx,temp_PIP2,SHC_p_Grb2_Gab1_PI3K_clx,PI3K,Gab1,PI3K_basal,bind_Gab1,PI3K_act,basal_PI3K_act,PI3K_bind_Ras_GTP,PIP3_PDK2,PIP3_AKT_t308_s473,PDK1/S6K_phospho	
 solver	Runge kutta method (gsl)	

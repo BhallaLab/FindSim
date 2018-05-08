@@ -21,10 +21,10 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	BDNF	
+entities	BDNF	
 field	conc	
 Data		
-settleTime	300	
+Time	Value	
 		
 		
 		
@@ -32,17 +32,17 @@ Readouts
 readoutType	DoseResponse	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	SHC_p	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceEntities		
+entities	SHC_p	
+ratioReferenceDose	0	
+settleTime	300	
+field	conc	
 useNormalization	FALSE	
 Data		
-Dose	Value	stderr
+Dose	Value	sem
 0	0	0
 1	6.5	0
 2	12.5	0
@@ -59,9 +59,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/BDNF,kinetics/TrKB,SHC,SHC_p,SHC_p_dephospho	
-stimulusMolecules	BDNF/BDNF	
-readoutMolecules	SHC_p	
-referenceMolecule		
+modelLookup	BDNF:BDNF/BDNF,SHC_p:SHC_p	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho	
 solver	Runge kutta method (gsl)	

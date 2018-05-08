@@ -21,10 +21,10 @@ notes
 Stimuli		
 timeUnits	sec	
 quantityUnits	M	
-molecules	CaM	
+entities	CaM	
 field	conc	
 Data		
-settleTime	300	
+Time	Value	
 		
 		
 		
@@ -36,13 +36,14 @@ useRatio	FALSE
 useXlog	TRUE	
 useYlog	FALSE	
 ratioReferenceTime	0	
-ratioReferenceEntity		
-molecules	eEFthr56	
-experimentalReadout	conc	
-useSum	FALSE	
+ratioReferenceDose	0	
+ratioReferenceEntities		
+entities	eEFthr56	
+field	conc	
+settleTime	300	
 useNormalization	FALSE	
 Data		
-Dose	Value	stderr
+Dose	Value	sem
 5.00E-12	0	0
 3.00E-11	0.01	0
 3.20E-10	0.12	0
@@ -63,9 +64,7 @@ citationId
 citation		
 authors		
 modelSubset	CaM_Ca4,CaMKIII_bind_CaM_Ca4,CaMKIII/CaMKIII,CaMKIII/CaMKIII_CaM_Ca4,eEF2,eEFthr_56,PP2A	
-stimulusMolecules	CaM_Ca4	
-readoutMolecules	eEFthr_56	
-referenceMolecule		
+modelLookup	CaM:CaM_Ca4,eEFthr56:eEFthr_56	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	CaM_Ca3_bind_Ca,elongation,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,mGluR_dephosph	
 solver	Runge kutta method (gsl)	
