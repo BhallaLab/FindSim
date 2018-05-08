@@ -1,0 +1,66 @@
+Experiment metadata		
+transcriber	Upinder S. Bhalla
+organization	NCBS	
+emailId	bhalla@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 10486198	
+authors	Hodgkin and Huxley
+journal	Journal of Physiology 117, 500-544 (1952)
+		
+		
+		
+Experiment context		
+species		loligo pelagi
+cell-types	giant axon
+temperature (Celsius)	5		
+details	Figure 13
+notes		Classic HH data, 
+		
+		
+Stimuli		
+timeUnits	msec	
+quantityUnits	mV
+entities	soma
+field		Vclamp
+Data		
+Time	Value	
+0	-65
+10	-25
+60	-65
+100	-65
+		
+Readouts		
+readoutType	TimeSeries	
+timeUnits	msec	
+quantityUnits	nA	
+useXlog	FALSE	
+useYlog	FALSE	
+entities	soma
+field	Im
+useNormalization	FALSE	
+Data		
+Time	Value	stderr
+0	0
+10	0
+11	20
+12	10
+13	-10
+14	-20
+60	-20
+61	-5
+62	-2
+63	-1
+64	0
+100	0
+		
+Model mapping		
+modelSource	HH
+fileName		
+citationId	HH demo implemented in MOOSE.	
+citation		
+authors		Hodgkin and Huxley
+modelSubset	all
+modelLookup	soma:soma	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+solver	CrankNicolson
+notes		
