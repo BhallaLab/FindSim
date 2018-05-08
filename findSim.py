@@ -14,15 +14,6 @@
 # the Free Software Foundation, Inc., 51 Franklin Street, Fifth
 # Floor, Boston, MA 02110-1301, USA.
 # 
-# 
-# Code:
-# Figure out how to convert a given molecule to buffered for doing dose-resp
-# To do: Provide a way to set model modifications
-# Provide way to plot on log scale if dose-response
-# Put in stuff with respect to a ratio
-
-
-# Feb12 2018: Taken from Upi's labnotes autsim12.py and manipulate for the current excel sheet
 
 '''
 *******************************************************************
@@ -41,54 +32,6 @@
 **           copyright (C) 2003-2018 Upinder S. Bhalla. and NCBS
 **********************************************************************/
 
-2018
-#check if stimulus quantityUnits is blank in excel sheet it shd take mM which was not taking
-Apr 18:
-    duplicate code is deleted/cleaned up
-    RatioRefValue's value is devided after the loop which ensure that the division is done for all the values from zero to endtime
-Apr 10:
-    clean up in timeUnits and quantityUnits for blank, space etc
-    runit: check are made for condition for useSum and useRatio if satifies then moved further
-           Also created a dictionaries for stimuli, readout and reference Molecules which is passed
-           to parseAndRun and parseAndRunDoser
-           cleaned RunDoser and runReferenceDoser 
-           
-Apr 2:
-    Added runInitialReferenceDoser code
-    added runRatioDoser code
-Mar29: 
-    Added Dose-Response code
-Mar28:
-    cleaned up in parseAndRun for running when useSum and useRation is true
-Mar 25:
-    stimulus,readout,reference molecules in modelmapping are in list, Equivalent molcules from stimulus,readout block are picked
-    up as per index order from the modelmapping: stimulusMolecules, readoutMolecules,referenceMolecule
-    changes made in parseAndRun for the same, now its queries index vice
-    Model's who run the script should make sure that order is same
-    checked for MMenz in pruneDanglingObj 
-Mar 17:
-    checked for 
-        dangling Reac/Enz, 
-        if sub/prd is altered RateLaw
-        if func's input have chaged
-Mar 16: 
-    string checked for comma, 
-    function to check unique Id is provided in modelmapping
-    object's deleted specified in itemstodelete section
-    object's deleted specified in modelSubset
-        groups and group/object is specified then group is saved
-        group/object is mentioned then in group is saved, then object which are 
-        set in modelSubseting those are deleted
-        same with comparment's,if comparment is specified then sharedobject and group is saved
-        else comparement is deleted
-
-#To be checked: 
-    #if comparement has just one pool present, while applying the stoich in buildSolver , we get seg fault "installAndUnschedFunc".
-    # While checking compartment, checked for CubeMesh or cyclMesh in further if it come through rdesigner check
-    # while setting the values like kcat, km etc not taken care for units unlike for concInit
-    # check after surviour group, check anything is dangling, like reaction and enzyme if S delete and function check input and out and input with numVars
-    # stimuti block is not necessary we can delete entire block or block exist make sure what every empty it doesn't affect the model  
-    # different type if time-series types at this point no check is make
 '''
 
 import heapq
@@ -100,9 +43,21 @@ import moose
 import os
 import re
 import ntpath
-convertTimeUnits = {('sec','s') : 1.0, ('ms','millisec') : 1e-3,('us','microsec') : 1e-6, ('ns','nanosec') : 1e-9,
-                    ('min','m') : 60.0, ('hours','hrs') : 3600.0, "days": 86400.0}
-convertConcUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0}
+convertTimeUnits = {('sec','s') : 1.0, 
+    ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
+    ('ns','nanosec') : 1e-9, ('min','m') : 60.0, 
+    ('hours','hrs') : 3600.0, "days": 86400.0}
+#convertConcUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0 }
+#convertVoltageUnits = { 'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9 }
+#convertCurrentUnits = { 'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
+convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
+        'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
+        'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
+        'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
+
+#elecFields = ['V', 'mV', 'uV', 'nV', 'A', 'mA', 'uA', 'nA', 'pA' ]
+elecFields = ['Vm', 'Im']
+
 
 def keywordMatches( k, m ):
     return k.lower() == m.lower()
@@ -164,62 +119,50 @@ class Stimulus:
     the Readout, which contains the dose-response table.
     """
     def __init__( self,
-            stimulusType = 'timeSeries',
             timeUnits = 's',
+            quantityType = 'chem', # Could be chem, elec, mech, or spikes
             quantityUnits = 'mM',
-            molecules = [],
+            quantityScale = 1.0,    # Go from quantity units to SI.
+            entities = '',
             field = '',
-            settleTime = 300.0, 
             data = []
         ):
-        self.stimulusType = stimulusType
-        """This is the most elementary stimulus: assign some model 
-        value at a succesion of points in time. Other options are
-        timeSeriesWithRestart, doseResponse, and more.
-        """
         if timeUnits != " ":
             self.timeUnits = timeUnits
         """timeUnits may be us, ms, s, min, hours, days"""
         #self.timeScale = convertTimeUnits[ timeUnits ]
         self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
         """timeScale is timeUnits scaled to seconds"""
-        if quantityUnits and quantityUnits.strip():
-            self.quantityUnits = quantityUnits
+        self.quantityUnits = quantityUnits.strip()
+        if self.quantityUnits in convertQuantityUnits:
+            self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            self.quantityUnits = 'mM'
-        """Quantity Units may be: M, mM, uM, nM, pM, number, ratio"""
-        self.concScale = convertConcUnits[ self.quantityUnits ]
-        """concScale is quantityUnits scaled to mM"""
-        #self.useRatio = useRatio
-        #self.ratioReferenceTime = ratioReferenceTime
-        """Timepoint at which to sample the quantity to use as a reference for calculating the ratio"""
-        self.molecules = molecules
+            raise SimError(" Stimulus::__init__: quantity units not known.")
+        temp = entities.split( ',' )
+        self.entities = [ i for i in temp if len(i) > 0 ]
         """Name of the model entity to modify for the stimulus. 
-        Typically a molecule name."""
+        Typically a molecule name, or a compartment in a neuron."""
         self.field = field
-        """Name of the field associated with the entity. A bit of an
-        unclean entry at this point but later we can fine-tune"""
-        self.settleTime = float( settleTime )
-        """For dose response, we can specify how long to settle at 
-        each level. A value of 0 or less means to automatically go 
-        on till steady-state."""
+        """Name of the field associated with the entity. For example,
+        conc for a molecule, or currentInjection for compartment"""
         self.data = data
-        """List of pairs of numbers, [time, quantity]"""
+        """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
         
     def load( fd ):
-        arg, data, param, struct, stim, readout, refentMol, ent, refent = innerLoad( fd, Stimulus.argNames, 2 )
+        arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
         stim = Stimulus( **arg )
-        for i in ent:
-            stim.molecules=ent
         stim.data = data
-        if len(stim.data) != 0:
-            if stim.data[0][0] =="settleTime":
-                stim.settleTime = stim.data[0][1]
         return stim
-
     load = staticmethod( load )
 
-Stimulus.argNames = ['timeUnits', 'quantityUnits', 'molecules', 'field', 'settleTime']
+    def configure( self, modelLookup ):
+        """Sanity check on all fields. First, check that all the entities
+        named in experiment have counterparts in the model definition"""
+        for i in self.entities:
+            if not i in modelLookup:
+                raise SimError( "Stim::configure: Error: object {} not defined in model lookup.".format( i ) )
+
+Stimulus.argNames = ['timeUnits', 'quantityUnits', 'entities', 'field' ]
 
 ##########################################################################
 
@@ -235,20 +178,20 @@ class Readout:
             timeUnits = 's',
             quantityUnits = 'mM',
             useRatio = False,
-            useSum = False,
             useNormalization=False,
+            settleTime = 300.0,
+            ratioReferenceEntities = '',
             ratioReferenceTime = 0.0,
             ratioReferenceDose = 0.0,
-            molecules = '',
-            ratioReferenceEntity = '',
+            entities = '',
             field = '',
-            experimentalReadout = '',
+            quantityScale = 1.0,    # Scaling from quantity units to SI
             useXlog = False,
             useYlog = False,
             scoringFormula = 'abs(1-(sim+1e-9)/(expt+1e-9))',
-            data = []
+            data = []      # Data from experiment. rows of [t,val,stder]
             ):
-        self.readoutType = readoutType
+        self.readoutType = readoutType.lower()
         """This defines what kind of data is in the readout. 
         timeSeries is the most elementary readout: Monitor a model
         value at a succesion of points in time. Other options are
@@ -258,18 +201,14 @@ class Readout:
         """timeUnits may be us, ms, s, min, hours, days"""
         self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
         """timeScale is timeUnits scaled to seconds"""
-        self.quantityUnits = quantityUnits
-        """Quantity Units may be: M, mM, uM, nM, pM, number, ratio"""
-        self.concScale = convertConcUnits[ quantityUnits ]
-        """concScale is quantityUnits scaled to mM"""
-        if useRatio != "":
-            self.useRatio = str2bool(useRatio)
+        self.quantityUnits = quantityUnits.strip()
+        """Quantity Units may be: M, mM, uM, nM, pM, number, ratio, etc"""
+        if self.quantityUnits in convertQuantityUnits:
+            self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            self.useRatio = useRatio
-        if useSum != "":
-            self.useSum = str2bool(useSum)
-        else:
-            self.useSum = False
+            raise SimError( "Readout::__init__: unknown quantity units" +
+                    self.quantityUnits )
+
         if useXlog != "":    
             self.useXlog = str2bool(useXlog)
         else:
@@ -280,35 +219,115 @@ class Readout:
             self.useYlog = str2bool(useYlog)
         self.useNormalization = str2bool(useNormalization)
         
-        self.molecules = molecules
-        """Name of the model entity to read. Typically a molecule name."""
-        self.experimentalReadout = experimentalReadout
-        """Name of the field associated with the entity. A bit of an
-        unclean entry at this point but later we can fine-tune"""
-        self.ratioReferenceEntity = ratioReferenceEntity
-        """Object to use as a reference for computing the readout ratio."""
+        temp = entities.split( ',' )
+        self.entities = [ i for i in temp if len(i) > 0 ]
+        """Name of the model entity to read. Typically a molecule name,
+        or the name of a compartment in an electrical model."""
+        self.field = field
+        """Name of the field/quantity associated with the entity. For
+        example, conc for molecules, or Vm for a compartment."""
+        self.settleTime = float( settleTime )
+        """For dose response, we can specify how long to settle at 
+        each level. A value of 0 or less means to automatically go 
+        on till steady-state."""
+        temp = ratioReferenceEntities.split( ',' )
+        self.ratioReferenceEntities = [ i for i in temp if len(i) > 0 ]
+        self.useRatio = (len( self.ratioReferenceEntities ) > 0)
+        """Objects to use as reference for computing the readout ratio."""
         self.ratioReferenceTime = float( ratioReferenceTime )
-        self.ratioReferenceDose = float( ratioReferenceDose )
         """Timepoint at which to sample the quantity to use as a reference for calculating the ratio. -1 means to sample reference each time we sample the readout, and to use the instantaneous ratio."""
-        #self.scoringFormula = scoringFormula
-        """Formula to use to score how well the model matches expt"""
+        self.ratioReferenceDose = float( ratioReferenceDose )
+        """Dose at which to sample the quantity to use as a reference for
+        ratio calculations."""
         self.data = data
-        """List of triplets of numbers, [time, quantity, stderr]"""
+        """Array of experimentally defined readout data. Each row has triplets of numbers, [time or dose, quantity, stderr]"""
+        self.simData = [] 
+        """Array of simulation results. One per data entry."""
+        self.ratioData = [] 
+        """Array of ratio results. One per data entry."""
+        self.plots = {}
+        """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
         
+    def configure( self, modelLookup ):
+        """Sanity check on all fields. First, check that all the entities
+        named in experiment have counterparts in the model definition"""
+        for i in self.entities:
+            if not i in modelLookup:
+                raise SimError( "Readout::configure: Error: object {} not defined in model lookup.".format( i ) )
+        for i in self.ratioReferenceEntities:
+            if not i in modelLookup:
+                raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
+    def displayPlots( self, fname, modelLookup ):
+        if "doseresponse" in self.readoutType:
+            for i in self.entities:
+                elms = modelLookup[i]
+                for j in elms:
+                    pp = PlotPanel( self, xlabel = j.name +'('+self.quantityUnits+')' )
+                    pp.plotme( fname, joinSimPoints = True )
+        else:
+            for i in self.entities:
+                elms = modelLookup[i]
+                ypts = self.plots[elms[0].name].vector
+                numPts = len( ypts )
+                if numPts > 0:
+                    tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
+                    xpts = numpy.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
+                sumvec = numpy.zeros(len(xpts))
+                for j in elms:
+                    #pp = PlotPanel( self, xlabel = j.name +'('+self.timeUnits+')' )
+                    pp = PlotPanel( self )
+                # Here we plot the fine timeseries for the sim.
+                # Not yet working for all options of ratio.
+                    if len( self.ratioData ) > 0:
+                        scale = self.quantityScale * self.ratioData[0]
+                    else:
+                        scale = self.quantityScale
+                    ypts = self.plots[j.name].vector / scale
+                    sumvec += ypts
+                    pylab.plot( xpts, ypts, 'r:' )
+                    pp.plotme( fname )
+                pylab.plot( xpts, sumvec, 'r--' )
+
+    def applyRatio( self ):
+        eps = 1e-16
+        rd = self.ratioData
+        if len(rd) == 0:
+            rd = [1.0]*len(self.data)
+        elif len(rd) == 1:
+            rd = [rd[0]]*len(self.data)
+        assert( len(rd) == len( self.data ) )
+        rd = [ 1.0 if abs(x) < eps else x for x in rd ] # eliminate div/0.0
+        
+        self.simData = [ s/(r * self.quantityScale) for s, r in zip( self.simData, rd ) ]
+
+    def doScore( self, scoringFormula ):
+        assert( len(self.data) == len( self.simData ) )
+        score = 0.0
+        numScore = 1.0
+        for i,sim in zip( self.data, self.simData ):
+            t = i[0]
+            expt = i[1]
+            sem = i[2]
+            #print i
+            #print t, expt, sem, sim
+            #print "Formula = ", scoringFormula, eval( scoringFormula )
+            score += eval( scoringFormula )
+            numScore += 1.0
+
+        return score/numScore
+
+
     def load( fd ):
-        arg, data, param, struct, stim, readout, refentMol, ent, refent  = innerLoad( fd, Readout.argNames, 3 )
+        arg, data, param, struct, modelLookup = innerLoad( fd, Readout.argNames, dataWidth = 3 )
         readout = Readout( **arg )
-        # for i in ent:
-        #     readout.entity=ent
-        for i in refent:
-            readout.ratioReferenceEntity=refent
         readout.data = data
         return readout
     load = staticmethod( load )
 
 Readout.argNames = ['readoutType', 'timeUnits', 'quantityUnits', 
-        'useRatio', 'useXlog', 'useYlog', 'useSum', 'useNormalization', 'molecules', 'experimentalReadout', 
-        'ratioReferenceTime', 'ratioReferenceDose','ratioReferenceEntity']
+        'useXlog', 'useYlog', 'useNormalization', 
+        'entities', 'field', 'settleTime', 'ratioReferenceTime', 
+        'ratioReferenceDose','ratioReferenceEntities']
 
 ##########################################################################
 
@@ -357,16 +376,15 @@ class Model:
         self.notes = notes
         self.parameterChange = []
         self.itemstodelete = []
-        self.stimulusMolecules = []
-        self.readoutMolecules = []
-        self.referenceMolecule = []
+        self.modelLookup = {}
         self.scoringFormula = scoringFormula
+        #self.fieldLookup = {'nInit':'nInit','n':'n','conc':'conc','concInit':'concInit','Iclamp':'inject','Vclamp':'inject','Vm':'Vm','Im':'Im'
 
     def load( fd ):
         '''
         Model::load builds a model instance from a file and returns it.
         '''
-        arg, data, param, struct, stim, readout, refentMol, ent, refent  = innerLoad( fd, Model.argNames )
+        arg, data, param, struct, modelLookup = innerLoad( fd, Model.argNames )
         
         model = Model( **arg )
         for i in param:
@@ -374,16 +392,29 @@ class Model:
         for j in struct[:]:
             #model.addStructuralChange( i[0], i[1] )
             model.addStructuralChange(j.lstrip(),"delete")
-        #stimulus molecules  
-        model.stimulusMolecules = stim
-        #readoutModlecules
-        model.readoutMolecules = readout
-        
-        model.referenceMolecule = refentMol
-        
+        #print "################ Loading model, lookup=", modelLookup
+        # model.modelLookup = {} from constructor.
+        model._tempModelLookup = modelLookup
+        #model.fieldLookup = fieldLookup
         return model
 
     load = staticmethod( load )
+
+    def buildModelLookup( self ):
+        for i in self._tempModelLookup:
+            paths = self._tempModelLookup[i].split('+')
+            # Summed sim entities are separated with a '+', but map to a 
+            # single experimentally defined entity.
+            self.modelLookup[i] = [ self.findObj( '/model', p) for p in paths ]
+    '''
+    def buildFieldLookup( self, stims, readouts ):
+        for i in stims:
+            if not i.field in self.fieldLookup:
+                self.fieldLookup[i.field] = i.field
+        for i in readouts:
+            if not i.field in self.fieldLookup:
+                self.fieldLookup[i.field] = i.field
+    '''
 
     def addParameterChange( self, entity, field, data ):
         '''
@@ -416,26 +447,27 @@ class Model:
         #     print( "Warning: Model::addStructuralChange: Unknown modification: " + change )
     def findObj( self,rootpath, name ):
         '''
-        Model:: findObj causes to search unqiue id provided in modelmapping's 
-        modelSubset,stimulusMolecules,readoutMolecules,itemstodelete,parameterChange
-        if more than one value is returned then program halts unless user correct this.
-        Expected min unique id, if found more than one, then its parent needs to be passed until
-        a unique is found (This is b'cos in moose, all the object's are path based)
+        Model:: findObj locates objects uniquely specified by a string. 
+        The object can be located at any depth in the model tree.
+        The identifier string typically consists of the name of an object,
+        but it may be necessary to disambiguate it by including its parent
+        name as well.
+        For example, if there is a foo/bar and a zod/bar, then we will 
+        have to pass "zod/bar" to uniquely specify the object.
         '''
         try1 = moose.wildcardFind( rootpath+'/' + name )
         try2 = moose.wildcardFind( rootpath+'/##/' + name )
+        try2 = [ i for i in try2 if not '/model[0]/plots[0]' in i.path ]  
         #print " findObj ",rootpath+'/'+name, moose.wildcardFind(rootpath+'/'+name)
         #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
-            #print( "Bad: Too many entries. ", try1, try2)
-            return moose.element('/'), ( "Bad: Too many entries. ", try1, try2)
+            raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
-            #print( "Bad: zero entries. ", name )
-            return moose.element('/'),( "Bad: zero entries. ", name )
+            raise SimError( "findObj: No object found on: '{}'".format( name) )
         if len( try1 ) == 1:
-            return try1[0],""
+            return try1[0]
         else:
-            return try2[0],""
+            return try2[0]
 
     def modify( self, modelId, erSPlist, odelWarning):
         # Start off with things explicitly specified for deletion.
@@ -443,20 +475,12 @@ class Model:
         if self.itemstodelete:
             for ( entity, change ) in self.itemstodelete[:]:
                 if entity != "":
-                    foundobj,errormsg = self.findObj(kinpath, entity)
- 
-                    if moose.element(foundobj).className == "Shell":
-                       raise SimError("modify: " + ', '.join(map(str, errormsg)))
-                    else:
-                        if moose.exists( moose.element(foundobj).path ):
-                            obj = moose.element( foundobj.path )
-                            if change == 'delete':
-                                if obj.path != modelId.path and obj.path != '/model[0]':
-                                    moose.delete( obj )
-                                else:
-                                    raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
+                    obj = self.findObj(kinpath, entity)
+                    if change == 'delete':
+                        if obj.path != modelId.path and obj.path != '/model[0]':
+                            moose.delete( obj )
                         else:
-                            raise SimError("Object does not exist {}".format( entity ) )
+                            raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
                 
         if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
             '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
@@ -482,34 +506,26 @@ class Model:
             #are specified in modelmapping
 
             for i in subsets: 
-                foundobj = ""
-                foundobj, errormsg = self.findObj(kinpath, i)
-                if moose.element(foundobj).className == "Shell":
-                    raise SimError("Model Subsetting" + ', '.join(map(str, errormsg)))
+                elm = self.findObj(kinpath, i)
+                if isCompartment(elm):
+                    directCompts.append(elm)
+                elif isGroup( elm ):
+                    directGroups.extend( findChildGroups( elm ) )
+                    survivorsGroup.append(elm)
+                    objCompt = findCompartment(elm)
+                    if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
+                        indirectCompts.append(objCompt)
                 else:
-                    if moose.exists( moose.element(foundobj).path ):
-                        elm = moose.element( moose.element(foundobj).path  )
-                        if isCompartment(elm):
-                            directCompts.append(elm)
-                        elif isGroup( elm ):
-                            directGroups.extend( findChildGroups( elm ) )
-                            survivorsGroup.append(elm)
-                            objCompt = findCompartment(elm)
-                            if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                                indirectCompts.append(objCompt)
-                        else:
-                            obj = findParentGroup(elm)
-                            if (moose.element(obj).className == "Neutral"):
-                                indirectGroups.append( obj )
-                                nonGroups.append(elm)
-                                objCompt = findCompartment(obj)
-                                if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                                    indirectCompts.append(objCompt)
-                            elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
-                                indirectCompts.append(obj)
-                                nonCompts.append(elm)
-                    else:
-                        print("Warning: subset entry '{}' not found".format(i))
+                    obj = findParentGroup(elm)
+                    if (moose.element(obj).className == "Neutral"):
+                        indirectGroups.append( obj )
+                        nonGroups.append(elm)
+                        objCompt = findCompartment(obj)
+                        if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
+                            indirectCompts.append(objCompt)
+                    elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
+                        indirectCompts.append(obj)
+                        nonCompts.append(elm)
             
             includedGroups = set( directGroups + indirectGroups )
             allGroups = set(allGroups)
@@ -549,27 +565,17 @@ class Model:
                 moose.delete(dc)
             
             for (entity, field, value) in self.parameterChange:
-                foundobj,errormsg = self.findObj(kinpath, entity)
-                if moose.element(foundobj).className == 'Shell':
-                    raise SimError("ParameterChange: "+ ', '.join(map(str, errormsg)))
-                else:
-                    if moose.exists( moose.element(foundobj).path ):
-                        obj= moose.element( foundobj.path )
-                        if field == "concInit (uM)":
-                            field = "concInit"
-                        #print " obj ", obj, field, value
-                        moose.element( obj ).setField( field, value )
-                        # if field == "concInit (uM)":
-                        #     print obj.concInit
-                        #     moose.element( obj ).setField( "concInit", value )
-                        #     print " after ",obj.concInit
-                        # else:
+                obj = self.findObj(kinpath, entity)
+                if field == "concInit (uM)":
+                    field = "concInit"
+                #print " obj ", obj, field, value
+                obj.setField( field, value )
 
             #Function call for checking dangling Reaction/Enzyme/Function's
             pruneDanglingObj( kinpath, erSPlist)
             
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
-            'modelSubset','stimulusMolecules', 'readoutMolecules','referenceMolecule', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
+            'modelSubset', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
 
 #######################################################################
 def list_to_dict(rlist):
@@ -580,41 +586,30 @@ def innerLoad( fd, argNames, dataWidth = 2):
     param = []  # list of tuples of objname, field, value.
     arg = {}
     struct = []
-    stim = []
-    readout = []
-    ent = []
-    refent = []
-    refentMol = []
+    modelLookup = {}
+    #fieldLookup = {}
     for line in fd:
         cols = line.split( "\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
-            return arg, data, param, struct, stim, readout, refentMol, ent, refent 
+            return arg, data, param, struct, modelLookup
 
-        if keywordMatches( cols[0], 'stimulusMolecules' ):
+        if keywordMatches( cols[0], 'modelLookup' ):
+            # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
-                #stim = dict(map(lambda s : s.split(':'), cols[1].split(',')))
-                stim = cols[1].split(',')
-        
-        if keywordMatches( cols[0], 'readoutMolecules' ):
+                temp = cols[1].split( ',' )
+                modelLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
+        '''
+        if keywordMatches( cols[0], 'fieldLookup' ):
+            # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
-                #readout = dict(map(lambda s : s.split(':'), cols[1].split(',')))
-                readout = cols[1].split(',')
-        
-        if keywordMatches( cols[0], 'referenceMolecule' ):
-            #readout=cols[1].split(',')
-            if cols[1] != "":
-                #refentMol = dict(map(lambda s : s.split(':'), cols[1].split(',')))
-                refentMol = cols[1].split(',')
-        
-        if keywordMatches( cols[0], 'ratioReferenceEntity' ):
-            refent=cols[1]#.split(',')
-            #print "ratioReferenceENTITY",refent
+                temp = cols[1].split( ',' )
+                fieldLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
+        '''
 
         if keywordMatches( cols[0], 'Data' ):
             readData( fd, data, dataWidth )
-
             #print "Ret READ DATA from INNERLOAD", len( data )
-            return arg, data, param, struct, stim, readout, refentMol, ent, refent 
+            return arg, data, param, struct, modelLookup
 
         for i in argNames:
             if keywordMatches( cols[0], i ):
@@ -626,7 +621,7 @@ def innerLoad( fd, argNames, dataWidth = 2):
         if keywordMatches( cols[0], 'itemstodelete' ):
             struct= cols[1].split(',')
 
-    return arg, data, param, struct, stim, readout, refentMol, ent, refent 
+    return arg, data, param, struct, modelLookup
 
 def nonBlank( cols ):
     for i in cols[1:]:
@@ -639,16 +634,16 @@ def readData( fd, data, width ):
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        if cols[0].lower() == "time" or cols[0].lower() == "dose":
+        if cols[0].lower() == "time" or cols[0].lower() == "dose" or cols[0].lower() == "settletime":
             continue
         row = []
         for c in cols:
             if c != '':
-                #check what datatypes 
-                #row.append( ( re.sub('[^A-Za-z0-9.]+', '', c) ) )
-                row.append(c)
+                row.append( float(c) )
                 if len( row ) >= width:
                     break;
+        if len( row ) > 0 and len( row ) < width:
+            row.append( 0.0 )
         data.append( row )
 
 def readParameter(fd, para, width):
@@ -760,213 +755,180 @@ def pruneDanglingObj( kinpath, erSPlist):
             mFunc = mFunc+"\n"+i.path
 
     if subprdNotfound:
-        raise SimError (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the excelsheet in ModelMapping -> itemstodelete section. Program will exit for now. "+mWarning)
+        raise SimError (" \nWarning: Found dangling Reaction/Enzyme, if this/these reac/enz to be deleted then add in the worksheet in ModelMapping -> itemstodelete section. Program will exit for now. "+mWarning)
     if ratelawchanged:
         raise SimError ("\nWarning: This reaction or enzyme's RateLaw needs to be corrected as its substrate or product were deleted while subsetting. Program will exit now. \n"+mRateLaw)
     if funcIPchanged:
-        raise SimError ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the excelsheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now.\n"+mFunc)
+        raise SimError ("\nWhile subsetting the either one or more input's to the function is missing, if function need/s to be deleted  then add this/these in the worksheet in ModelMapping -> itemstodelete section or one need to care to bring back those molecule/s, program will exit now.\n"+mFunc)
     
+
 ##########################################################################
-def parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
-    score = 0.0
-    q       = []
-    stdError  = []
-    
-    plots = {}
-    tabl  = {}
-    numScore  = 0
-    clock = moose.element( '/clock' )
-    ##################If extra plots need, populate extraplots list ###########################
-    # extraplots=[]
-    # dp = moose.Neutral('/model/graph1')
-    # for i in extraplots:
-    #     extraplt,errormsg= model.findObj('/model',i)
-    #     if moose.element(extraplt).className == "Shell":
-    #         #This check is for multiple entry
-    #         print ("Extra plots: ",errormsg)
-    #         exit()
-    #     else:
-    #         if not moose.exists( extraplt.path ):
-    #             print( "Error: Object does not exist: '" + i + "'")
-    #             quit()
-    #         else:
-    #             moose.connect(moose.Table2((d.path+'/'+(moose.element(extraplt)).name)+'.Co'),'requestOut',moose.element(extraplt),'getConc')
-    # scoreTab = { i.entity: [[],[],[]] for i in readout }
-    ##################### End #################################################
+def putStimsInQ( q, stims, modelLookup ):
     for i in stims:
         for j in i.data:
-            if j[0] =="settleTime":
-                j[0] = i.settleTime
-            heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
-    
+            if len(j) == 0:
+                continue
+            elif len(j) == 1:
+                val = 0.0
+            else:
+                val = float(j[1]) * i.quantityScale
+            heapq.heappush( q, (float(j[0])*i.timeScale, [i, val ] ) )
+
+def makeReadoutPlots( readouts, modelLookup ):
+    moose.Neutral('/model/plots')
     for i in readouts:
-        readoutMol = readoutsMaptoMolMoose[i][i.molecules]
-        for mReadout in readoutMol:
-            ########################Creating table's for plotting for full run ################################################
-            plotstr = modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co'
-            tabl[mReadout.name] = moose.Table2(plotstr)
-            moose.connect( tabl[mReadout.name],'requestOut',mReadout,'getConc' )
-            t_dt = moose.element( modelId.path+'/plots/' + ntpath.basename(mReadout.name) + '.Co' )
-            ####################################################################################################################
-            plots = {plotstr: PlotPanel(i)}
-        for j in i.data:
-            if j[0] =="settleTime":
-                j[0] = i.settleTime
-            heapq.heappush( q, (float(j[0])*i.timeScale, [i, float(j[1])*i.concScale ] ) )
-            stdError.append(float(j[2]))
-        if ratioRefMaptoMolMoose:  
-            if ratioRefMaptoMolMoose[i][i.ratioReferenceEntity]:
-                t = 0
-                t = i.ratioReferenceTime * i.timeScale
-                heapq.heappush( q, (t, [i, -1] ) )
+        readoutElms = []
+        for j in i.entities:
+            #print j, modelLookup[j]
+            readoutElms.extend( modelLookup[j] )
+        #readoutElms = [ moose.element( modelLookup[j][0] ) for j in i.entities ]
+        for elm in readoutElms:
+            ######Creating tables for plotting for full run #############
+            plotpath = '/model/plots/' + ntpath.basename(elm.name)
+            if i.field in elecFields:
+                plot = moose.Table(plotpath)
+            else:
+                plot = moose.Table2(plotpath)
+            i.plots[elm.name] = plot
+            fieldname = 'get' + i.field.title()
+            moose.connect( plot, 'requestOut', elm, fieldname )
 
-    readoutMolsReadout = []
-    readoutRefReadout = []
+        #################### temp stuff for debugging #################
+        plot = moose.Table( '/model/plots/Vm' )
+        moose.connect( '/model/plots/Vm', 'requestOut', '/model/elec/soma',  'getVm' )
+        #plot = moose.Table( '/model/plots/Vhold' )
+        #moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
+        #plot = moose.Table( '/model/plots/vclampCurr' )
+        #moose.connect( '/model/plots/vclampCurr', 'requestOut', '/model/elec/soma/pid',  'outputValue' )
+        #################### temp stuff for debugging #################
+
+def putReadoutsInQ( q, readouts, modelLookup ):
+    stdError  = []
+    plotLookup = {}
+    for i in readouts:
+        for j in range( len( i.data ) ):
+            # We push in the index of the data entry so the readout can
+            # process it when it is run. It will grab both the readout and
+            # ratio reference if needed.
+            heapq.heappush( q, (float(i.data[j][0])*i.timeScale, [i, j] ) )
+
+        if i.useRatio and i.ratioReferenceTime >= 0.0:
+            # We push in -1 to signify that this is to get ratio reference
+            heapq.heappush( q, (float(i.ratioReferenceTime)*i.timeScale, [i, -1] ) )
+
+def deliverStim( t, event, model ):
+    s = event[0]
+    val = event[1]
+    #field = model.fieldLookup[s.field]
+    for name in s.entities:
+        elms = model.modelLookup[name]
+        for e in elms:
+            if s.field == 'Vclamp':
+                path = e.path + '/lowpass'
+                moose.element( path ).setField( 'inject', val )
+                #moose.showfield( '/model/elec/soma/pid', 'sensed' )
+            else:
+                e.setField( s.field, val )
+                if t == 0:
+                    ##At time zero we initial the value concInit or nInit
+                    if s.field == 'conc':
+                        e.setField("concInit",val)
+                        moose.reinit()
+                    elif s.field == "n":
+                        e.setField( 'nInit', val )
+                        moose.reinit()
+
+def doReadout( t, event, model ):
+    ''' 
+    This function obtains readout values from the simulation. 
+    In all cases it checks to see if it should load in a simulation 
+    readout. In addition, there are two options for the ratio reference:\n
+    1. if ratioReferenceTime is < zero,
+        -then at every readout time point the ratio reference shd be noted,
+        and this should be applied to readout molecule values while 
+        calculating the ratio sim/ratioRefMol \n
+    2. if ratioReferenceTime is >=0.0, then the entire ratio reference 
+        array is to be filled with the value of reference entity at 
+        t=ratioReferenceTime.
+    '''
+    readout = event[0]
+    val = int(round( ( event[1] ) ) )
+    ratioReference = 0.0
+    #field = model.fieldLookup[readout.field]
+    if val == -1: # This is a special event to get RatioReferenceValue
+        doReferenceReadout( readout, model.modelLookup, readout.field )
+    else:
+        doEntityAndRatioReadout(readout, model.modelLookup, readout.field)
+
+def doReferenceReadout( readout, modelLookup, field ):
+    ratioReference = 0.0
+    assert( readout.ratioReferenceTime >= 0.0 ) # one-time calculation
+    for rr in readout.ratioReferenceEntities:
+        elms = modelLookup[ rr ]
+        for e in elms:
+            ratioReference += e.getField( field )
+    readout.ratioData.append( ratioReference )
+
+def doEntityAndRatioReadout( readout, modelLookup, field ):
+    sim = 0.0
+    for rr in readout.entities:
+        elms = modelLookup[ rr ]
+        for e in elms:
+            sim += e.getField( field )
+    readout.simData.append( sim )
+    ratioReference = 0.0
+    if readout.ratioReferenceTime < 0.0 :
+        for rr in readout.ratioReferenceEntities:
+            elms = modelLookup[ rr ]
+            for e in elms:
+                ratioReference += e.getField( field )
+        readout.ratioData.append( ratioReference )
+
+def processReadouts( readouts, scoringFormula ):
+    numScore  = 0
+    score = 0.0
+    for i in readouts:
+        i.applyRatio()
+        score += i.doScore( scoringFormula )
+        numScore += 1
+    return score/numScore
+
+
+##########################################################################
+def parseAndRun( model, stims, readouts, modelId ):
+    q = []
+    clock = moose.element( '/clock' )
+    putStimsInQ( q, stims, model.modelLookup )
+    putReadoutsInQ( q, readouts, model.modelLookup )
+
     moose.reinit()
-    ratioRefVal = 1
-    sumsl = []
-    xptslist = []
-    exptlist = []  
-    list_of_lists = []
-    sumslist = []
-    tab = []
     for i in range( len( q ) ):
-        ref=0.0
-        ratioRefValues = 0
-
         t, event = heapq.heappop( q )
-        val = event[1]
-        sim = 0.0
         currt = clock.currentTime
-        #print q, t, event
         if ( t > currt ):
             moose.start( t - currt )
         if isinstance( event[0], Stimulus ):
-            s = event[0]
-            if stimuliMaptoMolMoose[s]:
-                if stimuliMaptoMolMoose[s][s.molecules]:
-                    stimMol = stimuliMaptoMolMoose[s][s.molecules]
-                    for sm in stimMol:
-                        if t == 0:
-                            ##At time zero we initial the value concInit or nInit
-                            if s.field == 'conc':
-                                sm.setField("concInit",val)
-                                moose.reinit()
-                            elif s.field == "n":
-                                sm.setField( 'nInit', val )
-                            else:
-                                raise SimError("\""+ s.field+"\" specified field name in Stimuli->field name is not valid field in moose ")
-                        else:
-                            sm.setField( s.field, val )
+            deliverStim( t, event, model )
         elif isinstance( event[0], Readout ):
-            if not ( val < 0 ): expt = val
-            ''' 
-            1. if ratioReferenceTime is < zero,
-                -then RatioReferenceEntity should calculated at every time point i.e at every readout time point the ration shd be taken
-                and this should be applied to readoutmoleucle values while calculating the ratio sim/ratioRefMol
-            2. if ratioReferenceTime is zero then take concInit of molecule at time zero
-            3. if ratioReferenceTime > 0 calculate at ratioReferenceTime point 
-             readoutvalues/rrValue
-            '''
-            if event[1] == -1:
-                #event[1] returns -1 then this is for getting RationReferencevalue
-                for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
-                    ratioRefValues+=moose.element(rrM).getField(event[0].experimentalReadout)
-                ratioRefVal = ratioRefValues
-            else:
-                r = event[0]
-                if readoutsMaptoMolMoose[r]:
-                    if readoutsMaptoMolMoose[r][r.molecules]:
-                        readoutMol = readoutsMaptoMolMoose[r][r.molecules]
-                        for outputmol in readoutMol:
-                            sim+= outputmol.getField(r.experimentalReadout)
-                if r.useRatio:
-                    if r.ratioReferenceTime < 0.0:
-                        # Compute ratio reference every time data is sampled.
-                        for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
-                            ratioRefValues += moose.element(rrM).getField(event[0].experimentalReadout)
-                        ratioRefVal.append(ratioRefValues)
+            doReadout( t, event, model )
 
-                    if r.ratioReferenceTime == 0.0:
-                        # Take concInit as ratio reference.
-                        for rrM in ratioRefMaptoMolMoose[event[0]][event[0].ratioReferenceEntity]:
-                            ratioRefValues += moose.element(rrM).getField('concInit')
-                        ratioRefVal = ratioRefValues
-                    if r.ratioReferenceTime > 0.0 and val < 0:
-                        # Compute ratio reference only at specified time.
-                        ratioRefVal = ratioRefValues
-                        # Don't do any calculation of score for this queue entry
-                        continue
-                    #sim /= ratioRefVal
-                xptslist.append( t )
-                exptlist.append( expt/r.concScale )
-                sumsl.append( sim/r.concScale )
-    #This is done bcos the ratioRefVal will be divided to all the values instead of value after RatioReferenceTime
-    suml1 = []
-    suml1 = [x / ratioRefVal for x in sumsl]
-    sumsl = suml1
-    del(suml1)
+    score = processReadouts( readouts, model.scoringFormula )
 
-    for i in readouts:
-        ###############################################################################################################
-        if readoutsMaptoMolMoose[r]:
-            if readoutsMaptoMolMoose[r][r.molecules]:
-                readoutMol = readoutsMaptoMolMoose[r][r.molecules]
-                for outputmol in readoutMol:
-                    list_of_lists.append((tabl[outputmol.name].vector).tolist())
-        ###############################################################################################################
-        tab_values = [(sum(x)/(i.concScale)) for x in zip(*list_of_lists)]
-        tab_vals = [j/ratioRefVal for j in tab_values]
-
-        for m in range(0,len(sumsl)):
-            if i.useNormalization:
-                sim=sumsl[m]/sumsl[0]
-            else:
-                sim=sumsl[m]
-            expt=exptlist[m]
-            sc = eval( model.scoringFormula )
-            score += sc
-            numScore += 1
-            sumslist.append(sim)
-        for k in range(0,int(xptslist[-1])):
-            if i.useNormalization:
-                tab.append(tab_values[int(k/t_dt.dt)]/tab_values[int(xptslist[0]/t_dt.dt)])
-            else:
-                tab.append( tab_vals[int(k/t_dt.dt)] )
-
-    ###############################################################################################################
-    time_full=numpy.arange( 0, xptslist[-1] )
-    # for i in range(int(time_full[0]/t_dt.dt),int(time_full[-1]/t_dt.dt)+1):
-    #     tab_full.append(tab[i])
-    full_run=[tab,time_full]
-    ###############################################################################################################
-    for key in plots:
-        plots[key].sim = sumslist
-        plots[key].xpts = xptslist
-        plots[key].expt = exptlist
-        plots[key].yerror = stdError
-    pylab.figure(1)
-    
-
-    pylab.plot(full_run[1],full_run[0], 'r--', linewidth=3 )
-    if numScore > 0:
-        return score / numScore, plots#, full_run#, addFigs_vals
-    return 0, plots, #full_run#, addFigs_vals
+    return score
 
 
 ##########################################################################
-def parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId ):
-    
+def parseAndRunDoser( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus molecule, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout molecule, {} defined".format( len( readout ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout block, {} defined".format( len( readout ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
         raise SimError( "parseAndRunDoser: no dose (stimulus) levels defined for run" )
     
-    runTime = float(stims[0].settleTime)
+    runTime = readouts[0].settleTime
     
     if runTime <= 0.0:
         print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
@@ -975,112 +937,37 @@ def parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMapto
     doseMol = ""
     #Stimulus Molecules
     #Assuming one stimulus block, one molecule allowed
-    doseMol = stimuliMaptoMolMoose[stims[0]][stims[0].molecules][0]
-    for r in readouts:
-        ent=""
-        if readoutsMaptoMolMoose[r]:
-            if readoutsMaptoMolMoose[r][r.molecules]:
-                readoutMol = readoutsMaptoMolMoose[r][r.molecules]
-                for readMol in readoutMol:
-                    ent += readMol.name
-                    ent += " "
-                    #IS plot for dose response is in stimMol?
-                    plots = { ent: PlotPanel( r, moose.element(doseMol).name + ' ({})'.format( stims[0].quantityUnits ) )}
-        ### RatioReferenceEntity
-
-        if len(ratioRefMaptoMolMoose):
-            if ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]:
-                readoutreferenceMol = ratioRefMaptoMolMoose[r][r.ratioReferenceEntity]
-
-        if not r.useRatio:              
-            return runDoser(model,plots, stims[0],doseMol, r, readoutsMaptoMolMoose, ratioRefMaptoMolMoose,ent) # Use absolute quantities 
-        elif r.ratioReferenceTime >= 0:
-            return runReferenceDoser ( model,plots, stims[0],doseMol,r,readoutsMaptoMolMoose, ratioRefMaptoMolMoose, ent)
+    doseMol = model.modelLookup[ stims[0].entities[0]]
+    runDoser( model, stims[0], readouts[0], doseMol[0] )
+    score = processReadouts( readouts, model.scoringFormula )
+    return score
         
 ##########################################################################
-def runDoser( model, plots, stim, doseMol, readout, readoutsMaptoMolMoose,ratioRefMaptoMolMoose,ent ):
-    score = 0.0
-    stdError=[]   
-    responseScale = readout.concScale
-    doseScale = stim.concScale
-    runTime = float(stim.settleTime)
+def runDoser( model, stim, readout, doseMol ):
+    responseScale = readout.quantityScale
+    doseScale = stim.quantityScale
+    referenceDose = readout.ratioReferenceDose * stim.quantityScale
     sim = 0.0
-    for dose, response, stderr in readout.data:
-        stdError.append(float(stderr))
-        dose = float(dose)
+    for dose, response, sem in readout.data:
         doseMol.concInit = dose * doseScale
         moose.reinit()
-        moose.start( runTime )
-        if readout.useSum:
-            for r in readoutsMaptoMolMoose[readout][readout.molecules]:
-                sim += r.getField( readout.experimentalReadout )
-        else:
-            sim = readoutsMaptoMolMoose[readout][readout.molecules][0].getField( readout.experimentalReadout)
-
-        expt = float(response) * responseScale
-        score += eval( model.scoringFormula )
-        plots[ent].xpts.append( dose )
-        plots[ent].sim.append( sim / responseScale )
-        plots[ent].expt.append( expt / responseScale )
-        plots[ent].yerror = stdError
-    return score / len(readout.data), plots
-
-#################################################################
-def runReferenceDoser( model, plots, stim,stimMol, iofReadout,readoutMaptoMooseMol,ratioReferenceMol, ent ):
-    score = 0.0
-    reference=0.0
-    stdError=[]
-    doseMol = stimMol
-    doseScale = stim.concScale
-    runTime = float(stim.settleTime)
-    
-    if iofReadout.ratioReferenceDose>=0.0:
-        doseMol.concInit = iofReadout.ratioReferenceDose * doseScale
-    else:
-        doseMol.concInit = iofReadout.data[0][0] * doseScale
-    moose.reinit()
-
-    referenceMol = ratioReferenceMol[iofReadout]
-    for k in referenceMol[iofReadout.molecules]:
+        moose.start( readout.settleTime )
+        doEntityAndRatioReadout( readout, model.modelLookup )
+    if readout.ratioReferenceTime >= 0.0:   # Do a one-time reference.
+        doseMol.concInit = referenceDose # Reference conc is first dose.
         moose.reinit()
-        if iofReadout.ratioReferenceTime == 0:
-            reference += k.getField('concInit')
-            continue
-        else:
-            moose.start( iofReadout.ratioReferenceTime)
-            reference += k.getField( iofReadout.experimentalReadout)
-    
-    for dose, response, stderr in iofReadout.data:
-        sim = 0.0
-        #stdError.append(stderr)
-        dose = float(dose)
-        stdError.append(float(stderr))
-        doseMol.concInit = float(dose) * doseScale
-        moose.reinit()
-        moose.start( runTime )
-        #readoutMolecule = readoutMaptoMooseMol[iofReadout]
-        readoutsMolecules = readoutMaptoMooseMol[iofReadout][iofReadout.molecules]
-        for i in readoutsMolecules:
-            sim += i.getField( iofReadout.experimentalReadout )
-        sim = float(sim / reference)
-        expt = float(response)
-        score += eval( model.scoringFormula )
-        plots[ent].xpts.append( dose )
-        plots[ent].sim.append( sim )
-        plots[ent].expt.append( expt )
-        plots[ent].yerror = stdError
-    return score / len(iofReadout.data), plots#, full_run
+        if readout.ratioReferenceTime > 0.0: # Get reference at settleTime.
+            moose.start( readout.settleTime )
+        doReferenceReadout( readout, model.modelLookup )
 
-##########################################################################
+
 ##########################################################################
 
 class PlotPanel:
     def __init__( self, readout, xlabel = '' ):
         self.name=[]
-
-
-        for i in readout.molecules:
-            self.name.append(ntpath.basename(readout.molecules))
+        for i in readout.entities:
+            self.name.append(ntpath.basename( i ))
         self.exptType = readout.readoutType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
@@ -1089,52 +976,40 @@ class PlotPanel:
         else:
             self.xlabel = 'Time ({})'.format( readout.timeUnits )
 
-        self.xpts = []
-        self.sim = []
-        self.expt = []
-        self.yerror = []
+        self.xpts = [ i[0] for i in readout.data]
+        self.sim = readout.simData # handle ratios...
+        self.expt = [ i[1] for i in readout.data]
+        self.yerror = [ i[2] for i in readout.data]
         self.sumName=""
         for i in self.name:
             self.sumName += i
             self.sumName += " "
             self.ylabel = i+' ({})'.format( readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
 
-    def plotme( self,excelsheet ):
+    def plotme( self, scriptName, joinSimPoints = False ):
+        sp = 'ro-' if joinSimPoints else 'ro'
         if self.useXlog:
             if self.useYlog:
-                #pylab.loglog( self.xpts, self.expt, label = self.sumName + '_expt' )
                 pylab.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                #for i in range( len( self.name ) ):
-                #pylab.loglog( self.xpts, self.sim, label = self.sumName + '_sim' )
-                pylab.loglog( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
+                pylab.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                #pylab.semilogx( self.xpts, self.expt, label = self.sumName +'_expt' )
                 pylab.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                #for i in range( len( self.name ) ):
-                #pylab.semilogx( self.xpts, self.sim, label = self.sumName + '_sim' )
-                pylab.semilogx( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
+                pylab.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
         else:
             if self.useYlog:
-                #pylab.semilogy( self.xpts, self.expt, label = self.sumName +'_expt' )
                 pylab.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                #for i in range( len( self.name ) ):
-                #pylab.semilogy( self.xpts, self.sim, label = self.sumName + '_sim' )
-                pylab.semilogy( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
+                pylab.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                #for i in range( len( self.name ) ):
-                #pylab.plot( self.xpts, self.expt, label = self.sumName + '_expt' )
                 pylab.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
-                #print " self.yerror ",self.yerror
                 pylab.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                #pylab.plot( self.xpts, self.sim, label = self.sumName + '_sim' )
-                pylab.plot( self.xpts, self.sim, 'ro', label = 'sim', linewidth='2' )
+                pylab.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
 
         pylab.xlabel( self.xlabel )
         pylab.ylabel( self.ylabel )
-        pylab.title(excelsheet)
+        pylab.title(scriptName)
         pylab.legend(fontsize="small",loc="lower right")
 
-#############################################################################
+########################################################################
 def loadTsv( fname ):
     stims = []
     readouts = []
@@ -1149,33 +1024,15 @@ def loadTsv( fname ):
                 if len( cols ) > 0:
                     if cols[0] == 'Experiment metadata':
                         expt = Experiment.load(fd )
-                        #print "#########################", cols[0]
                     if cols[0] == 'Stimuli':
                         stims.append( Stimulus.load(fd ) )
-                        #print "#########################", cols[0]
                     if cols[0] == 'Readouts':
                         readouts.append( Readout.load(fd) )
-                        #print "#########################", cols[0]
                     if cols[0] == 'Model mapping':
                         model = Model.load(fd )
-                        #print "#########################", cols[0]
-    
-    # print "expt ", expt.exptSource, expt.citationId, expt.journal, expt.authors
-    # for s in stims:
-    #     print " \n stims ",s.timeUnits, s.quantityUnits, s.entity,s.field,s.settleTime, s.data,
-    # for r in readouts:
-    #     print " \n Readout ",r.readoutType, "TU ", r.timeUnits, "QU ",r.quantityUnits,\
-    #                     " RATIO", r.useRatio, " SUM ",r.useSum, " NO ",r.useNormalization,\
-    #                     "RRT ", r.ratioReferenceTime, "RRD", r.ratioReferenceDose,\
-    #                     "MOL", r.molecules," RRE ", r.ratioReferenceEntity,\
-    #                     "ER ", r.experimentalReadout, "XL ", r.useXlog, "YL ",r.useYlog,\
-    #                     "DATA ",r.data
-    # print " \nmodel ",model.modelSource, " \ncit ", model.citation, " \nCITID ",model.citationId, " \nAut: ",model.authors, "\ndetails: ",\
-    #                 model.detail, "\nsubset: ",model.modelSubset,"\nFILE: ", model.fileName, " \nsolver: ",model.solver, "\nnotes: ",\
-    #                 model.notes, " \nparameterChange: ",model.parameterChange, " \nitemstodelete: ",model.itemstodelete
     return expt,stims,readouts,model
 
-def buildSolver( modelId, solver ):
+def buildSolver( modelId, solver, useVclamp = False ):
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
         if solver.lower() in ['ee', 'exponential euler method (ee)']:
@@ -1188,144 +1045,81 @@ def buildSolver( modelId, solver ):
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
         stoich.path = compt.path + '/##'
+    # Here we remove and rebuild the HSolver because we have to add vclamp
+    # after loading the model.
+    if useVclamp and moose.exists( '/model/elec/hsolve' ):
+        origHsolve = moose.element( '/model/elec/hsolve' )
+        dt = origHsolve.dt
+        tgt = origHsolve.target
+        moose.delete( '/model/elec/hsolve' )
+        moose.reinit()
+        hsolve = moose.HSolve( '/model/elec/hsolve' )
+        hsolve.dt = dt
+        hsolve.target = tgt
+        moose.reinit()
 
-def runit( model,stims, readouts,modelId ):
-    doDoser = False
-    for i in readouts:
-        if keywordMatches( i.readoutType, 'Dose-Response' ) or  keywordMatches( i.readoutType, 'DoseResponse'):
-            doDoser = True
-    stimuliMaptoMolMoose  = {}
-    readoutsMaptoMolMoose = {}
-    ratioRefMaptoMolMoose = {}
 
-    stimuliMaptoMolMoose = mapStimdataToMoose(stims,model,modelId)
-    
-    readoutsMaptoMolMoose,ratioRefMaptoMolMoose = mapReadoutdataToMoose(readouts,model,modelId)
-    for i in readouts:
-        readoutsMolecules =[]
-        ratioMolecules = []
-        if i in readoutsMaptoMolMoose:
-            if i.molecules in readoutsMaptoMolMoose[i]:
-                readoutsMolecules = readoutsMaptoMolMoose[i][i.molecules]
-            
-        if i in ratioRefMaptoMolMoose:
-            if i.ratioReferenceEntity in ratioRefMaptoMolMoose[i]:
-                ratioMolecules = ratioRefMaptoMolMoose[i][i.ratioReferenceEntity]
+def buildVclamp( stim, modelLookup ):
+    # Put in modelLookup here
+    #path = '/model/elec/soma/vclamp'
+    # Stim.entities should be the compartment name here.
+    compt = modelLookup[stim.entities[0]][0]
+    path = compt.path
+    lowpass = moose.RC(path+"/lowpass") # lowpass filter
+    lowpass.R = 50000             # 500 ohms
+    lowpass.C = 0.01e-6          # 0.1 uF
+    lowpass.V0 = compt.initVm
+    print lowpass.C, compt.Cm, compt.Rm, compt.initVm
+    lowpass.inject = -0.065
+    vclamp = moose.DiffAmp(path+"/vclamp")
+    vclamp.gain = 0.00002
+    vclamp.saturation = 1000        # unitless
+    #moose.showfield( vclamp )
+    pid = moose.PIDController(path+"/pid")
+    #pid.gain = 1.0e-6   # around 1/Rinput of cell
+    pid.gain = 1.0/compt.Rm
+    #pid.gain = 1e-6
+    print 'pid.gain = ', pid.gain
+    pid.tauI = 20e-6
+    pid.tauD = 5e-6
+    pid.saturation = 1000        # unitless
+    # Connect voltage clamp circuitry
+    #moose.connect(self.pulsegen, "output", self.lowpass, "injectIn")
+    moose.connect(lowpass, "output", vclamp, "plusIn")
+    moose.connect(vclamp, "output", pid, "commandIn")
+    # Holding command potential should come into lowpass on inject
+    print lowpass.dt, vclamp.dt, pid.dt
+    print lowpass.tick, vclamp.tick, pid.tick
+    #moose.setClock( lowpass.tick, 5e-5 )
+    #moose.setClock( vclamp.tick, 5e-5 )
 
-        if i.useSum:
-            if not len(readoutsMolecules) >1 and not len(ratioMolecules) >1:
-                raise SimError (" Readout->useSum is True but ModelMapping->readoutMolecules or ModelMapping->referenceMolecule has less than two entry. Program will exit")
-                
-            if i.useRatio:
-                if len(ratioMolecules) < 1:
-                    raise SimError(" Readout->useRatio is True, expect referenceMolecule in ModelMapping has atleast one entry. Program will exit")
-                    
-    if doDoser:
-        return parseAndRunDoser( model,stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId)
-    else:
-        return parseAndRun( model, stims, stimuliMaptoMolMoose, readouts, readoutsMaptoMolMoose, ratioRefMaptoMolMoose, modelId )
+    moose.connect( compt, 'VmOut', pid, 'sensedIn' )
+    moose.connect( pid, 'output', compt, 'injectMsg' )
+    moose.reinit()
 
-def mapReadoutdataToMoose(readout,model,modelId):
-    readoutsMaptoMolMoose = {}
-    ratioRefMaptoMolMoose = {}
-    for j in readout:
-        if len(j.molecules):
-            if ',' in j.molecules:
-                raise SimError (" Warning: In excel sheet, Readouts->molecules has 2 molecules \""+ j.molecules +"\" which is not allowed in a single Readout block. \n If one wish to keep this seperate out to a seperate Readout block or if this was for summation then use \'+\' sign, progran will exist")
-            else:
-                try:
-                    readoutMolMap = []
-                    readoutsMolMaptoMoose = {}
-                    modelReadoutMol = model.readoutMolecules[readout.index(j)]
-                    if '+' in modelReadoutMol:
-                        readoutMolMap = ((modelReadoutMol.replace("\n","")).split('+'))
-                    else:
-                        readoutMolMap.append(modelReadoutMol.replace("\n",""))
-                    for rm in readoutMolMap:
-                        mReadout,errormsg = model.findObj(modelId.path,rm)
-                        if moose.element(mReadout).className == "Shell":
-                            #This check is for multiple entry
-                            raise SimError("ModelMapping->Readout Molecule: "+ ', '.join(map(str, errormsg)))
-                        else:
-                            if not moose.exists( mReadout.path ):
-                                raise SimError("Error: Object does not exist: '" + s + "'")
-                                
-                            else:
-                                if j.molecules not in readoutsMolMaptoMoose :
-                                    readoutsMolMaptoMoose [j.molecules] = [mReadout]
-                                else:
-                                    readoutsMolMaptoMoose [j.molecules].append(mReadout)
-                    if readoutsMolMaptoMoose:
-                        readoutsMaptoMolMoose[j] = readoutsMolMaptoMoose
-                except IndexError:
-                    pass
-        #RatioReferenceMolecules
-        if len(j.ratioReferenceEntity):
-            if ',' in j.ratioReferenceEntity:
-                raise SimError(" Warning: In excel sheet, Readouts->ratioReferenceEntity has 2 molecules \""+ j.ratioReferenceEntity +"\" which is not allowed in a single Readout block. \n If one wish to keep this, seperate out to a seperate Readout block  with ratioReferenceEntity or if this was for summation then use \'+\' sign, progran will exist")
-            else:
-                try:
-                    ratioRefMolMaptoMoose = {}
-                    ratioRefMolMap = [] 
-                    modelratioRefMol = model.referenceMolecule[readout.index(j)]
-                    if '+' in modelratioRefMol:
-                        ratioRefMolMap = ((modelratioRefMol.replace("\n","")).split('+'))
-                    else:
-                        ratioRefMolMap.append(modelratioRefMol.replace("\n",""))
-                    for rm in ratioRefMolMap:
-                        mRefmol,errormsg = model.findObj(modelId.path,rm)
-                        if moose.element(mRefmol).className == "Shell":
-                            #This check is for multiple entry
-                            raise SimError("ModelMapping->Readout Molecule: ",+ ', '.join(map(str, errormsg)))
-                        else:
-                            if not moose.exists( mRefmol.path ):
-                                raise SimError( "Error: Object does not exist: '" + s + "'")
-                            else:
-                                if j.ratioReferenceEntity not in ratioRefMolMaptoMoose :
-                                    ratioRefMolMaptoMoose [j.ratioReferenceEntity] = [mRefmol]
-                                else:
-                                    ratioRefMolMaptoMoose [j.ratioReferenceEntity].append(mRefmol)
-                    if ratioRefMolMaptoMoose:
-                        ratioRefMaptoMolMoose[j] = ratioRefMolMaptoMoose
-                except IndexError:
-                    pass          
-    
-    return readoutsMaptoMolMoose,ratioRefMaptoMolMoose
+    #moose.le( '/model/elec' )
+    #moose.le( '/model/elec/soma' )
+    #moose.showmsg( '/model/elec/soma' )
+    #moose.showfield( '/model/elec/hsolve' )
 
-def mapStimdataToMoose(stims,model,modelId):
-    stimuliMaptoMolMoose  = {}
+    #################### temp stuff for debugging #################
+    plot = moose.Table( '/model/plots/vclampCurr' )
+    moose.connect( '/model/plots/vclampCurr', 'requestOut', '/model/elec/soma/pid',  'getOutputValue' )
+    plot = moose.Table( '/model/plots/Vhold' )
+    moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
+    #################### temp stuff for debugging #################
+
+
+def runit( model, stims, readouts, modelId ):
     for i in stims:
-        if len(i.molecules):
-            if ('+' in i.molecules) or (',' in i.molecules):
-                raise SimError(" Warning: In excel sheet, Stimuli->molecules has 2 molecules \""+ i.molecules +"\" which is not allowed, progran will exist")
-            else:
-                stimMolMap = []
-                stimuliMolMaptoMoose ={}
-                try:
-                    modelStimModel = model.stimulusMolecules[stims.index(i)]
-                    if '+' in model.stimulusMolecules[stims.index(i)]:
-                        stimMolMap = ((model.stimulusMolecules[stims.index(i)].replace('\n', "")).split('+'))
-                    else:
-                        stimMolMap.append(model.stimulusMolecules[stims.index(i)].replace("\n",""))
-                    for sm in stimMolMap:
-                        mSource,errormsg= model.findObj(modelId.path,sm)
-                        if moose.element(mSource).className == "Shell":
-                            #This check is for multiple entry
-                            raise SimError ("ModelMapping->Readout Molecule: "+ ', '.join(map(str, errormsg)))
-                           
-                        else:
-                            if not moose.exists( mSource.path ):
-                                raise SimError( "Error: Object does not exist: '" + s + "'")
-                            else:
-                                if i.molecules not in stimuliMolMaptoMoose :
-                                    stimuliMolMaptoMoose[i.molecules] = [mSource]
-                                else:
-                                    stimuliMolMaptoMoose[i.molecules].append(mSource)
-                except IndexError:
-                    raise SimError( "Warning: model->stimulusMolecules doesn't have entry as many as stimuli block")
-            if stimuliMolMaptoMoose:
-                stimuliMaptoMolMoose[i] = stimuliMolMaptoMoose
-    return stimuliMaptoMolMoose
+        i.configure( model.modelLookup )
+    for i in readouts:
+        i.configure( model.modelLookup )
+
+    if "doseresponse" in readouts[0].readoutType:
+        return parseAndRunDoser( model, stims, readouts, modelId)
+    else:
+        return parseAndRun( model, stims, readouts, modelId )
 
 def main():
     """ This program handles loading a kinetic model, and running it
@@ -1346,11 +1140,13 @@ def main():
 
 
 def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True ):
-    #print( "{}, {}, {}, {}".format( script, modelFile, dumpFname, hideDisplay ) )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
+    if stims[0].field == 'Vclamp':
+        if not readouts[0].field == 'Im':
+            raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
     model.fileName = modelFile
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
@@ -1364,10 +1160,22 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         elif file_extension == '.g':
             modelId = moose.loadModel( model.fileName, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
+        elif file_extension == '.py':
+        # Assume a moose script for creating the model. It must have a
+        # function load() which returns the id of the object containing
+        # the model, 
+            mscript = __import__( filename )
+            modelId = mscript.load()
+
+        model.buildModelLookup()
+        #model.buildFieldLookup( stims, readouts )
+
         for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
         # Then we apply whatever modifications are specified by user or protocol
-        moose.Neutral('/model/plots')
+        if not hidePlot:
+            makeReadoutPlots( readouts, model.modelLookup )
+
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
         if len(dumpFname) > 2:
@@ -1378,18 +1186,34 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
 
-        #Then we build the solver.
-        buildSolver( modelId, model.solver )
+
+        if stims[0].field == 'Vclamp':
+            if not readouts[0].field == 'Im':
+                raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
+            buildVclamp( stims[0], model.modelLookup )
+            #Then build the solver with a flag to say rebuild the hsolve.
+            buildSolver( modelId, model.solver, useVclamp = True )
+        else:
+            buildSolver( modelId, model.solver )
         for i in range( 10, 20 ):
             moose.setClock( i, 0.1 )
 
-        score, plots = runit( model,stims, readouts, modelId )
+        score = runit( model,stims, readouts, modelId )
+        print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
         if not hidePlot:
-            for name, p in plots.items():
-                #pylab.figure()
-                p.plotme( script )
+            for i in readouts:
+                pylab.figure(1)
+                i.displayPlots(script, model.modelLookup )
+                
+            if moose.exists( '/model/plots/vclampCurr' ):
+                pylab.figure()
+                pylab.plot( moose.element( '/model/plots/vclampCurr' ).vector )
+                pylab.title( 'vclamp Current' )
+                pylab.figure()
+                pylab.plot( moose.element( '/model/plots/Vm' ).vector, label='Vm' )
+                pylab.plot( moose.element( '/model/plots/Vhold' ).vector, label='Vhold' )
+                pylab.title( 'vclamp Vm' )
             pylab.show()
-            print( "Script = {}, score = {}".format( script, score ) )
         moose.delete( modelId )
         return score
         
