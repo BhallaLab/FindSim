@@ -794,8 +794,9 @@ def makeReadoutPlots( readouts, modelLookup ):
             moose.connect( plot, 'requestOut', elm, fieldname )
 
         #################### temp stuff for debugging #################
-        plot = moose.Table( '/model/plots/Vm' )
-        moose.connect( '/model/plots/Vm', 'requestOut', '/model/elec/soma',  'getVm' )
+
+        #plot = moose.Table( '/model/plots/Vm' )
+        #moose.connect( '/model/plots/Vm', 'requestOut', '/model/elec/soma',  'getVm' )
         #plot = moose.Table( '/model/plots/Vhold' )
         #moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
         #plot = moose.Table( '/model/plots/vclampCurr' )
@@ -952,13 +953,13 @@ def runDoser( model, stim, readout, doseMol ):
         doseMol.concInit = dose * doseScale
         moose.reinit()
         moose.start( readout.settleTime )
-        doEntityAndRatioReadout( readout, model.modelLookup )
+        doEntityAndRatioReadout( readout, model.modelLookup,readout.field )
     if readout.ratioReferenceTime >= 0.0:   # Do a one-time reference.
         doseMol.concInit = referenceDose # Reference conc is first dose.
         moose.reinit()
         if readout.ratioReferenceTime > 0.0: # Get reference at settleTime.
             moose.start( readout.settleTime )
-        doReferenceReadout( readout, model.modelLookup )
+        doReferenceReadout( readout, model.modelLookup,readout.field )
 
 
 ##########################################################################
