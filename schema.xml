@@ -3,7 +3,7 @@
 <xs:element name="FindSim">
   <xs:complexType>
   <xs:sequence>
-    <xs:element name="ExperimentMetadata">
+    <xs:element name="Experimenti-metadata">
       <xs:annotation>
         <xs:documentation>This block gives information about the transcriber and experimetal source</xs:documentation>
       </xs:annotation>
@@ -46,7 +46,7 @@
         </xs:sequence>
       </xs:complexType>
     </xs:element>
-    <xs:element name="ExperimentContext">
+    <xs:element name="Experiment-context">
       <xs:annotation>
         <xs:documentation>This block specifies the data source(s) that were 
 used to build this experimental dataset</xs:documentation>
@@ -156,10 +156,10 @@ time-value pair.</xs:documentation>
             </xs:sequence>
           </xs:complexType>
         </xs:element>
-      </xs:sequence><!--line41-->
-      </xs:complexType><!--line42-->
+      </xs:sequence>
+      </xs:complexType><
     </xs:element> <!-- closed for stimulus -->
-    <xs:element name="ReadOut">
+    <xs:element name="ReadOuts">
       <xs:annotation>
         <xs:documentation>The "Readout" block specifies the values to read from the simulation.</xs:documentation>
       </xs:annotation>
@@ -170,8 +170,8 @@ time-value pair.</xs:documentation>
             <xs:documentation>Readout type is the board category of readout</xs:documentation>
           </xs:annotation>
            <xs:simpleType>
-           <xs:restriction type="xs:string" default="Time-Series">
-            <xs:enumeration value="Time-Series"/>
+           <xs:restriction type="xs:string" default="TimeSeries">
+            <xs:enumeration value="TimeSeries"/>
             <xs:enumeration value="DoseResponse"/>
            </xs:restriction>
            </xs:simpleType>
@@ -230,16 +230,11 @@ time-value pair.</xs:documentation>
             <xs:documentation>Normalizating the value to the first "Data" point</xs:documentation>
           </xs:annotation>
         </xs:element>
-        <xs:element name="settleTime" type="xs:decimal">
+        <xs:element name="settleTime" type="xs:decimal" default="0">
         <xs:annotation>
             <xs:documentation>For DoseResponse or Electrophysiological experiments.The incubation time used for each dose.</xs:documentation>
           </xs:annotation>
-        </xs:element>
-        <xs:element name="ratioReferenceEntities" type="xs:string">
-        <xs:annotation>
-            <xs:documentation>Object(s) to use as reference in case there is a ratio readout.This field needs to be set.</xs:documentation>
-          </xs:annotation>
-        </xs:element>
+        </xs:element>  
         <xs:element name="ratioReferenceTime" type="xs:decimal">
         <xs:annotation>
             <xs:documentation> 0 : initial value of the "ratioReferenceEntity" for the "field" (n,conc) specified.
@@ -248,7 +243,12 @@ time-value pair.</xs:documentation>
             </xs:documentation>
           </xs:annotation>
         </xs:element>
-        <xs:element name="ratioReferenceDose" type="xs:string">
+	<xs:element name="ratioReferenceEntities" type="xs:string">
+        <xs:annotation>
+            <xs:documentation>Object(s) to use as reference in case there is a ratio readout.This field needs to be set.</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="ratioReferenceDose" type="xs:string" default="0">
           <xs:annotation>
             <xs:documentation>Dose of the reference used </xs:documentation>
           </xs:annotation>
@@ -276,7 +276,14 @@ time-value pair.</xs:documentation>
           </xs:annotation>
           <xs:complexType>
             <xs:sequence>
-              <xs:element name="Time" type="xs:decimal"/>
+              <xs:element name="Time" type="xs:decimal">
+                <xs:simpleType>
+                <xs:restriction type="xs:string" default="Localpath">
+                <xs:enumeration value="Time"/>
+                <xs:enumeration value="Dose"/>
+                </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
               <xs:element name="Value" type="xs:decimal"/>
               <xs:element name="SEM" type="xs:decimal"/>
             </xs:sequence>
@@ -377,7 +384,7 @@ time-value pair.</xs:documentation>
                   </xs:restriction>
                 </xs:simpleType>
               </xs:element> 
-              <xs:element name="value" type="xs:decimal"/>
+              <xs:element name="Value" type="xs:decimal"/>
             </xs:sequence>
           </xs:complexType>
         </xs:element>
