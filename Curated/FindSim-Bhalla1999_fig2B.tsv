@@ -7,13 +7,11 @@ citationId	PMID: 7657647
 authors	Teng KK et al.	
 journal	J Biol Chem. 1995	
 		
-		
-		
 Experiment context		
 species	Rat	
 cell-types	Pheochromocytoma cell line (PC12)	
-temperature (Celsius)		
-Include pathway	EGFR,Sos,PLCg,PKC,Ras,MAPK	
+temperature-in-Celsius		
+includePathway	EGFR,Sos,PLCg,PKC,Ras,MAPK	
 details	Fig 9A	
 notes	Simulation MAPK activity using calicum.	
 		
@@ -26,20 +24,19 @@ Data
 Time	Value	
 2100	0.0001	
 		
-		
 Readouts		
 readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	ratio	
 useXlog	FALSE	
 useYlog	FALSE	
+useNormalization	FALSE	
 settleTime	0	
-ratioReferenceDose	0	
 ratioReferenceTime	2400	
 ratioReferenceEntities	pERK1/2	
+ratioReferenceDose	0	
 entities	pERK1/2	
 field	conc	
-useNormalization	FALSE	
 Data		
 Time	Value	sem
 2100	0.02	0
@@ -47,7 +44,6 @@ Time	Value	sem
 3900	0.12	0
 5700	0.1	0
 9300	0.08	0
-		
 		
 Model mapping		
 modelSource	Local path	

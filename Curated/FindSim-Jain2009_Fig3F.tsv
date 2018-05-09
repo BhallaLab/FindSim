@@ -61,7 +61,7 @@ fileName
 citationId		
 citation		
 authors		
-modelSubset	eIF4E_BP,eIF4E_bind_BP2,4E_BP/4E_BP,eIF4E	
+modelSubset	eIF4E_BP,eIF4E_bind_BP2,_4E_BP/_4E_BP,eIF4E	
 modelLookup	eIF4E_BP:eIF4E_BP,eIF4E:eIF4E	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete		
@@ -72,5 +72,5 @@ Object	parameter	Value
 eIF4E	concInit	1.60E-03
 eIF4E	isBuffered	1
 eIF4E_BP	concInit	0
-4E_BP/4E_BP	isBuffered	1
-4E_BP/4E_BP	concInit	2.70E-04
+_4E_BP/_4E_BP	isBuffered	1
+_4E_BP/_4E_BP	concInit	2.70E-04

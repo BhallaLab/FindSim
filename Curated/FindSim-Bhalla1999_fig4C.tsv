@@ -7,13 +7,11 @@ citationId	PMID: 9888852
 authors	Bhalla and Iyengar	
 journal		
 		
-		
-		
 Experiment context		
-species		
-cell-types		
-temperature (Celsius)		
-Include pathway	Ca signaling	
+species	optional	
+cell-types	optional	
+temperature-in-Celsius	optional	
+includePathway	Ca signaling	
 details	Bhalla_fig4C	
 notes	Time course experiment	
 		
@@ -89,18 +87,18 @@ Time	Value
 2236	0.08	
 		
 Readouts		
-readoutType	Time-Series	
+readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	uM	
 useXlog	FALSE	
 useYlog	FALSE	
-ratioReferenceTime	0	
-ratioReferenceDose	0	
-ratioReferenceEntities		
-entities	MAPK_p_p	
-settleTime	0	
-field	conc	
 useNormalization	FALSE	
+settleTime	0	
+ratioReferenceTime	0	
+ratioReferenceEntities		
+ratioReferenceDose	0	
+entities	MAPK_p_p	
+field	conc	
 Data		
 Time	Value	sem
 600	0.0001	0
@@ -114,7 +112,7 @@ Time	Value	sem
 4800	0.22	0
 		
 Model mapping		
-modelSource	Database	
+modelSource	DOQCS	
 fileName		
 citationId		
 citation		
@@ -127,12 +125,12 @@ solver	Runge kutta method (gsl)
 notes		
 parameterChange		
 Object	parameter	value
-Ca/Ca	concInit (uM)	0.00008
+Ca/Ca	concInit	0.00008
 Ca/Ca	isBuffered	1
-Phosphatase/MKP_1	concInit (uM)	0.000002
+Phosphatase/MKP_1	concInit	0.000002
 Ras/Ras_act_craf	Kf	24000
 Ras/CaM_bind_GEF	Kf	60000
-MAPK/MAPK	concInit (uM)	0.00036
+MAPK/MAPK	concInit	0.00036
 MAPK/MAPKK_p_p/MAPKKthr	kcat	0.15
 MAPK/MAPKK_p_p/MAPKKtyr	kcat	0.15
 MAPK/Raf_p_GTP_Ras/Raf_p_GTP_Ras.1	kcat	0.105
@@ -146,16 +144,16 @@ Sos/SHC_p_dephospho	Kf	0.00167
 Sos/SHC_p.Sos.Grb2/Sos.Ras_GEF	kcat	0.02
 PKC/PKC_active/PKC_act_raf	Km	0.0697
 Ras/CaM_GEF/CaM_GEF_act_Ras	kcat	0.02
-PKC/PKC_basal_p	concInit (uM)	0
-MAPK/craf_1	concInit (uM)	0.0002
-MAPK/MAPKK	concInit (uM)	0.00018
-Phosphatase/PP2A	concInit (uM)	0.00012
-Phosphatase/PPhosphatase2A	concInit (uM)	0.000224
-PLCbeta/PIP2	concInit (uM)	0.01
+PKC/PKC_basal_p	concInit	0
+MAPK/craf_1	concInit	0.0002
+MAPK/MAPKK	concInit	0.00018
+Phosphatase/PP2A	concInit	0.00012
+Phosphatase/PPhosphatase2A	concInit	0.000224
+PLCbeta/PIP2	concInit	0.01
 PLCbeta/DAG	isBuffered	0
 PLA2/Arachidonic_Acid	isBuffered	0
-PLA2/Arachidonic_Acid	concInit (uM)	0
-PLCbeta/DAG	concInit (uM)	0
-PLC_g/PLC_g	concInit (uM)	0.00082
-Ras/GAP	concInit (uM)	0.000002
-Ras/GDP_Ras	concInit (uM)	0.0002
+PLA2/Arachidonic_Acid	concInit	0
+PLCbeta/DAG	concInit	0
+PLC_g/PLC_g	concInit	0.00082
+Ras/GAP	concInit	0.000002
+Ras/GDP_Ras	concInit	0.0002

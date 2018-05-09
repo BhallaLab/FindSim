@@ -7,42 +7,38 @@ citationId	PMID: 20173744
 authors	Ji Y et al.	
 journal	Nat Neurosci. 2010	
 		
-		
-		
 Experiment context		
 species	Rat	
 cell-types	Embryonic hippocampal neurons E18	
-temperature (Celsius)		
-Include pathway	BDNF,TrKB,PLCg,PI3K,AKT,Ras,MAPK	
-details		
-notes		
+temperature-in-Celsius		
+includePathway	BDNF,TrKB,PLCg,PI3K,AKT,Ras,MAPK	
+details	optional	
+notes	optional	
 		
 Stimuli		
 timeUnits	sec	
 quantityUnits	nM	
-molecules	BDNF	
+entities	BDNF	
 field	conc	
 Data		
 Time	Value	
 600	1	
 		
-		
-		
 Readouts		
-readoutType	TimeSeries-RatioNormalization	
+readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	ratio	
-useRatio	TRUE	
 useXlog	FALSE	
 useYlog	FALSE	
-ratioReferenceTime	0	
-ratioReferenceEntity	MAPK	
-molecules	MAPK_p_p+MAPK_p	
-experimentalReadout	conc	
-useSum	TRUE	
-useNormalization	TRUE	
+useNormalization	FALSE	
+settleTime	0	
+ratioReferenceTime	-1	
+ratioReferenceEntities	MAPK	
+ratioReferenceDose	0	
+entities	MAPK_p_p+MAPK_p	
+field	conc	
 Data		
-Time	Value	stderr
+Time	Value	sem
 600	1	0
 1500	5.6	0.55
 2400	3.9	0.4
@@ -58,9 +54,7 @@ citationId
 citation		
 authors		
 modelSubset	kinetics/Ca,Phosphatase,kinetics/PLC_g,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,AKT_activation,mTORC1,S6Kinase,kinetics/TSC1_TSC2,Ras_GTP_PI3K,PI3K_bind_Ras_GTP,DAG,IP3,PIP2,Arachidonic_Acid	
-stimulusMolecules	BDNF/BDNF	
-readoutMolecules	MAPK/MAPK_p_p+MAPK/MAPK_p	
-referenceMolecule	MAPK/MAPK	
+modelLookup	MAPK_p_p+MAPK_p:MAPK/MAPK_p_p+MAPK/MAPK_p,MAPK:MAPK/MAPK,BDNF:BDNF/BDNF	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	MAPK_p_p/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,CaMKIII_bind_CaM_Ca4,S6K_basal/CaMKIII_basal,CaMKIII_phospho,S6_dephosph,Dephos_AKTser473,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,phosp_AKTser473,TOR_4E_BP_phospho,TOR_4E_BP_p,S6_phos,S6_phospho,PP2A_dephospho_PP1_I_p,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho	
 solver	Runge kutta method (gsl)	
@@ -69,22 +63,22 @@ parameterChange
 Object	parameter	Value
 BDNF/BDNF	concInit	0
 PLC_g/PLC_g	concInit	0.000100003
-PP2A	concInit	0.0001500050002
+PP2A	concInit	0.000150005
 craf_1	concInit	0.0005
 MAPK/MAPKK	concInit	0.000500016
 MAPK/MAPK	concInit	0.0036001
-PPhosphatase2A	concInit	0.001000033334
+PPhosphatase2A	concInit	0.0010000333
 GDP_Ras	concInit	0.0005
 GAP	concInit	1.00E-05
 Ca/Ca	isBuffered	0
-PKC_act_raf	Km	0.02090469484
+PKC_act_raf	Km	0.0209046948
 MAPKKtyr	kcat	0.3
 MAPKKthr	kcat	0.3
 Raf_p_GTP_Ras.1	kcat	0.3
 Raf_p_GTP_Ras.2	kcat	0.3
-MKP1_tyr_deph	Km	0.007316357844
+MKP1_tyr_deph	Km	0.0073163578
 MKP1_tyr_deph	kcat	4
-MKP1_thr_deph	Km	0.007316357844
+MKP1_thr_deph	Km	0.0073163578
 MKP1_thr_deph	kcat	4
 CaM_GEF_act_Ras	kcat	0.2
 Sos.Ras_GEF	kcat	0.2

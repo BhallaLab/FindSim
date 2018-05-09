@@ -7,16 +7,13 @@ citationId	PMID: 7999777
 authors	Parkhurst KM et al.	
 journal	Biochemistry. 1994	
 		
-		
-		
 Experiment context		
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway	Translation_initiation,40S,43S	
+temperature-in-Celsius		
+includePathway	Translation_initiation,40S,43S	
 details	JainFig4F	
 notes		
-		
 		
 Stimuli		
 timeUnits	sec	
@@ -27,23 +24,19 @@ Data
 Time	Value	
 		
 		
-		
-		
 Readouts		
 readoutType	DoseResponse	
 timeUnits	sec	
 quantityUnits	nM	
-useRatio	FALSE	
 useXlog	FALSE	
 useYlog	FALSE	
-ratioReferenceTime	0	
-ratioReferenceDose	0	
-ratioReferenceEntities		
-entities	43S	
-settleTime	2400	
-field	conc	
-useSum	FALSE	
 useNormalization	FALSE	
+settleTime	2400	
+ratioReferenceTime	0	
+ratioReferenceEntities		
+ratioReferenceDose	0	
+entities	43S	
+field	conc	
 Data		
 Dose	Value	sem
 6.8	3.61	0
@@ -52,17 +45,14 @@ Dose	Value	sem
 204	42.4	0
 612	45.3	0
 		
-		
-		
-		
 Model mapping		
 modelSource	DOQCS	
 fileName		
 citationId		
 citation		
 authors		
-modelSubset	Translation_initiation,kinetics/40S,43S_complex	
-modelLookup	40S:40S/40S,43S:43Scomplex	
+modelSubset	Translation_initiation,kinetics/_40S,_43S_complex	
+modelLookup	40S:_40S/_40S,43S:_43Scomplex	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete		
 solver	Runge kutta method (gsl)	
