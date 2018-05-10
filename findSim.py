@@ -258,12 +258,12 @@ class Readout:
         for i in self.ratioReferenceEntities:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
-    def displayPlots( self, fname, modelLookup, hideSubplots ):
+    def displayPlots( self, fname, modelLookup, stim, hideSubplots ):
         if "doseresponse" in self.readoutType:
-            for i in self.entities:
+            for i in stim.entities:
                 elms = modelLookup[i]
                 for j in elms:
-                    pp = PlotPanel( self, xlabel = j.name +'('+self.quantityUnits+')' )
+                    pp = PlotPanel( self, xlabel = j.name +'('+stim.quantityUnits+')' )
                     pp.plotme( fname, joinSimPoints = True )
         else:
             for i in self.entities:
@@ -980,7 +980,8 @@ class PlotPanel:
     def __init__( self, readout, xlabel = '' ):
         self.name=[]
         for i in readout.entities:
-            self.name.append(ntpath.basename( i ))
+            self.name.append( i )
+            print "Readout Entities:", i
         self.exptType = readout.readoutType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
@@ -1128,7 +1129,7 @@ def main():
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
-    parser.add_argument( '-hs', '--hide_subplots', action="store_false", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
+    parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     args = parser.parse_args()
     innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots )
 
@@ -1155,9 +1156,9 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             modelId = moose.loadModel( model.fileName, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
         elif file_extension == '.py':
-        # Assume a moose script for creating the model. It must have a
-        # function load() which returns the id of the object containing
-        # the model, 
+            # Assume a moose script for creating the model. It must have a
+            # function load() which returns the id of the object containing
+            # the model. At this point the model must be in the current dir
             mscript = __import__( filename )
             modelId = mscript.load()
 
@@ -1196,7 +1197,7 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
             for i in readouts:
                 pylab.figure(1)
-                i.displayPlots(script, model.modelLookup, hideSubplots )
+                i.displayPlots( script, model.modelLookup, stims[0], hideSubplots )
                 
             if moose.exists( '/model/plots/vclampCurr' ):
                 pylab.figure()
