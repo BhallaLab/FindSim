@@ -218,6 +218,7 @@ class Readout:
         else:
             self.useYlog = str2bool(useYlog)
         self.useNormalization = str2bool(useNormalization)
+        self._simDataReference = 1.0
         
         temp = entities.split( ',' )
         self.entities = [ i for i in temp if len(i) > 0 ]
@@ -257,7 +258,7 @@ class Readout:
         for i in self.ratioReferenceEntities:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
-    def displayPlots( self, fname, modelLookup ):
+    def displayPlots( self, fname, modelLookup, hideSubplots ):
         if "doseresponse" in self.readoutType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -282,11 +283,16 @@ class Readout:
                         scale = self.quantityScale * self.ratioData[0]
                     else:
                         scale = self.quantityScale
+                    if self.useNormalization and abs(self._simDataReference) > 1e-15:
+                        scale *= self._simDataReference/self.quantityScale
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
-                    pylab.plot( xpts, ypts, 'r:' )
-                    pp.plotme( fname )
+                    if (not hideSubplots) and len( elms ) > 1: 
+                        # Plot summed components
+                        pylab.plot( xpts, ypts, 'r:', label = j.name )
+
                 pylab.plot( xpts, sumvec, 'r--' )
+                pp.plotme( fname )
 
     def applyRatio( self ):
         eps = 1e-16
@@ -297,8 +303,14 @@ class Readout:
             rd = [rd[0]]*len(self.data)
         assert( len(rd) == len( self.data ) )
         rd = [ 1.0 if abs(x) < eps else x for x in rd ] # eliminate div/0.0
+
+        if self.useNormalization:
+            normalization = self.simData[0] / rd[0]
+            self._simDataReference = normalization
+        else:
+            normalization = self.quantityScale
         
-        self.simData = [ s/(r * self.quantityScale) for s, r in zip( self.simData, rd ) ]
+        self.simData = [ s/(r * normalization) for s, r in zip( self.simData, rd ) ]
 
     def doScore( self, scoringFormula ):
         assert( len(self.data) == len( self.simData ) )
@@ -1061,8 +1073,6 @@ def buildSolver( modelId, solver, useVclamp = False ):
 
 
 def buildVclamp( stim, modelLookup ):
-    # Put in modelLookup here
-    #path = '/model/elec/soma/vclamp'
     # Stim.entities should be the compartment name here.
     compt = modelLookup[stim.entities[0]][0]
     path = compt.path
@@ -1075,41 +1085,23 @@ def buildVclamp( stim, modelLookup ):
     vclamp = moose.DiffAmp(path+"/vclamp")
     vclamp.gain = 0.00002
     vclamp.saturation = 1000        # unitless
-    #moose.showfield( vclamp )
     pid = moose.PIDController(path+"/pid")
     #pid.gain = 1.0e-6   # around 1/Rinput of cell
     pid.gain = 1.0/compt.Rm
-    #pid.gain = 1e-6
     print 'pid.gain = ', pid.gain
     pid.tauI = 20e-6
     pid.tauD = 5e-6
     pid.saturation = 1000        # unitless
     # Connect voltage clamp circuitry
-    #moose.connect(self.pulsegen, "output", self.lowpass, "injectIn")
     moose.connect(lowpass, "output", vclamp, "plusIn")
     moose.connect(vclamp, "output", pid, "commandIn")
     # Holding command potential should come into lowpass on inject
     print lowpass.dt, vclamp.dt, pid.dt
     print lowpass.tick, vclamp.tick, pid.tick
-    #moose.setClock( lowpass.tick, 5e-5 )
-    #moose.setClock( vclamp.tick, 5e-5 )
 
     moose.connect( compt, 'VmOut', pid, 'sensedIn' )
     moose.connect( pid, 'output', compt, 'injectMsg' )
     moose.reinit()
-
-    #moose.le( '/model/elec' )
-    #moose.le( '/model/elec/soma' )
-    #moose.showmsg( '/model/elec/soma' )
-    #moose.showfield( '/model/elec/hsolve' )
-
-    #################### temp stuff for debugging #################
-    plot = moose.Table( '/model/plots/vclampCurr' )
-    moose.connect( '/model/plots/vclampCurr', 'requestOut', '/model/elec/soma/pid',  'getOutputValue' )
-    plot = moose.Table( '/model/plots/Vhold' )
-    moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
-    #################### temp stuff for debugging #################
-
 
 def runit( model, stims, readouts, modelId ):
     for i in stims:
@@ -1136,11 +1128,12 @@ def main():
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
+    parser.add_argument( '-hs', '--hide_subplots', action="store_false", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots )
 
 
-def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True ):
+def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True, hideSubplots = False ):
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     modelId = ""
@@ -1169,7 +1162,6 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             modelId = mscript.load()
 
         model.buildModelLookup()
-        #model.buildFieldLookup( stims, readouts )
 
         for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
@@ -1200,11 +1192,11 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             moose.setClock( i, 0.1 )
 
         score = runit( model,stims, readouts, modelId )
-        print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
         if not hidePlot:
+            print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
             for i in readouts:
                 pylab.figure(1)
-                i.displayPlots(script, model.modelLookup )
+                i.displayPlots(script, model.modelLookup, hideSubplots )
                 
             if moose.exists( '/model/plots/vclampCurr' ):
                 pylab.figure()
