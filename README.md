@@ -88,7 +88,7 @@ python findSim.py Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.
 
 =============================================================================
 # Other resources
-Project is hosted at http:github.com/BhallaLab/FindSim
+Project is hosted at https://github.com/BhallaLab/FindSim
 
 The web template for experiment worksheet can be found here https://www.ncbs.res.in/faculty/bhalla-findsim/worksheet  
 
@@ -97,11 +97,11 @@ The MOOSE site: http://moose.ncbs.res.in
 MOOSE documentation: http://moose.ncbs.res.in/readthedocs/install/index_install.html  
 
 Two papers were used as the initial basis for the models, and which in turn
-refer to a large number of experimental studies for their data:
+refer to a large number of experimental studies for their data:  
 	- Bhalla US., Iyengar R. Emergent properties of networks of biological signaling pathways. Science. 1999 Jan 15;283(5400):381-7.  
 	- Jain P, and Bhalla, U.S. Signaling logic of activity-triggered dendritic protein synthesis: an mTOR gate but not a feedback switch. PLoS Comput Biol. 2009 Feb;5(2):e1000287. Epub 2009 Feb 13  
 
-Two further papers were used for some of the experiments:
+Two further papers were used for some of the experiments:  
 	- Gu J, et al. Beta1,4-N-Acetylglucosaminyltransferase III down-regulates neurite outgrowth induced by costimulation of epidermal growth factor and integrins through the Ras/ERK signaling pathway in PC12 cells. Glycobiology. 2004 Feb;14(2):177-86. Epub 2003 Oct 23  
 	- Ji Y, et al. Acute and gradual increases in BDNF concentration elicit distinct signaling and functions in neurons. Nat Neurosci. 2010 Mar;13(3):302-9. doi: 10.1038/nn.2505. Epub 2010 Feb 21.  
 
