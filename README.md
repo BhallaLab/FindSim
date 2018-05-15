@@ -43,18 +43,19 @@ Release1.1.0
 A. Run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 	To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  
   	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv --model synSynth7.g  
-  				+ or  
+  				or  
   	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv  
 
 B. Batch run:  
 	-runAllParallel.py script runs the findSim program on all tsv files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.  
+	
 	>python runAllParallel.py Curated -n 8  (run of the entire set of `Curated` experiments on 8 cores)  
 						or  
 	>python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn) --model (synSynth7.g)  
 
 C. Syntax help:  
-1. python findSim.py -h  
-2. python runAllParallel.py -h  
+	>python findSim.py -h  
+	>python runAllParallel.py -h  
 
 =============================================================================
 
@@ -82,6 +83,7 @@ python findSim.py Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.
 
 =============================================================================
 # Other resources
+Project is hosted at http:github.com/BhallaLab/FindSim
 
 The web template for experiment worksheet can be found here https://www.ncbs.res.in/faculty/bhalla-findsim/worksheet  
 
