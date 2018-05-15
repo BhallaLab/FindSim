@@ -58,9 +58,9 @@ C. Syntax help:
 	>python runAllParallel.py -h  
 
 
-D. Running electrical stimulus (in beta):
-	>cd models
-	>python ../findSim.py ../Non-Curated/HH_Fig13.tsv --model loadhh.py
+D. Running electrical stimulus (in beta):  
+	>cd models  
+	>python ../findSim.py ../Non-Curated/HH_Fig13.tsv --model loadhh.py  
 
 =============================================================================
 
