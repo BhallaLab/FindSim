@@ -17,10 +17,10 @@ Release1.1.0
 		- Install MOOSE which can be found here  
 			https://moose.ncbs.res.in/readthedocs/install/install.html  
 		- Install FindSim:  
-			Clone the repository using  
-  				>git clone https://github.com/BhallaLab/FindSim  (clones all the branches)  
-									or  
-				>git clone -b <branch-name> https://github.com/BhallaLab/FindSim (clones specific branch)  
+			Clone the entire repository using  
+  				>git clone https://github.com/BhallaLab/FindSim 
+			or, clone specific branch such as "develop" using:
+				>git clone -b <branch-name> https://github.com/BhallaLab/FindSim
 
 =============================================================================
 # File organization:
@@ -28,9 +28,9 @@ Release1.1.0
 	FindSim/develop					: Development branch. More features, more models, more experiments,	less stability.  
 	FindSim/stable					: Stable branch. Stable version of `develop` branch  
 	FindSim/release.x.x.x 				: Tag release  
-	FindSim/Curated					: Folder contains the FindSim worksheet which is tested again the model  
-	FindSim/Non-Curated				: contains worksheet which are yet to test.  
-	FindSim/models					: Model files  
+	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
+	FindSim/Non-Curated				: contains FindSim worksheets for which fitting still remains.
+	FindSim/models					: Model files 
 	FindSim/findSim.py				: Main findSim script  
 	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
 	FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
@@ -56,6 +56,11 @@ B. Batch run:
 C. Syntax help:  
 	>python findSim.py -h  
 	>python runAllParallel.py -h  
+
+
+D. Running electrical stimulus (in beta):
+	>cd models
+	>python ../findSim.py ../Non-Curated/HH_Fig13.tsv --model loadhh.py
 
 =============================================================================
 
@@ -91,10 +96,15 @@ The MOOSE site: http://moose.ncbs.res.in
 
 MOOSE documentation: http://moose.ncbs.res.in/readthedocs/install/index_install.html  
 
-Key papers used in the curated set of experiments:  
+Two papers were used as the initial basis for the models, and which in turn
+refer to a large number of experimental studies for their data:
 	- Bhalla US., Iyengar R. Emergent properties of networks of biological signaling pathways. Science. 1999 Jan 15;283(5400):381-7.  
 	- Jain P, and Bhalla, U.S. Signaling logic of activity-triggered dendritic protein synthesis: an mTOR gate but not a feedback switch. PLoS Comput Biol. 2009 Feb;5(2):e1000287. Epub 2009 Feb 13  
+
+Two further papers were used for some of the experiments:
 	- Gu J, et al. Beta1,4-N-Acetylglucosaminyltransferase III down-regulates neurite outgrowth induced by costimulation of epidermal growth factor and integrins through the Ras/ERK signaling pathway in PC12 cells. Glycobiology. 2004 Feb;14(2):177-86. Epub 2003 Oct 23  
 	- Ji Y, et al. Acute and gradual increases in BDNF concentration elicit distinct signaling and functions in neurons. Nat Neurosci. 2010 Mar;13(3):302-9. doi: 10.1038/nn.2505. Epub 2010 Feb 21.  
 
 DOQCS database, from which models were derived: http://doqcs.ncbs.res.in  
+	Sivakumaran S. et al. The Database of Quantitative Cellular Signaling: management and analysis of chemical kinetic models of signaling networks.
+Bioinformatics. 2003. 19(3):408–415
