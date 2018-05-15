@@ -24,26 +24,26 @@ Release1.1.0
 
 =============================================================================
 # File organization:
-	FindSim/             					: project directory  
-	FindSim/develop							: Development branch. More features, more models, more experiments,	less stability.  
-	FindSim/stable							: Stable branch. Stable version of `develop` branch  
-	FindSim/release.x.x.x 					: Tag release  
-	FindSim/Curated							: Folder contains the FindSim worksheet which is tested again the model  
-	FindSim/Non-Curated						: contains worksheet which are yet to test.  
-	FindSim/models							: Model files  
-	FindSim/findSim.py						: Main findSim script  
-	FindSim/runAllParallel.py				: Batch/parallel wrapper script.  
+	FindSim/             				: project directory  
+	FindSim/develop					: Development branch. More features, more models, more experiments,	less stability.  
+	FindSim/stable					: Stable branch. Stable version of `develop` branch  
+	FindSim/release.x.x.x 				: Tag release  
+	FindSim/Curated					: Folder contains the FindSim worksheet which is tested again the model  
+	FindSim/Non-Curated				: contains worksheet which are yet to test.  
+	FindSim/models					: Model files  
+	FindSim/findSim.py				: Main findSim script  
+	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
 	FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
 	FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
-	FindSim/FindSim-Schema.xml 				: Schema for tsv files for worksheet.  
-	FindSim/README.md						: This file  
+	FindSim/FindSim-Schema.xml 			: Schema for tsv files for worksheet.  
+	FindSim/README.md				: This file  
 						
 =============================================================================
 # Quick start: 
 A. Run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 	To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  
   	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv --model synSynth7.g  
-  				or  
+  				+ or  
   	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv  
 
 B. Batch run:  
