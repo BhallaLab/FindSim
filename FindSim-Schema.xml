@@ -53,6 +53,18 @@ used to build this experimental dataset</xs:documentation>
       </xs:annotation>
       <xs:complexType>
         <xs:sequence>
+          <xs:element name="exptType">
+          <xs:annotation>
+            <xs:documentation>experiment type is the board category of experiment context</xs:documentation>
+          </xs:annotation>
+           <xs:simpleType>
+           <xs:restriction type="xs:string" default="TimeSeries">
+            <xs:enumeration value="TimeSeries"/>
+            <xs:enumeration value="DoseResponse"/>
+            <xs:enumeration value="HistroBlocker"/>
+           </xs:restriction>
+           </xs:simpleType>
+        </xs:element>
           <xs:element name="species" type="xs:string">
             <xs:annotation>
               <xs:documentation>Species in which the experiment was done</xs:documentation>
@@ -147,17 +159,24 @@ This block is optional, i.e., if no stimulus exist one can delete this block.</x
         <xs:element name="Data">
           <xs:annotation>
             <xs:documentation>This specifies the start line of the data block of each stimulus.
-time-value pair.</xs:documentation>
+time-value pair or entity-value</xs:documentation>
           </xs:annotation>
           <xs:complexType>
             <xs:sequence>
-              <xs:element name="Time" type="xs:decimal"/>
+              <xs:element name="Time-Entity" type="xs:decimal">
+              <xs:simpleType>
+                <xs:restriction type="xs:string" default="Time">
+                <xs:enumeration value="Time"/>
+                <xs:enumeration value="Entity"/>
+                </xs:restriction>
+              </xs:simpleType>
+              </xs:element>
               <xs:element name="Value" type="xs:decimal"/>
             </xs:sequence>
           </xs:complexType>
         </xs:element>
       </xs:sequence>
-      </xs:complexType><
+      </xs:complexType>
     </xs:element> <!-- closed for stimulus -->
     <xs:element name="ReadOuts">
       <xs:annotation>
@@ -165,17 +184,6 @@ time-value pair.</xs:documentation>
       </xs:annotation>
       <xs:complexType>
       <xs:sequence>
-        <xs:element name="readoutType">
-          <xs:annotation>
-            <xs:documentation>Readout type is the board category of readout</xs:documentation>
-          </xs:annotation>
-           <xs:simpleType>
-           <xs:restriction type="xs:string" default="TimeSeries">
-            <xs:enumeration value="TimeSeries"/>
-            <xs:enumeration value="DoseResponse"/>
-           </xs:restriction>
-           </xs:simpleType>
-        </xs:element>
         <xs:element name="timeUnits">
           <xs:annotation>
             <xs:documentation>Units of time for data. Typically seconds.</xs:documentation>
@@ -278,7 +286,7 @@ time-value pair.</xs:documentation>
             <xs:sequence>
               <xs:element name="Time" type="xs:decimal">
                 <xs:simpleType>
-                <xs:restriction type="xs:string" default="Localpath">
+                <xs:restriction type="xs:string" default="Time">
                 <xs:enumeration value="Time"/>
                 <xs:enumeration value="Dose"/>
                 </xs:restriction>
