@@ -61,7 +61,7 @@ used to build this experimental dataset</xs:documentation>
            <xs:restriction type="xs:string" default="TimeSeries">
             <xs:enumeration value="TimeSeries"/>
             <xs:enumeration value="DoseResponse"/>
-            <xs:enumeration value="HistroBlocker"/>
+            <xs:enumeration value="BarChart"/>
            </xs:restriction>
            </xs:simpleType>
         </xs:element>
@@ -163,7 +163,7 @@ time-value pair or entity-value</xs:documentation>
           </xs:annotation>
           <xs:complexType>
             <xs:sequence>
-              <xs:element name="Time-Entity" type="xs:decimal">
+              <xs:element name="Time" type="xs:decimal">
               <xs:simpleType>
                 <xs:restriction type="xs:string" default="Time">
                 <xs:enumeration value="Time"/>
@@ -189,7 +189,7 @@ time-value pair or entity-value</xs:documentation>
             <xs:documentation>Units of time for data. Typically seconds.</xs:documentation>
           </xs:annotation>
           <xs:simpleType>
-            <xs:restriction type="xs:string">
+            <xs:restriction type="xs:string" default="millisec">
             <xs:enumeration value="sec"/>
             <xs:enumeration value="millisec"/>
             <xs:enumeration value="microsec"/>
@@ -289,6 +289,7 @@ time-value pair or entity-value</xs:documentation>
                 <xs:restriction type="xs:string" default="Time">
                 <xs:enumeration value="Time"/>
                 <xs:enumeration value="Dose"/>
+                <xs:enumeration value="Entity"/>
                 </xs:restriction>
           </xs:simpleType>
         </xs:element>
