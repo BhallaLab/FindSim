@@ -10,6 +10,7 @@ journal	Exp Neurol 1999
 		
 		
 Experiment context		
+exptType	TimeSeries	
 species		
 cell-types		
 temperature (Celsius)		
@@ -30,7 +31,6 @@ Time	Value
 		
 		
 Readouts		
-readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	nM	
 useXlog	FALSE	

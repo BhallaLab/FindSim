@@ -10,6 +10,7 @@ journal	Biochem Biophys Res Commun. 2005
 		
 		
 Experiment context		
+exptType	DoseResponse	
 species		
 cell-types		
 temperature (Celsius)		
@@ -29,7 +30,6 @@ Time	Value
 		
 		
 Readouts		
-readoutType	DoseResponse	
 timeUnits	sec	
 quantityUnits	uM	
 useXlog	FALSE	

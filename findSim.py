@@ -76,35 +76,45 @@ class Experiment:
     in the experiement specification file so that we know where the
     data came from, and to look up details."""
     def __init__( self, 
+            exptType = 'timeSeries',
             exptSource = 'paper', # Options are paper, inHouse, database
             citationId = '',  # Journal name/ in-house project name/ database
             authors = '',   # Who did the work
-            journal = ''     # journal
+            journal = '',     # journal
+            temperature = 22    # Degrees Celsius
         ):
         self.exptSource = exptSource
+
+        """This defines what kind of data is in the experiment. 
+        timeSeries is the most elementary experiment: Monitor a model
+        value at a succesion of points in time. Other options are
+        doseResponse, barchart, and more.
+        """
+        self.exptType = exptType.lower()
         self.citationId = citationId
         self.authors = authors
         self.journal = journal
+        self.temperature = temperature
 
     def load( fd ):
-        arg = [''] * 4
+        doneContext = False
+        arg = {}
         for line in fd:
             cols = line.split('\t')
-            if len( cols ) == 0:
+            if doneContext and (len( cols ) == 0 or cols[0] == '' or cols[0].isspace()):
                 break
             if cols[0] == "Experiment context":
-                break
-            for i in range( len( Experiment.argNames ) ):
-                if keywordMatches( cols[0], Experiment.argNames[i] ):
-                    try:
-                        arg[i] = cols[1]
-                    except IndexError:
-                        arg[i] = ""
+                doneContext = True
+                continue
+            for i in Experiment.argNames:
+                if keywordMatches( cols[0], i ):
+                    arg[i] = str.strip( nonBlank( cols ) )
                     continue
-        return Experiment( arg[0], arg[1], arg[2], arg[3] )
+        return Experiment( **arg )
+
     load = staticmethod( load )
 
-Experiment.argNames = ['exptSource', 'citationId', 'authors', 'journal' ]
+Experiment.argNames = ['exptType', 'exptSource', 'citationId', 'authors', 'journal', 'temperature' ]
 
 ##########################################################################
 class Stimulus:
@@ -174,7 +184,6 @@ class Readout:
     There can be multiple readouts during an experiment.
     """
     def __init__( self,
-            readoutType = 'timeSeries',
             timeUnits = 's',
             quantityUnits = 'mM',
             useRatio = False,
@@ -191,12 +200,6 @@ class Readout:
             scoringFormula = 'abs(1-(sim+1e-9)/(expt+1e-9))',
             data = []      # Data from experiment. rows of [t,val,stder]
             ):
-        self.readoutType = readoutType.lower()
-        """This defines what kind of data is in the readout. 
-        timeSeries is the most elementary readout: Monitor a model
-        value at a succesion of points in time. Other options are
-        doseResponse, and more.
-        """
         self.timeUnits = timeUnits
         """timeUnits may be us, ms, s, min, hours, days"""
         self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
@@ -258,14 +261,14 @@ class Readout:
         for i in self.ratioReferenceEntities:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
-    def displayPlots( self, fname, modelLookup, stim, hideSubplots ):
-        if "doseresponse" in self.readoutType:
+    def displayPlots( self, fname, modelLookup, stim, hideSubplots, exptType ):
+        if "doseresponse" in exptType:
             for i in stim.entities:
                 elms = modelLookup[i]
                 for j in elms:
-                    pp = PlotPanel( self, xlabel = j.name +'('+stim.quantityUnits+')' )
+                    pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
                     pp.plotme( fname, joinSimPoints = True )
-        else:
+        elif "timeseries" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
                 ypts = self.plots[elms[0].name].vector
@@ -276,7 +279,7 @@ class Readout:
                 sumvec = numpy.zeros(len(xpts))
                 for j in elms:
                     #pp = PlotPanel( self, xlabel = j.name +'('+self.timeUnits+')' )
-                    pp = PlotPanel( self )
+                    pp = PlotPanel( self, exptType )
                 # Here we plot the fine timeseries for the sim.
                 # Not yet working for all options of ratio.
                     if len( self.ratioData ) > 0:
@@ -336,7 +339,7 @@ class Readout:
         return readout
     load = staticmethod( load )
 
-Readout.argNames = ['readoutType', 'timeUnits', 'quantityUnits', 
+Readout.argNames = ['timeUnits', 'quantityUnits', 
         'useXlog', 'useYlog', 'useNormalization', 
         'entities', 'field', 'settleTime', 'ratioReferenceTime', 
         'ratioReferenceDose','ratioReferenceEntities']
@@ -417,7 +420,8 @@ class Model:
             paths = self._tempModelLookup[i].split('+')
             # Summed sim entities are separated with a '+', but map to a 
             # single experimentally defined entity.
-            self.modelLookup[i] = [ self.findObj( '/model', p) for p in paths ]
+            foundObj = [ self.findObj( '/model', p) for p in paths ]
+            self.modelLookup[i] = foundObj
     '''
     def buildFieldLookup( self, stims, readouts ):
         for i in stims:
@@ -626,7 +630,7 @@ def innerLoad( fd, argNames, dataWidth = 2):
         for i in argNames:
             if keywordMatches( cols[0], i ):
                 arg[i] = str.strip( nonBlank( cols) )
-                continue;
+                continue
         if keywordMatches(cols[0],"parameterChange"):
             readParameter(fd,param,dataWidth)
 
@@ -642,16 +646,23 @@ def nonBlank( cols ):
     return ''
 
 def readData( fd, data, width ):
+    entityNameInFirstRow = False
     for line in fd:
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        if cols[0].lower() == "time" or cols[0].lower() == "dose" or cols[0].lower() == "settletime":
+        cl = cols[0].lower()
+        if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
+            if cl == 'entity':
+                entityNameInFirstRow = True
             continue
         row = []
-        for c in cols:
-            if c != '':
-                row.append( float(c) )
+        for i in range( len( cols ) ):
+            if cols[i] != '':
+                if i == 0 and entityNameInFirstRow:
+                    row.append( cols[i] )
+                else:
+                    row.append( float( cols[i] ) )
                 if len( row ) >= width:
                     break;
         if len( row ) > 0 and len( row ) < width:
@@ -973,16 +984,62 @@ def runDoser( model, stim, readout, doseMol ):
             moose.start( readout.settleTime )
         doReferenceReadout( readout, model.modelLookup,readout.field )
 
+##########################################################################
+def doBarChartStim( multiStimLine, doseMol, dose, field ):
+    indices = []
+    for i in range( len( multiStimLine ) ):
+        if multiStimLine[i] == '1' or multiStimLine[i] == '+':
+            indices.append(i)
+    for j in indices:
+        #print "Stimulating index {} for mol{} and field {} with dose {}".format( j, doseMol[j], field, dose[j] )
+        doseMol[j][0].setField( field, dose[j] )
+        if field == 'conc' or field == 'n':
+            field2 = field + 'Init'
+        doseMol[j][0].setField( field2, dose[j] )
+        
+        
+
+def parseAndRunBarChart( model, stims, readouts, modelId ):
+    if len( stims ) != 1:
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
+    if len( readouts ) != 1:
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one readout block, {} defined".format( len( readout ) ) )
+    numLevels = len( readouts[0].data )
+    
+    if numLevels == 0:
+        raise SimError( "parseAndRunBarChart: no stimulus levels defined for run" )
+    
+    runTime = readouts[0].settleTime
+    
+    if runTime <= 0.0:
+        print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
+        runTime = 300
+    
+    doseMol = []
+    dose = []
+    #Stimulus Molecules
+    #Assuming one stimulus block, one molecule allowed
+    for i in stims[0].data:
+        doseMol.append( model.modelLookup[ i[0] ] )
+        dose.append( i[1] )
+    for i in readouts[0].data:
+        doBarChartStim( i[0], doseMol, dose, stims[0].field )
+        moose.reinit()
+        moose.start( readouts[0].settleTime )
+        doEntityAndRatioReadout(readouts[0], model.modelLookup, readouts[0].field)
+
+    score = processReadouts( readouts, model.scoringFormula )
+    return score
 
 ##########################################################################
 
 class PlotPanel:
-    def __init__( self, readout, xlabel = '' ):
+    def __init__( self, readout, exptType, xlabel = '' ):
         self.name=[]
         for i in readout.entities:
             self.name.append( i )
-            print "Readout Entities:", i
-        self.exptType = readout.readoutType
+            #print "Readout Entities:", i
+        self.exptType = exptType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
         if len( xlabel ) > 0:
@@ -1044,7 +1101,7 @@ def loadTsv( fname ):
                         readouts.append( Readout.load(fd) )
                     if cols[0] == 'Model mapping':
                         model = Model.load(fd )
-    return expt,stims,readouts,model
+    return expt, stims, readouts, model
 
 def buildSolver( modelId, solver, useVclamp = False ):
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
@@ -1104,16 +1161,20 @@ def buildVclamp( stim, modelLookup ):
     moose.connect( pid, 'output', compt, 'injectMsg' )
     moose.reinit()
 
-def runit( model, stims, readouts, modelId ):
+def runit( expt, model, stims, readouts, modelId ):
     for i in stims:
         i.configure( model.modelLookup )
     for i in readouts:
         i.configure( model.modelLookup )
 
-    if "doseresponse" in readouts[0].readoutType:
+    if "doseresponse" in expt.exptType:
         return parseAndRunDoser( model, stims, readouts, modelId)
-    else:
+    elif "timeseries" in expt.exptType:
         return parseAndRun( model, stims, readouts, modelId )
+    elif "barchart" in expt.exptType:
+        return parseAndRunBarChart( model, stims, readouts, modelId )
+    else:
+        return 0.0
 
 def main():
     """ This program handles loading a kinetic model, and running it
@@ -1126,7 +1187,7 @@ def main():
     )
 
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
-    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "FindSim_compositeModel_1.g" )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "models/synSynth7.g" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
@@ -1134,7 +1195,7 @@ def main():
     innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots )
 
 
-def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "", hidePlot = True, hideSubplots = False ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False ):
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     modelId = ""
@@ -1162,13 +1223,10 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
             mscript = __import__( filename )
             modelId = mscript.load()
 
-        model.buildModelLookup()
 
         for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
         # Then we apply whatever modifications are specified by user or protocol
-        if not hidePlot:
-            makeReadoutPlots( readouts, model.modelLookup )
 
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
@@ -1179,6 +1237,11 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
                 moose.mooseWriteSBML( modelId.path, dumpFname )
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
+
+        model.buildModelLookup()
+
+        if not hidePlot:
+            makeReadoutPlots( readouts, model.modelLookup )
 
 
         if stims[0].field == 'Vclamp':
@@ -1192,12 +1255,12 @@ def innerMain( script, modelFile = "FindSim_compositeModel_1.g", dumpFname = "",
         for i in range( 10, 20 ):
             moose.setClock( i, 0.1 )
 
-        score = runit( model,stims, readouts, modelId )
+        score = runit( expt, model,stims, readouts, modelId )
         if not hidePlot:
             print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
             for i in readouts:
                 pylab.figure(1)
-                i.displayPlots( script, model.modelLookup, stims[0], hideSubplots )
+                i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
             if moose.exists( '/model/plots/vclampCurr' ):
                 pylab.figure()

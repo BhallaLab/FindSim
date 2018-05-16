@@ -8,6 +8,7 @@ authors	Parkhurst KM et al.
 journal	Biochemistry. 1994	
 		
 Experiment context		
+exptType	DoseResponse	
 species		
 cell-types		
 temperature-in-Celsius		
@@ -25,7 +26,6 @@ Time	Value
 		
 		
 Readouts		
-readoutType	DoseResponse	
 timeUnits	sec	
 quantityUnits	nM	
 useXlog	FALSE	
