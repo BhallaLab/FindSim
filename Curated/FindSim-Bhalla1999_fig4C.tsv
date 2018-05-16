@@ -7,13 +7,16 @@ citationId	PMID: 9888852
 authors	Bhalla and Iyengar	
 journal		
 		
+		
+		
 Experiment context		
-species	optional	
-cell-types	optional	
-temperature-in-Celsius	optional	
-includePathway	Ca signaling	
-details	Bhalla_fig4C	
-notes	Time course experiment	
+exptType	TimeSeries	
+species		
+cell-types		
+temperature-in-Celsius		
+includePathway	Ca,PLCbeta,PLA2,PKC,PIP2,IP3,Ras,MAPK	
+details		
+notes		
 		
 Stimuli		
 timeUnits	sec	
@@ -87,7 +90,6 @@ Time	Value
 2236	0.08	
 		
 Readouts		
-readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	uM	
 useXlog	FALSE	
@@ -100,7 +102,7 @@ ratioReferenceDose	0
 entities	MAPK_p_p	
 field	conc	
 Data		
-Time	Value	sem
+Time	Value	stderr
 600	0.0001	0
 1000	0.0002	0
 1200	0.0005	0
@@ -112,17 +114,17 @@ Time	Value	sem
 4800	0.22	0
 		
 Model mapping		
-modelSource	DOQCS	
-fileName		
+modelSource	Local path	
+fileName	models/synSynth7.g	
 citationId		
 citation		
 authors		
-modelSubset	kinetics/Ca,Phosphatase,Gprotein,kinetics/mGluR,AC,PKA,PP2B,kinetics/PLC_g,Ras,MAPK/MAPK,kinetics/MAPK/,PP1,kinetics/CaM,kinetics/CaMKII,kinetics/mGluRAntag,PLCbeta,PLA2,PKC,PIP2,temp_PIP2,IP3,kinetics/EGFR,kinetics/Sos,PC,AMP	
-modelLookup	Ca:Ca/Ca,MAPK_p_p:MAPK/MAPK_p_p	
+modelSubset	kinetics/Ca,Phosphatase,Gprotein,kinetics/mGluR,AC,PKA,PP2B,kinetics/PLC_g,Ras,MAPK/MAPK,kinetics/MAPK/,PP1,kinetics/CaM,kinetics/CaMKII,kinetics/mGluRAntag,PLCbeta,PLA2,PKC,PIP2,temp_PIP2,IP3,kinetics/EGFR,kinetics/Sos	
+modelLookup	MAPK_p_p:MAPK/MAPK_p_p,Ca:Ca/Ca	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	dephos_clus_S6K,dephos_S6K,Gab1,PI3K_basal,PI3K,PIP3,PTEN,SHC_p_Grb2_Gab1_PI3K_clx,PLCg_basal,basal_GEF_activity,Ras_GTP_PI3K,dephosp_S6K,bind_Gab1,PI3K_act,basal_PI3K_act,PI3K_bind_Ras_GTP,Dephos_AKTser473,Dephosph_AKTthr308,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,CaMKIII_bind_CaM_Ca4,PLC_g_p_dephospho,Grb2_bind_SHC,PDK1/S6K_phospho,phospho_thr308,phosp_AKTser473,cluster_phospho_S6K,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho,MEK_phospho,MEKp_phospho,PIP3_AKT_t308_s473,mGluR_barr2_Raf_scaffolding,mGluR_dephosph	
 solver	Runge kutta method (gsl)	
-notes		
+notes	Bhalla1999_Fig4C	
 parameterChange		
 Object	parameter	value
 Ca/Ca	concInit	0.00008
@@ -149,11 +151,11 @@ MAPK/craf_1	concInit	0.0002
 MAPK/MAPKK	concInit	0.00018
 Phosphatase/PP2A	concInit	0.00012
 Phosphatase/PPhosphatase2A	concInit	0.000224
-PLCbeta/PIP2	concInit	0.01
-PLCbeta/DAG	isBuffered	0
-PLA2/Arachidonic_Acid	isBuffered	0
-PLA2/Arachidonic_Acid	concInit	0
-PLCbeta/DAG	concInit	0
+PIP2	concInit	0.01
+DAG	isBuffered	0
+Arachidonic_Acid	isBuffered	0
+Arachidonic_Acid	concInit	0
+DAG	concInit	0
 PLC_g/PLC_g	concInit	0.00082
 Ras/GAP	concInit	0.000002
 Ras/GDP_Ras	concInit	0.0002

@@ -1,0 +1,82 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	National Centre for Biological Sciences	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 14576170	
+authors	Gu J et al.	
+journal	Glycobiology 2004	
+		
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species	Rat	
+cell-types	Pheochromocytoma cell line (PC12)	
+temperature-in-Celsius		
+includePathway	EGFR,Sos,PLCg,PKC,Ras,MAPK	
+details	Fig 3B	
+notes		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	nM	
+entities	EGF	
+field	conc	
+Data		
+Time	Value	
+3600	1.00E+00	
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	0	
+ratioReferenceTime	3600	
+ratioReferenceEntities	pERK1/2	
+ratioReferenceDose	0	
+entities	pERK1/2	
+field	conc	
+Data		
+Time	Value	stderr
+3600	1	0
+3900	2.5	1
+5400	1.5	0.3
+7200	1.3	0.6
+14400	1.2	0.5
+36000	1	0.5
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	kinetics/EGFR,kinetics/Sos,Ras,kinetics/MAPK,kinetics/Ca,PKC,Phosphatase,kinetics/PLC_g,PLCbeta,PLA2,PC,IP3,PIP2	
+modelLookup	EGF:EGF,pERK1/2:MAPK_p+MAPK/MAPK_p_p	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	PP2A,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,MEKp_phospho,mGluR_barr2_Raf_scaffolding,MAPK_p_p/cluster_phospho_S6K,MAPK_p_p/MAPK_4E_BP_p_p,MAPK_p_p/MAPK_4E_BP_phospho,Act_PLC_by_Gq,Inact_PLC_Gq,PLC_bind_Gq,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,PIP2_PLA2_act,PIP2_Ca_PLA2_act,CaM_bind_GEF,PI3K_bind_Ras_GTP,PIP2_phospho_Ras_GTP	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+EGF	concInit	0.00E+00
+PKC_basal_p	concInit	2.00E-05
+GAP	concInit	2.00E-05
+PIP2	concInit	0.007
+GDP_Ras	concInit	0.0005
+SHC_p_dephospho	Kf	0.2
+Ras_act_craf	Kf	9999.26668
+PKC_act_raf	Km	0.02098
+MKP1_tyr_deph	Km	0.00734
+MKP1_thr_deph	Km	0.00734
+MKP1_thr_deph	kcat	4
+MKP1_tyr_deph	kcat	4
+Raf_p_GTP_Ras.1	kcat	0.3
+Raf_p_GTP_Ras.2	kcat	0.3
+CaM_GEF_act_Ras	kcat	0.2
+Sos.Ras_GEF	kcat	0.2

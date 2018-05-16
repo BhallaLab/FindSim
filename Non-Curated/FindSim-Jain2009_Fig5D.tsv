@@ -1,0 +1,69 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	National Centre for Biological Sciences	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 15016380	
+authors	Kelleher RJ et al.	
+journal	Cell 2004	
+		
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species	mice	
+cell-types	primary hippocampal neurons	
+temperature-in-Celsius		
+includePathway	BDNF,TrKB,PLCg,PI3K,AKT,Ras,MAPK,mTOR,TSC1/2,S6K,40S	
+details	Fig5D	
+notes	Jain2009,Fig5D	
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+entities		
+field	conc	
+Data		
+Entity	Value	
+BDNF	3.57E-03	
+U0126	2.00E+01	
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	TRUE	
+settleTime	0	
+ratioReferenceTime	1800	
+ratioReferenceEntities	pS6	
+ratioReferenceDose	0	
+entities	pS6	
+field	conc	
+Data		
+Time	Value	stderr
+0	1	0
+1	0.6	0.3
+10	3.2	1.2
+11	0.9	0.4
+		
+		
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	kinetics/Ca,Phosphatase,kinetics/Sos,Ras,kinetics/MAPK,kinetics/CaM,PKC,PI3K_activation,kinetics/BDNF,kinetics/TrKB,PLA2,PLCbeta,kinetics/PLC_g,PC,mTORC1,kinetics/TSC1_TSC2,S6Kinase,kinetics/_40S,AKT_activation,kinetics/CaMKIII	
+modelLookup	pS6:_40S/_40S,BDNF:BDNF/BDNF	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	MAPK_p_p/MAPK_p_p,dephosph_inhib1,MEK_phospho,MEKp_phospho,phosph_AC2,bg_act_GEF,dephosph_inact_GEF_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g,neurogranin_bind_CaM,CaM/dephosph_neurogranin,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,GEF_Gprot_bg,CaM(Ca)n_CaNAB,mGluR_barr2_Raf_scaffolding,dephosph_inhib1_noCaM,PP2A_dephospho_I1,PP2A/mGluR_dephosph,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho,PP2A_dephospho_PP1_I_p,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,eEF2thr56_basal,CaMKIII_CaM_Ca4/phospho,TOR_4E_BP_p,TOR_4E_BP_phospho,PLC_bind_Gq,Inact_PLC_Gq,Act_PLC_by_Gq	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+BDNF/BDNF	concInit	0.00E+00
