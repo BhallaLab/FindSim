@@ -10,11 +10,12 @@ journal	EMBO J. 1999
 		
 		
 Experiment context		
+exptType	TimeSeries	
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway		
-details	Jain2009_fig3F	
+temperature-in-Celsius		
+includePathway	eIF4E,eIF4E-BP	
+details		
 notes	20ug of GAL4-4EBP2 and 20ug of eIF4E in 300ul buffer	
 		
 		
@@ -30,18 +31,17 @@ Time	Value
 		
 		
 Readouts		
-readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	uM	
 useXlog	FALSE	
 useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	0	
 ratioReferenceTime	0	
 ratioReferenceEntities		
-entities	eIF4E_BP	
 ratioReferenceDose	0	
-settleTime	0	
+entities	eIF4E_BP	
 field	conc	
-useNormalization	FALSE	
 Data		
 Time	Value	sem
 0	0	0
@@ -56,21 +56,21 @@ Time	Value	sem
 		
 		
 Model mapping		
-modelSource	DOQCS	
-fileName		
+modelSource	Local path	
+fileName	models/synSynth7.g	
 citationId		
 citation		
 authors		
 modelSubset	eIF4E_BP,eIF4E_bind_BP2,_4E_BP/_4E_BP,eIF4E	
-modelLookup	eIF4E_BP:eIF4E_BP,eIF4E:eIF4E	
+modelLookup	eIF4E:eIF4E,eIF4E_BP:eIF4E_BP	
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete		
 solver	Runge kutta method (gsl)	
-notes		
+notes	Jain2009_Fig3F	
 parameterChange		
 Object	parameter	Value
 eIF4E	concInit	1.60E-03
 eIF4E	isBuffered	1
 eIF4E_BP	concInit	0
-_4E_BP/_4E_BP	isBuffered	1
 _4E_BP/_4E_BP	concInit	2.70E-04
+_4E_BP/_4E_BP	isBuffered	1

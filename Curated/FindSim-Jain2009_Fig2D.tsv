@@ -13,9 +13,9 @@ Experiment context
 exptType	DoseResponse	
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway	BDNF,TrKB,PLCg	
-details	JainFig2D	
+temperature-in-Celsius		
+includePathway	BDNF,TrKB,PLCg	
+details		
 notes		
 		
 		
@@ -34,13 +34,13 @@ timeUnits	sec
 quantityUnits	nM	
 useXlog	FALSE	
 useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	300	
 ratioReferenceTime	0	
 ratioReferenceEntities		
-entities	pPLCg	
 ratioReferenceDose	0	
-settleTime	300	
+entities	pPLCg	
 field	conc	
-useNormalization	FALSE	
 Data		
 Dose	Value	sem
 0	3	0
@@ -53,8 +53,8 @@ Dose	Value	sem
 		
 		
 Model mapping		
-modelSource	DOQCS	
-fileName		
+modelSource	Local path	
+fileName	models/synSynth7.g	
 citationId		
 citation		
 authors		
@@ -63,7 +63,7 @@ modelLookup	BDNF:BDNF/BDNF,pPLCg:PLC_g_p
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	BDNF_TrKB2_p_clx/SHC_phospho,Ca.PLC_g,Ca.PLC_g_p,Ca_act_PLC_g,Ca_act_PLC_g_p,dephosph_PLC_g	
 solver	Runge kutta method (gsl)	
-notes		
+notes	Jain2009_Fig2D	
 parameterChange		
 Object	parameter	Value
 PLC_g/PLC_g	concInit	0.0001

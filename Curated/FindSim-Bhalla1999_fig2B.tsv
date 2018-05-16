@@ -7,7 +7,10 @@ citationId	PMID: 7657647
 authors	Teng KK et al.	
 journal	J Biol Chem. 1995	
 		
+		
+		
 Experiment context		
+exptType	TimeSeries	
 species	Rat	
 cell-types	Pheochromocytoma cell line (PC12)	
 temperature-in-Celsius		
@@ -22,10 +25,10 @@ entities	EGF
 field	conc	
 Data		
 Time	Value	
-2100	0.0001	
+2100	1.00E-04	
+		
 		
 Readouts		
-readoutType	TimeSeries	
 timeUnits	sec	
 quantityUnits	ratio	
 useXlog	FALSE	
@@ -38,16 +41,17 @@ ratioReferenceDose	0
 entities	pERK1/2	
 field	conc	
 Data		
-Time	Value	sem
-2100	0.02	0
+Time	Value	stderr
+2100	0.02	0.06
 2400	1	0
-3900	0.12	0
-5700	0.1	0
-9300	0.08	0
+3900	0.12	0.17
+5700	0.1	0.1
+9300	0.08	0.08
+		
 		
 Model mapping		
 modelSource	Local path	
-fileName		
+fileName	models/synSynth7.g	
 citationId		
 citation		
 authors		
@@ -56,7 +60,7 @@ modelLookup	EGF:EGF,pERK1/2:MAPK_p+MAPK/MAPK_p_p
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	PP2A,phosph_AC2,GEF_Gprot_bg,bg_act_GEF,MEK_phospho,MEKp_phospho,mGluR_barr2_Raf_scaffolding,MAPK_p_p/cluster_phospho_S6K,MAPK_p_p/MAPK_4E_BP_p_p,MAPK_p_p/MAPK_4E_BP_phospho,Act_PLC_by_Gq,Inact_PLC_Gq,PLC_bind_Gq,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,PIP2_PLA2_act,PIP2_Ca_PLA2_act,CaM_bind_GEF,PI3K_bind_Ras_GTP,PIP2_phospho_Ras_GTP	
 solver	Runge kutta method (gsl)	
-notes	Fig2B	
+notes	Bhalla1999_Fig2B	
 parameterChange		
 Object	parameter	Value
 PKC_basal_p	concInit	2.00E-05

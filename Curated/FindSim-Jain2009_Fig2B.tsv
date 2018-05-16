@@ -13,9 +13,9 @@ Experiment context
 exptType	TimeSeries	
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway	BDNF,TrKB	
-details	JainFig2B	
+temperature-in-Celsius		
+includePathway	BDNF,TrKB	
+details		
 notes		
 		
 		
@@ -29,19 +29,18 @@ Time	Value
 0	7.3	
 		
 		
-		
 Readouts		
 timeUnits	sec	
 quantityUnits	nM	
 useXlog	FALSE	
 useYlog	FALSE	
+useNormalization	FALSE	
 settleTime	0	
-ratioReferenceDose	0	
 ratioReferenceTime	0	
 ratioReferenceEntities		
+ratioReferenceDose	0	
 entities	BDNF_TrKB	
 field	conc	
-useNormalization	FALSE	
 Data		
 Time	Value	sem
 0	0	0
@@ -54,8 +53,8 @@ Time	Value	sem
 		
 		
 Model mapping		
-modelSource	DOQCS	
-fileName		
+modelSource	Local path	
+fileName	models/synSynth7.g	
 citationId		
 citation		
 authors		
@@ -64,6 +63,6 @@ modelLookup	BDNF:BDNF/BDNF,BDNF_TrKB:TrKB/BDNF_TrKB2_p_clx
 scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
 itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho,BDNF_TrKB2_p_clx/SHC_phospho	
 solver	Runge kutta method (gsl)	
-notes		
+notes	Jain2009_Fig2B	
 parameterChange		
 Object	parameter	Value
