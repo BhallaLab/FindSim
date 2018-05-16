@@ -34,7 +34,7 @@ timeUnits	sec
 quantityUnits	ratio	
 useXlog	FALSE	
 useYlog	FALSE	
-useNormalization	FALSE	
+useNormalization	TRUE	
 settleTime	0	
 ratioReferenceTime	0	
 ratioReferenceEntities	ERK1/2	
