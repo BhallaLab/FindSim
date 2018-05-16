@@ -17,23 +17,19 @@ Release1.1.0
 		- Install MOOSE which can be found here  
 			https://moose.ncbs.res.in/readthedocs/install/install.html  
 		- Install FindSim:  
-			Clone the entire repository using  
-  				>git clone https://github.com/BhallaLab/FindSim 
-			or, clone specific branch such as "stable" using:
-				>git clone -b <branch-name> https://github.com/BhallaLab/FindSim
-
+			https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip
+			https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
 =============================================================================
 # File organization:
-	FindSim/             				: project directory  
-	FindSim/stable					: Stable branch. Stable version of `develop` branch  
-	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
-	FindSim/models					: Model files 
-	FindSim/findSim.py				: Main findSim script  
-	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
-	FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
-	FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
-	FindSim/FindSim-Schema.xml 			: Schema for tsv files for worksheet.  
-	FindSim/README.md				: This file  
+	FindSim-v.1.1.0/             			: project directory  
+	FindSim-v.1.1.0/Curated				: Folder contains FindSim worksheets to which the model is well fit.
+	FindSim-v.1.1.0/models				: Model files 
+	FindSim-v.1.1.0/findSim.py			: Main findSim script  
+	FindSim-v.1.1.0/runAllParallel.py		: Batch/parallel wrapper script.  
+	FindSim-v.1.1.0/FindSim-Exptworksheet.xlsx	: Template worksheet with inline help and units, for Microsoft Excel.  
+	FindSim-v.1.1.0/FindSim-Exptworksheet.ods	: Template worksheet with inline help and units, for Libre Office.  
+	FindSim-v.1.1.0/FindSim-Schema.xml 		: Schema for tsv files for worksheet.  
+	FindSim-v.1.1.0/README.md			: This file  
 						
 =============================================================================
 # Quick start: 
