@@ -19,17 +19,14 @@ Release1.1.0
 		- Install FindSim:  
 			Clone the entire repository using  
   				>git clone https://github.com/BhallaLab/FindSim 
-			or, clone specific branch such as "develop" using:
+			or, clone specific branch such as "stable" using:
 				>git clone -b <branch-name> https://github.com/BhallaLab/FindSim
 
 =============================================================================
 # File organization:
 	FindSim/             				: project directory  
-	FindSim/develop					: Development branch. More features, more models, more experiments,	less stability.  
 	FindSim/stable					: Stable branch. Stable version of `develop` branch  
-	FindSim/release.x.x.x 				: Tag release  
 	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
-	FindSim/Non-Curated				: contains FindSim worksheets for which fitting still remains.
 	FindSim/models					: Model files 
 	FindSim/findSim.py				: Main findSim script  
 	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
@@ -58,10 +55,6 @@ C. Syntax help:
 	>python runAllParallel.py -h  
 
 
-D. Running electrical stimulus (in beta):  
-	>cd models  
-	>python ../findSim.py ../Non-Curated/HH_Fig13.tsv --model loadhh.py  
-
 =============================================================================
 
 Generating Figures for   
@@ -70,7 +63,7 @@ by
 Nisha A. Viswan, G.V. HarshaRani, Melanie I. Stefan, Upinder S. Bhalla  
 Currently in review.  
 
-All these are run using the development branch "develop"  
+All these are run using the development branch "stable"  
 Please change into the branch to run these.  
 
 Figure 6: bottom  
