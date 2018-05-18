@@ -268,6 +268,12 @@ class Readout:
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
                     pp.plotme( fname, joinSimPoints = True )
+        elif "barchart" in exptType:
+            for i in self.entities:
+                elms = modelLookup[i]
+                for j in elms:
+                    pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
+                    pp.plotbar( self, stim, fname )
         elif "timeseries" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -308,6 +314,8 @@ class Readout:
         rd = [ 1.0 if abs(x) < eps else x for x in rd ] # eliminate div/0.0
 
         if self.useNormalization:
+            if self.simData[0] < eps:
+                raise SimError( "applyRatio: Normalization failed because ratioReferenceEntity = {} is zero".format( self.ratioReferenceEntities ) )
             normalization = self.simData[0] / rd[0]
             self._simDataReference = normalization
         else:
@@ -614,13 +622,6 @@ def innerLoad( fd, argNames, dataWidth = 2):
             if cols[1] != "":
                 temp = cols[1].split( ',' )
                 modelLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
-        '''
-        if keywordMatches( cols[0], 'fieldLookup' ):
-            # Lines of the form exptName1:simName1,exptName2:simName2,...
-            if cols[1] != "":
-                temp = cols[1].split( ',' )
-                fieldLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
-        '''
 
         if keywordMatches( cols[0], 'Data' ):
             readData( fd, data, dataWidth )
@@ -646,20 +647,22 @@ def nonBlank( cols ):
     return ''
 
 def readData( fd, data, width ):
-    entityNameInFirstRow = False
+    entityNameInFirstCol = False
     for line in fd:
+        if line[0] == '#':
+            continue
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
         cl = cols[0].lower()
         if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
             if cl == 'entity':
-                entityNameInFirstRow = True
+                entityNameInFirstCol = True
             continue
         row = []
         for i in range( len( cols ) ):
             if cols[i] != '':
-                if i == 0 and entityNameInFirstRow:
+                if i == 0 and entityNameInFirstCol:
                     row.append( cols[i] )
                 else:
                     row.append( float( cols[i] ) )
@@ -1020,6 +1023,8 @@ def parseAndRunBarChart( model, stims, readouts, modelId ):
     #Stimulus Molecules
     #Assuming one stimulus block, one molecule allowed
     for i in stims[0].data:
+        if not i[0] in model.modelLookup:
+            raise SimError( "parseAndRunBarChart: stimulus entity '{}' not mapped to model entities".format( i[0] ) )
         doseMol.append( model.modelLookup[ i[0] ] )
         dose.append( i[1] )
     for i in readouts[0].data:
@@ -1038,7 +1043,6 @@ class PlotPanel:
         self.name=[]
         for i in readout.entities:
             self.name.append( i )
-            #print "Readout Entities:", i
         self.exptType = exptType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
@@ -1048,7 +1052,7 @@ class PlotPanel:
             self.xlabel = 'Time ({})'.format( readout.timeUnits )
 
         self.xpts = [ i[0] for i in readout.data]
-        self.sim = readout.simData # handle ratios...
+        self.sim = readout.simData # Ratios already handled at this stage
         self.expt = [ i[1] for i in readout.data]
         self.yerror = [ i[2] for i in readout.data]
         self.sumName=""
@@ -1056,6 +1060,34 @@ class PlotPanel:
             self.sumName += i
             self.sumName += " "
             self.ylabel = i+' ({})'.format( readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
+
+    def convertBarChartLabels( self, readout, stim ):
+        ret = []
+        doseMol = [ i[0] for i in stim.data ]
+        for i in readout.data:
+            ticklabel = ""
+            for j in range( len( i[0] ) ):
+                if i[0][j] == '1' or i[0][j] == '+':
+                    ticklabel += doseMol[j] + '\n'
+                else:
+                    ticklabel += '-\n'
+            ret.append( ticklabel )
+        return ret
+
+
+    def plotbar( self, readout, stim, scriptName ):
+        barpos = numpy.arange( len( self.sim ) )
+        width = 0.35 # A reasonable looking bar width
+        exptBar = pylab.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
+        simBar = pylab.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        pylab.xlabel( "Stimulus combinations" )
+        pylab.ylabel( self.ylabel )
+        pylab.title(scriptName)
+        pylab.legend(fontsize="small",loc="upper right")
+        ticklabels = [ i[0] + '\n' for i in readout.data ] 
+        assert len( ticklabels ) == len( barpos )
+        ticklabels = self.convertBarChartLabels( readout, stim )
+        pylab.xticks(barpos, ticklabels )
 
     def plotme( self, scriptName, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
