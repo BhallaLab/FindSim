@@ -988,19 +988,64 @@ def runDoser( model, stim, readout, doseMol ):
         doReferenceReadout( readout, model.modelLookup,readout.field )
 
 ##########################################################################
+def setFieldIncludingInit( obj, field, val ):
+    obj.setField( field, val )
+    if field == 'conc' or field == 'n':
+        field2 = field + 'Init'
+        obj.setField( field2, val )
+
 def doBarChartStim( multiStimLine, doseMol, dose, field ):
     indices = []
     for i in range( len( multiStimLine ) ):
         if multiStimLine[i] == '1' or multiStimLine[i] == '+':
             indices.append(i)
     for j in indices:
-        #print "Stimulating index {} for mol{} and field {} with dose {}".format( j, doseMol[j], field, dose[j] )
-        doseMol[j][0].setField( field, dose[j] )
-        if field == 'conc' or field == 'n':
-            field2 = field + 'Init'
-        doseMol[j][0].setField( field2, dose[j] )
-        
-        
+        setFieldIncludingInit( doseMol[j], field, dose[j] )
+
+    '''
+    moose.reinit()
+    for k in doseMol:
+        print k.name, k.conc, k.concInit
+    print
+    '''
+
+def doBarChartReference( readout, stim, modelLookup ):
+    if readout.useRatio and readout.ratioReferenceTime >= 0.0:
+        responseScale = readout.quantityScale
+        referenceDose = readout.ratioReferenceDose * stim.quantityScale
+        referenceMol = modelLookup[readout.ratioReferenceEntities[0] ]
+
+        setFieldIncludingInit( referenceMol[0], readout.field, referenceDose )
+        moose.reinit()
+        if readout.ratioReferenceTime > 0.0: # Get reference at settleTime.
+            moose.start( readout.settleTime )
+        doReferenceReadout( readout, modelLookup,readout.field )
+
+def doBarChartBars( readout, stim, modelLookup ):
+    doseMol, dose, origDose = setUpBarChartStims( stim, modelLookup )
+    for i in readout.data:
+        doBarChartStim( i[0], doseMol, dose, stim.field )
+        moose.reinit()
+        moose.start( readout.settleTime )
+        doEntityAndRatioReadout(readout, modelLookup, readout.field)
+        for mol, val in zip( doseMol, origDose ):
+            setFieldIncludingInit( mol, stim.field, val )
+    return doseMol, origDose
+
+def setUpBarChartStims( stim, modelLookup ):
+    doseMol = []
+    dose = []
+    origDose = []
+    #Stimulus Molecules
+    #Assuming one stimulus block, one molecule allowed
+    for i in stim.data:
+        if not i[0] in modelLookup:
+            raise SimError( "parseAndRunBarChart: stimulus entity '{}' not mapped to model entities".format( i[0] ) )
+        obj = modelLookup[ i[0] ][0]
+        doseMol.append( obj )
+        dose.append( i[1] * stim.quantityScale )
+        origDose.append( obj.getField( stim.field ) )
+    return doseMol, dose, origDose
 
 def parseAndRunBarChart( model, stims, readouts, modelId ):
     if len( stims ) != 1:
@@ -1018,20 +1063,11 @@ def parseAndRunBarChart( model, stims, readouts, modelId ):
         print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
         runTime = 300
     
-    doseMol = []
-    dose = []
-    #Stimulus Molecules
-    #Assuming one stimulus block, one molecule allowed
-    for i in stims[0].data:
-        if not i[0] in model.modelLookup:
-            raise SimError( "parseAndRunBarChart: stimulus entity '{}' not mapped to model entities".format( i[0] ) )
-        doseMol.append( model.modelLookup[ i[0] ] )
-        dose.append( i[1] )
-    for i in readouts[0].data:
-        doBarChartStim( i[0], doseMol, dose, stims[0].field )
-        moose.reinit()
-        moose.start( readouts[0].settleTime )
-        doEntityAndRatioReadout(readouts[0], model.modelLookup, readouts[0].field)
+    doseMol, origDose = doBarChartBars( readouts[0], stims[0], model.modelLookup )
+
+    doBarChartReference( readouts[0], stims[0], model.modelLookup )
+    for mol, val in zip( doseMol, origDose ):
+        setFieldIncludingInit( mol, stims[0].field, val )
 
     score = processReadouts( readouts, model.scoringFormula )
     return score
@@ -1083,7 +1119,7 @@ class PlotPanel:
         pylab.xlabel( "Stimulus combinations" )
         pylab.ylabel( self.ylabel )
         pylab.title(scriptName)
-        pylab.legend(fontsize="small",loc="upper right")
+        pylab.legend(fontsize="small",loc="upper left")
         ticklabels = [ i[0] + '\n' for i in readout.data ] 
         assert len( ticklabels ) == len( barpos )
         ticklabels = self.convertBarChartLabels( readout, stim )
