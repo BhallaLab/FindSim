@@ -326,12 +326,13 @@ class Readout:
         assert( len(self.data) == len( self.simData ) )
         score = 0.0
         numScore = 1.0
+        dvals = [i[1] for i in self.data]
+        datarange = max( dvals ) - min( dvals )
         for i,sim in zip( self.data, self.simData ):
             t = i[0]
             expt = i[1]
             sem = i[2]
-            #print i
-            #print t, expt, sem, sim
+            #print t, expt, sem, sim, datarange
             #print "Formula = ", scoringFormula, eval( scoringFormula )
             score += eval( scoringFormula )
             numScore += 1.0
@@ -1158,14 +1159,18 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich.path = compt.path + '/##'
     # Here we remove and rebuild the HSolver because we have to add vclamp
     # after loading the model.
-    if useVclamp and moose.exists( '/model/elec/hsolve' ):
-        origHsolve = moose.element( '/model/elec/hsolve' )
-        dt = origHsolve.dt
-        tgt = origHsolve.target
-        moose.delete( '/model/elec/hsolve' )
-        moose.reinit()
+    if useVclamp: 
+        if moose.exists( '/model/elec/hsolve' ):
+            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
+    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
+        elecDt = 50e-6
+        elecPlotDt = 100e-6
+        for i in range( 9 ):
+            moose.setClock( i, elecDt )
+        moose.setClock( 8, elecPlotDt )
+        tgt = '/model/elec/soma'
         hsolve = moose.HSolve( '/model/elec/hsolve' )
-        hsolve.dt = dt
+        hsolve.dt = elecDt
         hsolve.target = tgt
         moose.reinit()
 
@@ -1290,9 +1295,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
         return score
         
     except SimError as msg:
+        print( "Error: findSim failed for script {}: {}".format(script, msg ))
         if modelId:
             moose.delete( modelId )
-        print( "Error: findSim failed for script {}: {}".format(script, msg ))
         return -1.0
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
