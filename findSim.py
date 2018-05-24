@@ -55,8 +55,7 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
         'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
 
-#elecFields = ['V', 'mV', 'uV', 'nV', 'A', 'mA', 'uA', 'nA', 'pA' ]
-elecFields = ['Vm', 'Im']
+elecFields = ['Vm', 'Im', 'current']
 
 
 def keywordMatches( k, m ):
@@ -430,15 +429,6 @@ class Model:
             # single experimentally defined entity.
             foundObj = [ self.findObj( '/model', p) for p in paths ]
             self.modelLookup[i] = foundObj
-    '''
-    def buildFieldLookup( self, stims, readouts ):
-        for i in stims:
-            if not i.field in self.fieldLookup:
-                self.fieldLookup[i.field] = i.field
-        for i in readouts:
-            if not i.field in self.fieldLookup:
-                self.fieldLookup[i.field] = i.field
-    '''
 
     def addParameterChange( self, entity, field, data ):
         '''
@@ -465,10 +455,7 @@ class Model:
             entity = entity.replace('',"")
 
         self.itemstodelete.append((entity,change))
-        # if change == 'delete':
-        #     self.StructuralChange.append( ( entity, change ) )
-        # else:
-        #     print( "Warning: Model::addStructuralChange: Unknown modification: " + change )
+
     def findObj( self,rootpath, name ):
         '''
         Model:: findObj locates objects uniquely specified by a string. 
@@ -482,8 +469,6 @@ class Model:
         try1 = moose.wildcardFind( rootpath+'/' + name )
         try2 = moose.wildcardFind( rootpath+'/##/' + name )
         try2 = [ i for i in try2 if not '/model[0]/plots[0]' in i.path ]  
-        #print " findObj ",rootpath+'/'+name, moose.wildcardFind(rootpath+'/'+name)
-        #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
             raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
@@ -726,7 +711,6 @@ def findParentGroup( elm ):
         return elm
     if elm.parent.name == 'root':
         print( 'Warning: findParentGroup: root element found, likely naming error' )
-        #return moose.element( '/model/kinetics' )
         return moose.element('/model')
     return findParentGroup( elm.parent )
 
@@ -758,7 +742,6 @@ def pruneDanglingObj( kinpath, erSPlist):
     mWarning = ""
     mRateLaw = ""
     mFunc = ""
-    #modelWarning = ""
     for i in erlist:
         isub = i.neighbors["sub"]
         iprd = i.neighbors["prd"]
@@ -819,16 +802,6 @@ def makeReadoutPlots( readouts, modelLookup ):
             fieldname = 'get' + i.field.title()
             moose.connect( plot, 'requestOut', elm, fieldname )
 
-        #################### temp stuff for debugging #################
-
-        #plot = moose.Table( '/model/plots/Vm' )
-        #moose.connect( '/model/plots/Vm', 'requestOut', '/model/elec/soma',  'getVm' )
-        #plot = moose.Table( '/model/plots/Vhold' )
-        #moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
-        #plot = moose.Table( '/model/plots/vclampCurr' )
-        #moose.connect( '/model/plots/vclampCurr', 'requestOut', '/model/elec/soma/pid',  'outputValue' )
-        #################### temp stuff for debugging #################
-
 def putReadoutsInQ( q, readouts, modelLookup ):
     stdError  = []
     plotLookup = {}
@@ -851,9 +824,8 @@ def deliverStim( t, event, model ):
         elms = model.modelLookup[name]
         for e in elms:
             if s.field == 'Vclamp':
-                path = e.path + '/lowpass'
-                moose.element( path ).setField( 'inject', val )
-                #moose.showfield( '/model/elec/soma/pid', 'sensed' )
+                path = e.path + '/vclamp'
+                moose.element( path ).setField( 'command', val )
             else:
                 e.setField( s.field, val )
                 if t == 0:
@@ -1197,36 +1169,21 @@ def buildSolver( modelId, solver, useVclamp = False ):
         hsolve.target = tgt
         moose.reinit()
 
-
 def buildVclamp( stim, modelLookup ):
     # Stim.entities should be the compartment name here.
     compt = modelLookup[stim.entities[0]][0]
     path = compt.path
-    lowpass = moose.RC(path+"/lowpass") # lowpass filter
-    lowpass.R = 50000             # 500 ohms
-    lowpass.C = 0.01e-6          # 0.1 uF
-    lowpass.V0 = compt.initVm
-    print lowpass.C, compt.Cm, compt.Rm, compt.initVm
-    lowpass.inject = -0.065
-    vclamp = moose.DiffAmp(path+"/vclamp")
-    vclamp.gain = 0.00002
-    vclamp.saturation = 1000        # unitless
-    pid = moose.PIDController(path+"/pid")
-    #pid.gain = 1.0e-6   # around 1/Rinput of cell
-    pid.gain = 1.0/compt.Rm
-    print 'pid.gain = ', pid.gain
-    pid.tauI = 20e-6
-    pid.tauD = 5e-6
-    pid.saturation = 1000        # unitless
-    # Connect voltage clamp circuitry
-    moose.connect(lowpass, "output", vclamp, "plusIn")
-    moose.connect(vclamp, "output", pid, "commandIn")
-    # Holding command potential should come into lowpass on inject
-    print lowpass.dt, vclamp.dt, pid.dt
-    print lowpass.tick, vclamp.tick, pid.tick
+    vclamp = moose.VClamp( path + '/vclamp' )
+    modelLookup['vclamp'] = [vclamp,]
+    vclamp.mode = 0     # Default. could try 1, 2 as well
+    vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
+    vclamp.ti = 20e-6   # Integral time
+    vclamp.td = 5e-6    # Differential time. Should it be >= dt?
+    vclamp.gain = 0.00005   # Gain of vclamp ckt.
 
-    moose.connect( compt, 'VmOut', pid, 'sensedIn' )
-    moose.connect( pid, 'output', compt, 'injectMsg' )
+    # Connect voltage clamp circuitry
+    moose.connect( compt, 'VmOut', vclamp, 'sensedIn' )
+    moose.connect( vclamp, 'currentOut', compt, 'injectMsg' )
     moose.reinit()
 
 def runit( expt, model, stims, readouts, modelId ):
@@ -1268,9 +1225,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
-    if stims[0].field == 'Vclamp':
-        if not readouts[0].field == 'Im':
-            raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
     model.fileName = modelFile
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
@@ -1308,15 +1262,16 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
 
         model.buildModelLookup()
 
+        if stims[0].field == 'Vclamp':
+            readouts[0].entities = ['vclamp']
+            readouts[0].field = 'current'
+            buildVclamp( stims[0], model.modelLookup )
+
         if not hidePlot:
             makeReadoutPlots( readouts, model.modelLookup )
 
-
         if stims[0].field == 'Vclamp':
-            if not readouts[0].field == 'Im':
-                raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
-            buildVclamp( stims[0], model.modelLookup )
-            #Then build the solver with a flag to say rebuild the hsolve.
+            #build the solver with a flag to say rebuild the hsolve.
             buildSolver( modelId, model.solver, useVclamp = True )
         else:
             buildSolver( modelId, model.solver )
@@ -1330,14 +1285,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
                 pylab.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
-            if moose.exists( '/model/plots/vclampCurr' ):
-                pylab.figure()
-                pylab.plot( moose.element( '/model/plots/vclampCurr' ).vector )
-                pylab.title( 'vclamp Current' )
-                pylab.figure()
-                pylab.plot( moose.element( '/model/plots/Vm' ).vector, label='Vm' )
-                pylab.plot( moose.element( '/model/plots/Vhold' ).vector, label='Vhold' )
-                pylab.title( 'vclamp Vm' )
             pylab.show()
         moose.delete( modelId )
         return score
