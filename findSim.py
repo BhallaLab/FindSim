@@ -43,6 +43,7 @@ import moose
 import os
 import re
 import ntpath
+import imp      # This is apparently deprecated in Python 3.4 and up
 convertTimeUnits = {('sec','s') : 1.0, 
     ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
     ('ns','nanosec') : 1e-9, ('min','m') : 60.0, 
@@ -1237,7 +1238,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
     try:
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
-        filename, file_extension = os.path.splitext(model.fileName)
+        fileName, file_extension = os.path.splitext(model.fileName)
         if file_extension == '.xml':
             modelId, errormsg = moose.mooseReadSBML( model.fileName, 'model', 'ee' )
         elif file_extension == '.g':
@@ -1247,7 +1248,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
             # Assume a moose script for creating the model. It must have a
             # function load() which returns the id of the object containing
             # the model. At this point the model must be in the current dir
-            mscript = __import__( filename )
+            mscript = imp.load_source( "mscript", model.fileName )
+            #mscript = __import__( fileName )
             modelId = mscript.load()
 
 
