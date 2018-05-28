@@ -10,7 +10,9 @@ provides a score that reports how closely the two match.
 This file and the files in this repository are licensed under GPL v3 or later.
 
 # Version
-Release1.1.0
+Latest release is 1.1.0, which can be downloadable at  
+	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip
+	https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
 
 # Install 
 	To run FindSim script one needs to  
