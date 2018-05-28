@@ -11,7 +11,7 @@ This file and the files in this repository are licensed under GPL v3 or later.
 
 # Version
 Latest release is 1.1.0, which can be downloadable at  
-	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip
+	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip  
 	https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
 
 # Install 
