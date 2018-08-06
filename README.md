@@ -62,8 +62,8 @@ C. Syntax help:
 Generating Figures for   
 "FindSim: a Framework for Integrating Neuronal Data and Signaling Models."  
 by  
-Nisha A. Viswan, G.V. HarshaRani, Melanie I. Stefan, Upinder S. Bhalla  
-Currently in review.  
+Nisha A. Viswan, G.V. HarshaRani, Melanie I. Stefan, Upinder S. Bhalla
+Front Neuroinform. 2018 Jun 26;12:38. doi: 10.3389/fninf.2018.00038. eCollection 2018.
 
 All these are run using the development branch "stable"  
 Please change into the branch to run these.  
