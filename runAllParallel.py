@@ -77,7 +77,7 @@ def main():
     print( "scores = " )
     results = [ i.get() for i in ret ]
     for i, j in zip( fnames, results ):
-        print i, j
+        print( i, j )
         #print( "{0} : {1:.2f}".format( i, j ) )
 
         

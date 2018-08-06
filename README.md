@@ -1,7 +1,12 @@
+[![Build Status](https://travis-ci.org/BhallaLab/FindSim.svg?branch=stable)](https://travis-ci.org/BhallaLab/FindSim)
+
 # FindSim
-Framework for Integration of Neuronal Data and SIgnaling Models.
+
+Framework for Integration of Neuronal Data and SIgnaling Models. The associated paper is available 
+at [https://doi.org/10.3389/fninf.2018.00038](https://doi.org/10.3389/fninf.2018.00038)
 
 # About
+
 The FindSim project maps models of neural and cellular signaling to 
 experimental protocols and readouts. It runs the experiment on the model, and
 provides a score that reports how closely the two match.
@@ -10,9 +15,11 @@ provides a score that reports how closely the two match.
 This file and the files in this repository are licensed under GPL v3 or later.
 
 # Version
+
 Latest release is 1.1.0, which can be downloadable at  
 	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip  
 	https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
+
 
 # Install 
 	To run FindSim script one needs to  
@@ -62,8 +69,8 @@ C. Syntax help:
 Generating Figures for   
 "FindSim: a Framework for Integrating Neuronal Data and Signaling Models."  
 by  
-Nisha A. Viswan, G.V. HarshaRani, Melanie I. Stefan, Upinder S. Bhalla  
-Currently in review.  
+Nisha A. Viswan, G.V. HarshaRani, Melanie I. Stefan, Upinder S. Bhalla
+Front Neuroinform. 2018 Jun 26;12:38. doi: 10.3389/fninf.2018.00038. eCollection 2018.
 
 All these are run using the development branch "stable"  
 Please change into the branch to run these.  
