@@ -1,8 +1,4 @@
-language: python
-python:
-    - "2.7"
-    - "3.6"
-    - "3.7"
+language: cpp
 
 before_script:
     - "export DISPLAY=:99.0"
@@ -13,8 +9,9 @@ before_script:
     - wget -nv https://download.opensuse.org/repositories/home:moose/xUbuntu_14.04/Release.key -O Release.key
     - sudo apt-key add - < Release.key
     - sudo apt-get update 
-    - sudo apt-get install --assume-yet pymoose 
-    - pip install matplotlib numpy scipy networkx --upgrade
+    - sudo apt-get install -y -qq pymoose 
+    - sudo apt-get install python-pip -qq
+    - pip install matplotlib numpy scipy networkx --upgrade --user
 
 script:
     - python findSim.py ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
