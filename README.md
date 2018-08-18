@@ -11,7 +11,7 @@ Quick start:
 A. Run one of the example experiments on the default model, generating a graph 
 to compare model to experiment:
 
-1. Install MOOSE
+1. Install MOOSE (Instructions can be found here: http://moose.readthedocs.io/en/latest/install/install.html )
 2. Install FindSim:
 	git clone https://github.com/BhallaLab/FindSim
 3. Navigate to release or to development branch, e.g.,
