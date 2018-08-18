@@ -10,8 +10,7 @@ before_script:
     - sudo apt-key add - < Release.key
     - sudo apt-get update 
     - sudo apt-get install -y -qq pymoose 
-    - sudo apt-get install python-pip python-tk python-matplotlib python-numpy -qq
-    - pip install matplotlib numpy scipy networkx --upgrade --user
+    - sudo apt-get install python-scipy python-networkx python-tk python-matplotlib python-numpy -qq
 
 script:
     - cp ./.travis/matplotlibrc .

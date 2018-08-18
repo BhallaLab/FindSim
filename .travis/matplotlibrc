@@ -9,3 +9,4 @@ backend : agg
 
 # This makes all plots non-blocking.
 interactive : True
+text.usetex : False
