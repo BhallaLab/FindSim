@@ -8,12 +8,13 @@ before_script:
     - "export DISPLAY=:99.0"
     - "sh -e /etc/init.d/xvfb start"
     - sleep 3 # give xvfb some time to start
-    - sudo apt-get update 
-    - sudo apt-get install -qq git cmake g++ libgsl0-dev 
-    - pip install matplotlib numpy scipy networkx --upgrade
     - # this require latest moose.
-    - git clone https://github.com/BhallaLab/moose-core --depth 50
-    - cd moose-core && mkdir _build && cd _build && cmake .. && make -j`nproc` && make install
+    - sudo sh -c "echo 'deb http://download.opensuse.org/repositories/home:/moose/xUbuntu_14.04/ /' > /etc/apt/sources.list.d/home:moose.list"
+    - wget -nv https://download.opensuse.org/repositories/home:moose/xUbuntu_14.04/Release.key -O Release.key
+    - sudo apt-key add - < Release.key
+    - sudo apt-get update 
+    - sudo apt-get install --assume-yet pymoose 
+    - pip install matplotlib numpy scipy networkx --upgrade
 
 script:
     - python findSim.py ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
