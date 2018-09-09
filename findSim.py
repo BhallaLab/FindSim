@@ -36,7 +36,7 @@
 
 import heapq
 import pylab
-import numpy
+import numpy as np
 import sys
 import argparse
 import moose
@@ -54,9 +54,13 @@ convertTimeUnits = {('sec','s') : 1.0,
 convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
         'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
-        'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
+        'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
+        'Hz': 1 }
 
-elecFields = ['Vm', 'Im', 'current']
+epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
+epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
+
+elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
 
 
 def keywordMatches( k, m ):
@@ -147,7 +151,7 @@ class Stimulus:
         if self.quantityUnits in convertQuantityUnits:
             self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            raise SimError(" Stimulus::__init__: quantity units not known.")
+            raise SimError(" Stimulus::__init__: quantity units not known: " + self.quantityUnits )
         temp = entities.split( ',' )
         self.entities = [ i for i in temp if len(i) > 0 ]
         """Name of the model entity to modify for the stimulus. 
@@ -193,7 +197,7 @@ class Readout:
             ratioReferenceTime = 0.0,
             ratioReferenceDose = 0.0,
             entities = '',
-            field = '',
+            field = '',     # Special fields EPSP_peak, EPSP_slope etc
             quantityScale = 1.0,    # Scaling from quantity units to SI
             useXlog = False,
             useYlog = False,
@@ -251,6 +255,8 @@ class Readout:
         """Array of ratio results. One per data entry."""
         self.plots = {}
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
+        self.epspFreq = 100.0 # Used to generate a single synaptic event
+        self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -261,6 +267,7 @@ class Readout:
         for i in self.ratioReferenceEntities:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
+
     def displayPlots( self, fname, modelLookup, stim, hideSubplots, exptType ):
         if "doseresponse" in exptType:
             for i in stim.entities:
@@ -281,8 +288,8 @@ class Readout:
                 numPts = len( ypts )
                 if numPts > 0:
                     tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
-                    xpts = numpy.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
-                sumvec = numpy.zeros(len(xpts))
+                    xpts = np.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
+                sumvec = np.zeros(len(xpts))
                 for j in elms:
                     #pp = PlotPanel( self, xlabel = j.name +'('+self.timeUnits+')' )
                     pp = PlotPanel( self, exptType )
@@ -294,13 +301,17 @@ class Readout:
                         scale = self.quantityScale
                     if self.useNormalization and abs(self._simDataReference) > 1e-15:
                         scale *= self._simDataReference/self.quantityScale
+                    if self.field in (epspFields + epscFields):
+                        scale = self.quantityScale
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
-                    if (not hideSubplots) and len( elms ) > 1: 
+                    if (not hideSubplots) and (len( elms ) > 1): 
                         # Plot summed components
                         pylab.plot( xpts, ypts, 'r:', label = j.name )
 
                 pylab.plot( xpts, sumvec, 'r--' )
+                if self.field in ( epspFields + epscFields ):
+                    pylab.figure(2)
                 pp.plotme( fname )
 
     def applyRatio( self ):
@@ -314,13 +325,15 @@ class Readout:
         rd = [ 1.0 if abs(x) < eps else x for x in rd ] # eliminate div/0.0
 
         if self.useNormalization:
-            if self.simData[0] < eps:
-                raise SimError( "applyRatio: Normalization failed because ratioReferenceEntity = {} is zero".format( self.ratioReferenceEntities ) )
+            if abs(self.simData[0]) < eps:
+                raise SimError( "applyRatio: Normalization failed because abs(simData[0]) {} ~= zero".format( self.simData[0] ) )
             normalization = self.simData[0] / rd[0]
             self._simDataReference = normalization
         else:
             normalization = self.quantityScale
         
+        #print( "SimData = {}".format( self.simData ) )
+        #print( normalization )
         self.simData = [ s/(r * normalization) for s, r in zip( self.simData, rd ) ]
 
     def doScore( self, scoringFormula ):
@@ -801,18 +814,34 @@ def makeReadoutPlots( readouts, modelLookup ):
             else:
                 plot = moose.Table2(plotpath)
             i.plots[elm.name] = plot
-            fieldname = 'get' + i.field.title()
+            if i.field in epspFields:   # Do EPSP stuff.
+                fieldname = 'getVm'
+                i.epspPlot = plot
+            elif i.field in epscFields:   # Do EPSC stuff.
+                fieldname = 'getCurrent'
+                i.epspPlot = plot
+            else:
+                fieldname = 'get' + i.field.title()
             moose.connect( plot, 'requestOut', elm, fieldname )
 
 def putReadoutsInQ( q, readouts, modelLookup ):
     stdError  = []
     plotLookup = {}
     for i in readouts:
-        for j in range( len( i.data ) ):
+        if i.field in (epspFields + epscFields):
+            for j in range( len( i.data ) ):
+                t = float( i.data[j][0] ) * i.timeScale
+                heapq.heappush( q, (t, [i.stim, i.epspFreq ] ) )
+                heapq.heappush( q, (t+1.0/i.epspFreq, [i.stim, 0] ) )
+                heapq.heappush( q, (t+i.epspWindow, [i, j] ) )# Measure after EPSP
+
+        else:
             # We push in the index of the data entry so the readout can
             # process it when it is run. It will grab both the readout and
             # ratio reference if needed.
-            heapq.heappush( q, (float(i.data[j][0])*i.timeScale, [i, j] ) )
+            for j in range( len( i.data ) ):
+                t = float( i.data[j][0] ) * i.timeScale
+                heapq.heappush( q, (t, [i, j] ) )
 
         if i.useRatio and i.ratioReferenceTime >= 0.0:
             # We push in -1 to signify that this is to get ratio reference
@@ -830,6 +859,9 @@ def deliverStim( t, event, model ):
                 moose.element( path ).setField( 'command', val )
             else:
                 e.setField( s.field, val )
+                #print t, e.path, s.field, val
+                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/chem/psd/chan' ).n
+                #moose.showfield('/model/chem/spine/Ca/adapt' )
                 if t == 0:
                     ##At time zero we initial the value concInit or nInit
                     if s.field == 'conc':
@@ -856,10 +888,26 @@ def doReadout( t, event, model ):
     val = int(round( ( event[1] ) ) )
     ratioReference = 0.0
     #field = model.fieldLookup[readout.field]
-    if val == -1: # This is a special event to get RatioReferenceValue
+    if readout.field in (epspFields + epscFields):
+        doEpspReadout( readout, model.modelLookup )
+    elif val == -1: # This is a special event to get RatioReferenceValue
         doReferenceReadout( readout, model.modelLookup, readout.field )
     else:
         doEntityAndRatioReadout(readout, model.modelLookup, readout.field)
+
+def doEpspReadout( readout, modelLookup ):
+    n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
+    assert( n > 5 )
+    pts = np.array( readout.epspPlot.vector[-n:] )
+    #print ["{:.3f} ".format( x ) for x in pts]
+    if readout.field.find( "slope" ):
+        dpts = pts[1:] - pts[:-1]
+        slope = max( abs( dpts ) )
+        readout.simData.append( slope )
+    elif readout.field.find( "peak" ):
+        pts -= pts[0]
+        pk = max( abs(pts) )
+        readout.simData.append( pk )
 
 def doReferenceReadout( readout, modelLookup, field ):
     ratioReference = 0.0
@@ -884,6 +932,9 @@ def doEntityAndRatioReadout( readout, modelLookup, field ):
             for e in elms:
                 ratioReference += e.getField( field )
         readout.ratioData.append( ratioReference )
+
+def doSynInputReadout( readout, modelLookup, field ):
+    readout.simData.append( 0 )
 
 def processReadouts( readouts, scoringFormula ):
     numScore  = 0
@@ -1086,7 +1137,7 @@ class PlotPanel:
 
 
     def plotbar( self, readout, stim, scriptName ):
-        barpos = numpy.arange( len( self.sim ) )
+        barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
         exptBar = pylab.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
         simBar = pylab.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
@@ -1148,7 +1199,10 @@ def loadTsv( fname ):
 def buildSolver( modelId, solver, useVclamp = False ):
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
-        if solver.lower() in ['ee', 'exponential euler method (ee)']:
+        if solver.lower() in ['none','ee','exponential euler method (ee)']:
+            return
+        if len( moose.wildcardFind( compt.path + "/##[ISA=Stoich]" ) ) > 0:
+            print( "findSim::buildSolver: Warning: Solvers already defined. Use 'none' or 'ee' in solver specifier" )
             return
         if solver.lower() in ['gssa','stochastic simulation (gssa)']:
             ksolve = moose.Gsolve ( compt.path + '/gsolve' )
@@ -1157,6 +1211,10 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich = moose.Stoich( compt.path + '/stoich' )
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
+        #print( "Path = " + compt.path + "/##" )
+        #moose.le( compt.path + "/DEND" )
+        #foo = moose.wildcardFind( compt.path + "/##" )
+        #print ("LKSJDF:LKSJDF:LKJSDF LEN = " + str( len( foo ) ) )
         stoich.path = compt.path + '/##'
     # Here we remove and rebuild the HSolver because we have to add vclamp
     # after loading the model.
@@ -1274,6 +1332,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
             readouts[0].field = 'current'
             buildVclamp( stims[0], model.modelLookup )
 
+        if readouts[0].field in ( epspFields + epscFields ):
+            readouts[0].stim = stims[0]
+
         if not hidePlot:
             makeReadoutPlots( readouts, model.modelLookup )
 
@@ -1282,8 +1343,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
             buildSolver( modelId, model.solver, useVclamp = True )
         else:
             buildSolver( modelId, model.solver )
-        for i in range( 10, 20 ):
-            moose.setClock( i, 0.1 )
+        if file_extension != '.py': # rdesigneur sims will set own clocks
+            for i in range( 10, 20 ):
+                moose.setClock( i, 0.1 )
 
         score = runit( expt, model,stims, readouts, modelId )
         if not hidePlot:
