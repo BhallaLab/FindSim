@@ -1,4 +1,7 @@
-language: cpp
+language: python
+python:
+   - "2.7"
+   - "3.6"
 
 before_script:
     - "export DISPLAY=:99.0"
@@ -6,12 +9,12 @@ before_script:
     - sleep 3 # give xvfb some time to start
     - # this require latest moose.
     - sudo apt-get update 
-    - sudo apt-get install python-scipy python-networkx python-tk python-matplotlib python-numpy -qq
+    - sudo apt-get install python-scipy python-networkx python-tk python-matplotlib -qq
 
 script:
     - cp ./.travis/matplotlibrc .
-    - python -m pip install pymoose --pre --user --no-deps
-    - python -m pip install pylint numpy --user--user --upgrade 
+    - python -m pip install pymoose --pre --user
+    - python -m pip install pylint numpy --user --upgrade 
     - find . -type f -name "*.py" | xargs -I file python -m pylint -E file
     - python findSim.py ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
     - python findSim.py ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
