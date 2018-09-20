@@ -11,7 +11,7 @@ before_script:
 script:
     - cp ./.travis/matplotlibrc .
     - python -m pip install pymoose --pre --user --no-deps
-    - python -m pip install pylint --user --upgrade 
+    - python -m pip install pylint numpy --user--user --upgrade 
     - find . -type f -name "*.py" | xargs -I file python -m pylint -E file
     - python findSim.py ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
     - python findSim.py ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
