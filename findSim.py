@@ -1003,9 +1003,11 @@ def parseAndRun( model, stims, readouts, modelId ):
 ##########################################################################
 def parseAndRunDoser( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
+                stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout block, {} defined".format( len( readout ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
+                readout block, {} defined".format( len( readouts ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1105,9 +1107,11 @@ def setUpBarChartStims( stim, modelLookup ):
 
 def parseAndRunBarChart( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
+                stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one readout block, {} defined".format( len( readout ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
+                readout block, {} defined".format( len( readouts ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
