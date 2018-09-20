@@ -157,7 +157,10 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
-        
+
+    def __lt__( self, other ):
+        return self.data < other.data
+
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
         stim = Stimulus( **arg )
@@ -251,6 +254,9 @@ class Readout:
         """Array of ratio results. One per data entry."""
         self.plots = {}
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
+
+    def __lt__( self, other ):
+        return self.data < other.data
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -1138,7 +1144,7 @@ def buildVclamp( stim, modelLookup ):
     lowpass.R = 50000             # 500 ohms
     lowpass.C = 0.01e-6          # 0.1 uF
     lowpass.V0 = compt.initVm
-    print lowpass.C, compt.Cm, compt.Rm, compt.initVm
+    print( lowpass.C, compt.Cm, compt.Rm, compt.initVm )
     lowpass.inject = -0.065
     vclamp = moose.DiffAmp(path+"/vclamp")
     vclamp.gain = 0.00002
@@ -1146,7 +1152,7 @@ def buildVclamp( stim, modelLookup ):
     pid = moose.PIDController(path+"/pid")
     #pid.gain = 1.0e-6   # around 1/Rinput of cell
     pid.gain = 1.0/compt.Rm
-    print 'pid.gain = ', pid.gain
+    print( 'pid.gain = ', pid.gain )
     pid.tauI = 20e-6
     pid.tauD = 5e-6
     pid.saturation = 1000        # unitless
@@ -1154,8 +1160,8 @@ def buildVclamp( stim, modelLookup ):
     moose.connect(lowpass, "output", vclamp, "plusIn")
     moose.connect(vclamp, "output", pid, "commandIn")
     # Holding command potential should come into lowpass on inject
-    print lowpass.dt, vclamp.dt, pid.dt
-    print lowpass.tick, vclamp.tick, pid.tick
+    print( lowpass.dt, vclamp.dt, pid.dt )
+    print( lowpass.tick, vclamp.tick, pid.tick )
 
     moose.connect( compt, 'VmOut', pid, 'sensedIn' )
     moose.connect( pid, 'output', compt, 'injectMsg' )
