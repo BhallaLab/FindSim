@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/BhallaLab/FindSim.svg?branch=stable)](https://travis-ci.org/BhallaLab/FindSim)
+
 # FindSim
 
 Framework for Integration of Neuronal Data and SIgnaling Models. The associated paper is available 

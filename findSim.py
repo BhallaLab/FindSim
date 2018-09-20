@@ -161,7 +161,10 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
-        
+
+    def __lt__( self, other ):
+        return self.data < other.data
+
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
         stim = Stimulus( **arg )
@@ -257,6 +260,9 @@ class Readout:
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
         self.epspFreq = 100.0 # Used to generate a single synaptic event
         self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
+
+    def __lt__( self, other ):
+        return self.data < other.data
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
