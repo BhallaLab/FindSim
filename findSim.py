@@ -36,13 +36,14 @@
 
 import heapq
 import pylab
-import numpy
+import numpy as np
 import sys
 import argparse
 import moose
 import os
 import re
 import ntpath
+import imp      # This is apparently deprecated in Python 3.4 and up
 convertTimeUnits = {('sec','s') : 1.0, 
     ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
     ('ns','nanosec') : 1e-9, ('min','m') : 60.0, 
@@ -52,11 +53,14 @@ convertTimeUnits = {('sec','s') : 1.0,
 #convertCurrentUnits = { 'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
 convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
-        'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
-        'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
+        'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
+        'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
+        'Hz': 1.0, '1/sec':1.0 }
 
-#elecFields = ['V', 'mV', 'uV', 'nV', 'A', 'mA', 'uA', 'nA', 'pA' ]
-elecFields = ['Vm', 'Im']
+epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
+epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
+
+elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
 
 
 def keywordMatches( k, m ):
@@ -147,7 +151,7 @@ class Stimulus:
         if self.quantityUnits in convertQuantityUnits:
             self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            raise SimError(" Stimulus::__init__: quantity units not known.")
+            raise SimError(" Stimulus::__init__: quantity units not known: " + self.quantityUnits )
         temp = entities.split( ',' )
         self.entities = [ i for i in temp if len(i) > 0 ]
         """Name of the model entity to modify for the stimulus. 
@@ -196,7 +200,7 @@ class Readout:
             ratioReferenceTime = 0.0,
             ratioReferenceDose = 0.0,
             entities = '',
-            field = '',
+            field = '',     # Special fields EPSP_peak, EPSP_slope etc
             quantityScale = 1.0,    # Scaling from quantity units to SI
             useXlog = False,
             useYlog = False,
@@ -254,6 +258,8 @@ class Readout:
         """Array of ratio results. One per data entry."""
         self.plots = {}
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
+        self.epspFreq = 100.0 # Used to generate a single synaptic event
+        self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
 
     def __lt__( self, other ):
         return self.data < other.data
@@ -267,6 +273,7 @@ class Readout:
         for i in self.ratioReferenceEntities:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
+
     def displayPlots( self, fname, modelLookup, stim, hideSubplots, exptType ):
         if "doseresponse" in exptType:
             for i in stim.entities:
@@ -274,6 +281,12 @@ class Readout:
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
                     pp.plotme( fname, joinSimPoints = True )
+        elif "barchart" in exptType:
+            for i in self.entities:
+                elms = modelLookup[i]
+                for j in elms:
+                    pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
+                    pp.plotbar( self, stim, fname )
         elif "timeseries" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -281,8 +294,8 @@ class Readout:
                 numPts = len( ypts )
                 if numPts > 0:
                     tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
-                    xpts = numpy.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
-                sumvec = numpy.zeros(len(xpts))
+                    xpts = np.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
+                sumvec = np.zeros(len(xpts))
                 for j in elms:
                     #pp = PlotPanel( self, xlabel = j.name +'('+self.timeUnits+')' )
                     pp = PlotPanel( self, exptType )
@@ -294,13 +307,17 @@ class Readout:
                         scale = self.quantityScale
                     if self.useNormalization and abs(self._simDataReference) > 1e-15:
                         scale *= self._simDataReference/self.quantityScale
+                    if self.field in (epspFields + epscFields):
+                        scale = self.quantityScale
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
-                    if (not hideSubplots) and len( elms ) > 1: 
+                    if (not hideSubplots) and (len( elms ) > 1): 
                         # Plot summed components
                         pylab.plot( xpts, ypts, 'r:', label = j.name )
 
                 pylab.plot( xpts, sumvec, 'r--' )
+                if self.field in ( epspFields + epscFields ):
+                    pylab.figure(2)
                 pp.plotme( fname )
 
     def applyRatio( self ):
@@ -314,32 +331,62 @@ class Readout:
         rd = [ 1.0 if abs(x) < eps else x for x in rd ] # eliminate div/0.0
 
         if self.useNormalization:
+            if abs(self.simData[0]) < eps:
+                raise SimError( "applyRatio: Normalization failed because abs(simData[0]) {} ~= zero".format( self.simData[0] ) )
             normalization = self.simData[0] / rd[0]
             self._simDataReference = normalization
         else:
             normalization = self.quantityScale
         
+        #print( "SimData = {}".format( self.simData ) )
+        #print( normalization )
         self.simData = [ s/(r * normalization) for s, r in zip( self.simData, rd ) ]
 
     def doScore( self, scoringFormula ):
         assert( len(self.data) == len( self.simData ) )
         score = 0.0
-        numScore = 1.0
+        numScore = 0.0
+        dvals = [i[1] for i in self.data]
+        datarange = max( dvals ) - min( dvals )
         for i,sim in zip( self.data, self.simData ):
             t = i[0]
             expt = i[1]
             sem = i[2]
-            #print i
-            #print t, expt, sem, sim
+            #print t, expt, sem, sim, datarange
             #print "Formula = ", scoringFormula, eval( scoringFormula )
             score += eval( scoringFormula )
             numScore += 1.0
 
+        if numScore == 0:
+            return -1
         return score/numScore
 
+    def directParamScore( readouts, modelLookup, scoringFormula ):
+        score = 0.0
+        numScore = 0.0
+        for rd in readouts:
+            for d in rd.data:
+                entity = d[0]
+                expt = d[1]*rd.quantityScale
+                sem = d[2]*rd.quantityScale
+                if not entity in modelLookup:
+                    raise SimError( "Readout::directParamScore: Entity {} not found".format( entity ) )
+                elmList = modelLookup[entity]
+                if len( elmList ) != 1:
+                    raise SimError( "Readout::directParamScore: Should only have 1 object, found {} ".format( len( elmList ) ) )
+                sim = elmList[0].getField( rd.field )
+                score += eval( scoringFormula )
+                numScore += 1.0
+                #print entity, rd.field, sim, expt, sem, score, numScore, "\n"
+        #print( "direct score of {}".format( score / numScore ) )
+        if numScore == 0:
+            return -1
+        return score/numScore
+    directParamScore = staticmethod( directParamScore )
 
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Readout.argNames, dataWidth = 3 )
+        # Data is either time, value, stderr or entity, value, stderr
         readout = Readout( **arg )
         readout.data = data
         return readout
@@ -428,15 +475,6 @@ class Model:
             # single experimentally defined entity.
             foundObj = [ self.findObj( '/model', p) for p in paths ]
             self.modelLookup[i] = foundObj
-    '''
-    def buildFieldLookup( self, stims, readouts ):
-        for i in stims:
-            if not i.field in self.fieldLookup:
-                self.fieldLookup[i.field] = i.field
-        for i in readouts:
-            if not i.field in self.fieldLookup:
-                self.fieldLookup[i.field] = i.field
-    '''
 
     def addParameterChange( self, entity, field, data ):
         '''
@@ -463,10 +501,7 @@ class Model:
             entity = entity.replace('',"")
 
         self.itemstodelete.append((entity,change))
-        # if change == 'delete':
-        #     self.StructuralChange.append( ( entity, change ) )
-        # else:
-        #     print( "Warning: Model::addStructuralChange: Unknown modification: " + change )
+
     def findObj( self,rootpath, name ):
         '''
         Model:: findObj locates objects uniquely specified by a string. 
@@ -480,8 +515,6 @@ class Model:
         try1 = moose.wildcardFind( rootpath+'/' + name )
         try2 = moose.wildcardFind( rootpath+'/##/' + name )
         try2 = [ i for i in try2 if not '/model[0]/plots[0]' in i.path ]  
-        #print " findObj ",rootpath+'/'+name, moose.wildcardFind(rootpath+'/'+name)
-        #print " findObj 2",rootpath+'/##/'+name, moose.wildcardFind(rootpath+'/##/'+name)
         if len( try1 ) + len( try2 ) > 1:
             raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
@@ -619,14 +652,7 @@ def innerLoad( fd, argNames, dataWidth = 2):
             # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
                 temp = cols[1].split( ',' )
-                modelLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
-        '''
-        if keywordMatches( cols[0], 'fieldLookup' ):
-            # Lines of the form exptName1:simName1,exptName2:simName2,...
-            if cols[1] != "":
-                temp = cols[1].split( ',' )
-                fieldLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
-        '''
+                modelLookup = { i.split(':')[0]:i.split(':')[1].strip() for i in temp }
 
         if keywordMatches( cols[0], 'Data' ):
             readData( fd, data, dataWidth )
@@ -652,20 +678,22 @@ def nonBlank( cols ):
     return ''
 
 def readData( fd, data, width ):
-    entityNameInFirstRow = False
+    entityNameInFirstCol = False
     for line in fd:
+        if line[0] == '#':
+            continue
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
         cl = cols[0].lower()
         if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
             if cl == 'entity':
-                entityNameInFirstRow = True
+                entityNameInFirstCol = True
             continue
         row = []
         for i in range( len( cols ) ):
             if cols[i] != '':
-                if i == 0 and entityNameInFirstRow:
+                if i == 0 and entityNameInFirstCol:
                     row.append( cols[i] )
                 else:
                     row.append( float( cols[i] ) )
@@ -729,7 +757,6 @@ def findParentGroup( elm ):
         return elm
     if elm.parent.name == 'root':
         print( 'Warning: findParentGroup: root element found, likely naming error' )
-        #return moose.element( '/model/kinetics' )
         return moose.element('/model')
     return findParentGroup( elm.parent )
 
@@ -761,7 +788,6 @@ def pruneDanglingObj( kinpath, erSPlist):
     mWarning = ""
     mRateLaw = ""
     mFunc = ""
-    #modelWarning = ""
     for i in erlist:
         isub = i.neighbors["sub"]
         iprd = i.neighbors["prd"]
@@ -819,28 +845,34 @@ def makeReadoutPlots( readouts, modelLookup ):
             else:
                 plot = moose.Table2(plotpath)
             i.plots[elm.name] = plot
-            fieldname = 'get' + i.field.title()
+            if i.field in epspFields:   # Do EPSP stuff.
+                fieldname = 'getVm'
+                i.epspPlot = plot
+            elif i.field in epscFields:   # Do EPSC stuff.
+                fieldname = 'getCurrent'
+                i.epspPlot = plot
+            else:
+                fieldname = 'get' + i.field.title()
             moose.connect( plot, 'requestOut', elm, fieldname )
-
-        #################### temp stuff for debugging #################
-
-        #plot = moose.Table( '/model/plots/Vm' )
-        #moose.connect( '/model/plots/Vm', 'requestOut', '/model/elec/soma',  'getVm' )
-        #plot = moose.Table( '/model/plots/Vhold' )
-        #moose.connect( '/model/plots/Vhold', 'requestOut', '/model/elec/soma/lowpass',  'getInject' )
-        #plot = moose.Table( '/model/plots/vclampCurr' )
-        #moose.connect( '/model/plots/vclampCurr', 'requestOut', '/model/elec/soma/pid',  'outputValue' )
-        #################### temp stuff for debugging #################
 
 def putReadoutsInQ( q, readouts, modelLookup ):
     stdError  = []
     plotLookup = {}
     for i in readouts:
-        for j in range( len( i.data ) ):
+        if i.field in (epspFields + epscFields):
+            for j in range( len( i.data ) ):
+                t = float( i.data[j][0] ) * i.timeScale
+                heapq.heappush( q, (t, [i.stim, i.epspFreq ] ) )
+                heapq.heappush( q, (t+1.0/i.epspFreq, [i.stim, 0] ) )
+                heapq.heappush( q, (t+i.epspWindow, [i, j] ) )# Measure after EPSP
+
+        else:
             # We push in the index of the data entry so the readout can
             # process it when it is run. It will grab both the readout and
             # ratio reference if needed.
-            heapq.heappush( q, (float(i.data[j][0])*i.timeScale, [i, j] ) )
+            for j in range( len( i.data ) ):
+                t = float( i.data[j][0] ) * i.timeScale
+                heapq.heappush( q, (t, [i, j] ) )
 
         if i.useRatio and i.ratioReferenceTime >= 0.0:
             # We push in -1 to signify that this is to get ratio reference
@@ -854,11 +886,13 @@ def deliverStim( t, event, model ):
         elms = model.modelLookup[name]
         for e in elms:
             if s.field == 'Vclamp':
-                path = e.path + '/lowpass'
-                moose.element( path ).setField( 'inject', val )
-                #moose.showfield( '/model/elec/soma/pid', 'sensed' )
+                path = e.path + '/vclamp'
+                moose.element( path ).setField( 'command', val )
             else:
                 e.setField( s.field, val )
+                #print t, e.path, s.field, val
+                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/chem/psd/chan' ).n
+                #moose.showfield('/model/chem/spine/Ca/adapt' )
                 if t == 0:
                     ##At time zero we initial the value concInit or nInit
                     if s.field == 'conc':
@@ -885,10 +919,26 @@ def doReadout( t, event, model ):
     val = int(round( ( event[1] ) ) )
     ratioReference = 0.0
     #field = model.fieldLookup[readout.field]
-    if val == -1: # This is a special event to get RatioReferenceValue
+    if readout.field in (epspFields + epscFields):
+        doEpspReadout( readout, model.modelLookup )
+    elif val == -1: # This is a special event to get RatioReferenceValue
         doReferenceReadout( readout, model.modelLookup, readout.field )
     else:
         doEntityAndRatioReadout(readout, model.modelLookup, readout.field)
+
+def doEpspReadout( readout, modelLookup ):
+    n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
+    assert( n > 5 )
+    pts = np.array( readout.epspPlot.vector[-n:] )
+    #print ["{:.3f} ".format( x ) for x in pts]
+    if readout.field.find( "slope" ):
+        dpts = pts[1:] - pts[:-1]
+        slope = max( abs( dpts ) )
+        readout.simData.append( slope )
+    elif readout.field.find( "peak" ):
+        pts -= pts[0]
+        pk = max( abs(pts) )
+        readout.simData.append( pk )
 
 def doReferenceReadout( readout, modelLookup, field ):
     ratioReference = 0.0
@@ -913,6 +963,9 @@ def doEntityAndRatioReadout( readout, modelLookup, field ):
             for e in elms:
                 ratioReference += e.getField( field )
         readout.ratioData.append( ratioReference )
+
+def doSynInputReadout( readout, modelLookup, field ):
+    readout.simData.append( 0 )
 
 def processReadouts( readouts, scoringFormula ):
     numScore  = 0
@@ -950,9 +1003,11 @@ def parseAndRun( model, stims, readouts, modelId ):
 ##########################################################################
 def parseAndRunDoser( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
+                stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one readout block, {} defined".format( len( readout ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
+                readout block, {} defined".format( len( readouts ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -991,25 +1046,72 @@ def runDoser( model, stim, readout, doseMol ):
         doReferenceReadout( readout, model.modelLookup,readout.field )
 
 ##########################################################################
+def setFieldIncludingInit( obj, field, val ):
+    obj.setField( field, val )
+    if field == 'conc' or field == 'n':
+        field2 = field + 'Init'
+        obj.setField( field2, val )
+
 def doBarChartStim( multiStimLine, doseMol, dose, field ):
     indices = []
     for i in range( len( multiStimLine ) ):
         if multiStimLine[i] == '1' or multiStimLine[i] == '+':
             indices.append(i)
     for j in indices:
-        #print "Stimulating index {} for mol{} and field {} with dose {}".format( j, doseMol[j], field, dose[j] )
-        doseMol[j][0].setField( field, dose[j] )
-        if field == 'conc' or field == 'n':
-            field2 = field + 'Init'
-        doseMol[j][0].setField( field2, dose[j] )
-        
-        
+        setFieldIncludingInit( doseMol[j], field, dose[j] )
+
+    '''
+    moose.reinit()
+    for k in doseMol:
+        print k.name, k.conc, k.concInit
+    print
+    '''
+
+def doBarChartReference( readout, stim, modelLookup ):
+    if readout.useRatio and readout.ratioReferenceTime >= 0.0:
+        responseScale = readout.quantityScale
+        referenceDose = readout.ratioReferenceDose * stim.quantityScale
+        referenceMol = modelLookup[readout.ratioReferenceEntities[0] ]
+
+        setFieldIncludingInit( referenceMol[0], readout.field, referenceDose )
+        moose.reinit()
+        if readout.ratioReferenceTime > 0.0: # Get reference at settleTime.
+            moose.start( readout.settleTime )
+        doReferenceReadout( readout, modelLookup,readout.field )
+
+def doBarChartBars( readout, stim, modelLookup ):
+    doseMol, dose, origDose = setUpBarChartStims( stim, modelLookup )
+    for i in readout.data:
+        doBarChartStim( i[0], doseMol, dose, stim.field )
+        moose.reinit()
+        moose.start( readout.settleTime )
+        doEntityAndRatioReadout(readout, modelLookup, readout.field)
+        for mol, val in zip( doseMol, origDose ):
+            setFieldIncludingInit( mol, stim.field, val )
+    return doseMol, origDose
+
+def setUpBarChartStims( stim, modelLookup ):
+    doseMol = []
+    dose = []
+    origDose = []
+    #Stimulus Molecules
+    #Assuming one stimulus block, one molecule allowed
+    for i in stim.data:
+        if not i[0] in modelLookup:
+            raise SimError( "parseAndRunBarChart: stimulus entity '{}' not mapped to model entities".format( i[0] ) )
+        obj = modelLookup[ i[0] ][0]
+        doseMol.append( obj )
+        dose.append( i[1] * stim.quantityScale )
+        origDose.append( obj.getField( stim.field ) )
+    return doseMol, dose, origDose
 
 def parseAndRunBarChart( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
+                stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one readout block, {} defined".format( len( readout ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
+                readout block, {} defined".format( len( readouts ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1021,18 +1123,11 @@ def parseAndRunBarChart( model, stims, readouts, modelId ):
         print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
         runTime = 300
     
-    doseMol = []
-    dose = []
-    #Stimulus Molecules
-    #Assuming one stimulus block, one molecule allowed
-    for i in stims[0].data:
-        doseMol.append( model.modelLookup[ i[0] ] )
-        dose.append( i[1] )
-    for i in readouts[0].data:
-        doBarChartStim( i[0], doseMol, dose, stims[0].field )
-        moose.reinit()
-        moose.start( readouts[0].settleTime )
-        doEntityAndRatioReadout(readouts[0], model.modelLookup, readouts[0].field)
+    doseMol, origDose = doBarChartBars( readouts[0], stims[0], model.modelLookup )
+
+    doBarChartReference( readouts[0], stims[0], model.modelLookup )
+    for mol, val in zip( doseMol, origDose ):
+        setFieldIncludingInit( mol, stims[0].field, val )
 
     score = processReadouts( readouts, model.scoringFormula )
     return score
@@ -1044,7 +1139,6 @@ class PlotPanel:
         self.name=[]
         for i in readout.entities:
             self.name.append( i )
-            #print "Readout Entities:", i
         self.exptType = exptType
         self.useXlog = readout.useXlog
         self.useYlog = readout.useYlog
@@ -1054,7 +1148,7 @@ class PlotPanel:
             self.xlabel = 'Time ({})'.format( readout.timeUnits )
 
         self.xpts = [ i[0] for i in readout.data]
-        self.sim = readout.simData # handle ratios...
+        self.sim = readout.simData # Ratios already handled at this stage
         self.expt = [ i[1] for i in readout.data]
         self.yerror = [ i[2] for i in readout.data]
         self.sumName=""
@@ -1062,6 +1156,34 @@ class PlotPanel:
             self.sumName += i
             self.sumName += " "
             self.ylabel = i+' ({})'.format( readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
+
+    def convertBarChartLabels( self, readout, stim ):
+        ret = []
+        doseMol = [ i[0] for i in stim.data ]
+        for i in readout.data:
+            ticklabel = ""
+            for j in range( len( i[0] ) ):
+                if i[0][j] == '1' or i[0][j] == '+':
+                    ticklabel += doseMol[j] + '\n'
+                else:
+                    ticklabel += '-\n'
+            ret.append( ticklabel )
+        return ret
+
+
+    def plotbar( self, readout, stim, scriptName ):
+        barpos = np.arange( len( self.sim ) )
+        width = 0.35 # A reasonable looking bar width
+        exptBar = pylab.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
+        simBar = pylab.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        pylab.xlabel( "Stimulus combinations" )
+        pylab.ylabel( self.ylabel )
+        pylab.title(scriptName)
+        pylab.legend(fontsize="small",loc="upper left")
+        ticklabels = [ i[0] + '\n' for i in readout.data ] 
+        assert len( ticklabels ) == len( barpos )
+        ticklabels = self.convertBarChartLabels( readout, stim )
+        pylab.xticks(barpos, ticklabels )
 
     def plotme( self, scriptName, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
@@ -1112,7 +1234,10 @@ def loadTsv( fname ):
 def buildSolver( modelId, solver, useVclamp = False ):
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
-        if solver.lower() in ['ee', 'exponential euler method (ee)']:
+        if solver.lower() in ['none','ee','exponential euler method (ee)']:
+            return
+        if len( moose.wildcardFind( compt.path + "/##[ISA=Stoich]" ) ) > 0:
+            print( "findSim::buildSolver: Warning: Solvers already defined. Use 'none' or 'ee' in solver specifier" )
             return
         if solver.lower() in ['gssa','stochastic simulation (gssa)']:
             ksolve = moose.Gsolve ( compt.path + '/gsolve' )
@@ -1121,50 +1246,43 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich = moose.Stoich( compt.path + '/stoich' )
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
+        #print( "Path = " + compt.path + "/##" )
+        #moose.le( compt.path + "/DEND" )
+        #foo = moose.wildcardFind( compt.path + "/##" )
+        #print ("LKSJDF:LKSJDF:LKJSDF LEN = " + str( len( foo ) ) )
         stoich.path = compt.path + '/##'
     # Here we remove and rebuild the HSolver because we have to add vclamp
     # after loading the model.
-    if useVclamp and moose.exists( '/model/elec/hsolve' ):
-        origHsolve = moose.element( '/model/elec/hsolve' )
-        dt = origHsolve.dt
-        tgt = origHsolve.target
-        moose.delete( '/model/elec/hsolve' )
-        moose.reinit()
+    if useVclamp: 
+        if moose.exists( '/model/elec/hsolve' ):
+            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
+    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
+        elecDt = 50e-6
+        elecPlotDt = 100e-6
+        for i in range( 9 ):
+            moose.setClock( i, elecDt )
+        moose.setClock( 8, elecPlotDt )
+        tgt = '/model/elec/soma'
         hsolve = moose.HSolve( '/model/elec/hsolve' )
-        hsolve.dt = dt
+        hsolve.dt = elecDt
         hsolve.target = tgt
         moose.reinit()
-
 
 def buildVclamp( stim, modelLookup ):
     # Stim.entities should be the compartment name here.
     compt = modelLookup[stim.entities[0]][0]
     path = compt.path
-    lowpass = moose.RC(path+"/lowpass") # lowpass filter
-    lowpass.R = 50000             # 500 ohms
-    lowpass.C = 0.01e-6          # 0.1 uF
-    lowpass.V0 = compt.initVm
-    print( lowpass.C, compt.Cm, compt.Rm, compt.initVm )
-    lowpass.inject = -0.065
-    vclamp = moose.DiffAmp(path+"/vclamp")
-    vclamp.gain = 0.00002
-    vclamp.saturation = 1000        # unitless
-    pid = moose.PIDController(path+"/pid")
-    #pid.gain = 1.0e-6   # around 1/Rinput of cell
-    pid.gain = 1.0/compt.Rm
-    print( 'pid.gain = ', pid.gain )
-    pid.tauI = 20e-6
-    pid.tauD = 5e-6
-    pid.saturation = 1000        # unitless
-    # Connect voltage clamp circuitry
-    moose.connect(lowpass, "output", vclamp, "plusIn")
-    moose.connect(vclamp, "output", pid, "commandIn")
-    # Holding command potential should come into lowpass on inject
-    print( lowpass.dt, vclamp.dt, pid.dt )
-    print( lowpass.tick, vclamp.tick, pid.tick )
+    vclamp = moose.VClamp( path + '/vclamp' )
+    modelLookup['vclamp'] = [vclamp,]
+    vclamp.mode = 0     # Default. could try 1, 2 as well
+    vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
+    vclamp.ti = 20e-6   # Integral time
+    vclamp.td = 5e-6    # Differential time. Should it be >= dt?
+    vclamp.gain = 0.00005   # Gain of vclamp ckt.
 
-    moose.connect( compt, 'VmOut', pid, 'sensedIn' )
-    moose.connect( pid, 'output', compt, 'injectMsg' )
+    # Connect voltage clamp circuitry
+    moose.connect( compt, 'VmOut', vclamp, 'sensedIn' )
+    moose.connect( vclamp, 'currentOut', compt, 'injectMsg' )
     moose.reinit()
 
 def runit( expt, model, stims, readouts, modelId ):
@@ -1206,9 +1324,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
-    if stims[0].field == 'Vclamp':
-        if not readouts[0].field == 'Im':
-            raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
     model.fileName = modelFile
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
@@ -1216,7 +1331,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
     try:
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
-        filename, file_extension = os.path.splitext(model.fileName)
+        fileName, file_extension = os.path.splitext(model.fileName)
         if file_extension == '.xml':
             modelId, errormsg = moose.mooseReadSBML( model.fileName, 'model', 'ee' )
         elif file_extension == '.g':
@@ -1226,7 +1341,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
             # Assume a moose script for creating the model. It must have a
             # function load() which returns the id of the object containing
             # the model. At this point the model must be in the current dir
-            mscript = __import__( filename )
+            mscript = imp.load_source( "mscript", model.fileName )
+            #mscript = __import__( fileName )
             modelId = mscript.load()
 
 
@@ -1246,20 +1362,28 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
 
         model.buildModelLookup()
 
+        if expt.exptType == 'directparameter':
+            return Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
+
+        if stims[0].field == 'Vclamp':
+            readouts[0].entities = ['vclamp']
+            readouts[0].field = 'current'
+            buildVclamp( stims[0], model.modelLookup )
+
+        if readouts[0].field in ( epspFields + epscFields ):
+            readouts[0].stim = stims[0]
+
         if not hidePlot:
             makeReadoutPlots( readouts, model.modelLookup )
 
-
         if stims[0].field == 'Vclamp':
-            if not readouts[0].field == 'Im':
-                raise SimError( "Vclamp stimulus must be accompanied by readout field 'Im'. Was: '{}'".format( readouts[0].field ) )
-            buildVclamp( stims[0], model.modelLookup )
-            #Then build the solver with a flag to say rebuild the hsolve.
+            #build the solver with a flag to say rebuild the hsolve.
             buildSolver( modelId, model.solver, useVclamp = True )
         else:
             buildSolver( modelId, model.solver )
-        for i in range( 10, 20 ):
-            moose.setClock( i, 0.1 )
+        if file_extension != '.py': # rdesigneur sims will set own clocks
+            for i in range( 10, 20 ):
+                moose.setClock( i, 0.1 )
 
         score = runit( expt, model,stims, readouts, modelId )
         if not hidePlot:
@@ -1268,22 +1392,14 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
                 pylab.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
-            if moose.exists( '/model/plots/vclampCurr' ):
-                pylab.figure()
-                pylab.plot( moose.element( '/model/plots/vclampCurr' ).vector )
-                pylab.title( 'vclamp Current' )
-                pylab.figure()
-                pylab.plot( moose.element( '/model/plots/Vm' ).vector, label='Vm' )
-                pylab.plot( moose.element( '/model/plots/Vhold' ).vector, label='Vhold' )
-                pylab.title( 'vclamp Vm' )
             pylab.show()
         moose.delete( modelId )
         return score
         
     except SimError as msg:
+        print( "Error: findSim failed for script {}: {}".format(script, msg ))
         if modelId:
             moose.delete( modelId )
-        print( "Error: findSim failed for script {}: {}".format(script, msg ))
         return -1.0
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
