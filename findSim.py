@@ -53,9 +53,9 @@ convertTimeUnits = {('sec','s') : 1.0,
 #convertCurrentUnits = { 'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
 convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
-        'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
-        'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
-        'Hz': 1 }
+        'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
+        'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
+        'Hz': 1.0, '1/sec':1.0 }
 
 epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
@@ -339,7 +339,7 @@ class Readout:
     def doScore( self, scoringFormula ):
         assert( len(self.data) == len( self.simData ) )
         score = 0.0
-        numScore = 1.0
+        numScore = 0.0
         dvals = [i[1] for i in self.data]
         datarange = max( dvals ) - min( dvals )
         for i,sim in zip( self.data, self.simData ):
@@ -351,11 +351,36 @@ class Readout:
             score += eval( scoringFormula )
             numScore += 1.0
 
+        if numScore == 0:
+            return -1
         return score/numScore
 
+    def directParamScore( readouts, modelLookup, scoringFormula ):
+        score = 0.0
+        numScore = 0.0
+        for rd in readouts:
+            for d in rd.data:
+                entity = d[0]
+                expt = d[1]*rd.quantityScale
+                sem = d[2]*rd.quantityScale
+                if not entity in modelLookup:
+                    raise SimError( "Readout::directParamScore: Entity {} not found".format( entity ) )
+                elmList = modelLookup[entity]
+                if len( elmList ) != 1:
+                    raise SimError( "Readout::directParamScore: Should only have 1 object, found {} ".format( len( elmList ) ) )
+                sim = elmList[0].getField( rd.field )
+                score += eval( scoringFormula )
+                numScore += 1.0
+                #print entity, rd.field, sim, expt, sem, score, numScore, "\n"
+        #print( "direct score of {}".format( score / numScore ) )
+        if numScore == 0:
+            return -1
+        return score/numScore
+    directParamScore = staticmethod( directParamScore )
 
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Readout.argNames, dataWidth = 3 )
+        # Data is either time, value, stderr or entity, value, stderr
         readout = Readout( **arg )
         readout.data = data
         return readout
@@ -621,7 +646,7 @@ def innerLoad( fd, argNames, dataWidth = 2):
             # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
                 temp = cols[1].split( ',' )
-                modelLookup = { i.split(':')[0]:i.split(':')[1] for i in temp }
+                modelLookup = { i.split(':')[0]:i.split(':')[1].strip() for i in temp }
 
         if keywordMatches( cols[0], 'Data' ):
             readData( fd, data, dataWidth )
@@ -1326,6 +1351,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
 
         model.buildModelLookup()
+
+        if expt.exptType == 'directparameter':
+            return Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
 
         if stims[0].field == 'Vclamp':
             readouts[0].entities = ['vclamp']
