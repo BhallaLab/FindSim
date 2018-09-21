@@ -55,7 +55,7 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
         'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
-        'Hz': 1.0, '1/sec':1.0 }
+        'Hz': 1.0, '1/sec':1.0, 'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
 
 epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
@@ -274,7 +274,7 @@ class Readout:
                 elms = modelLookup[i]
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    pp.plotme( fname, joinSimPoints = True )
+                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
         elif "barchart" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -282,6 +282,15 @@ class Readout:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
                     pp.plotbar( self, stim, fname )
         elif "timeseries" in exptType:
+            tsUnits = self.quantityUnits
+            if self.field in epspFields:
+                tsUnits = 'mV'
+            elif self.field in epscFields:
+                tsUnits = 'pA'
+            elif self.useNormalization and abs(self._simDataReference)>1e-15:
+                tsUnits = 'Fold change'
+            tsScale = convertQuantityUnits[tsUnits]
+
             for i in self.entities:
                 elms = modelLookup[i]
                 ypts = self.plots[elms[0].name].vector
@@ -291,18 +300,14 @@ class Readout:
                     xpts = np.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
                 sumvec = np.zeros(len(xpts))
                 for j in elms:
-                    #pp = PlotPanel( self, xlabel = j.name +'('+self.timeUnits+')' )
                     pp = PlotPanel( self, exptType )
                 # Here we plot the fine timeseries for the sim.
                 # Not yet working for all options of ratio.
                     if len( self.ratioData ) > 0:
-                        scale = self.quantityScale * self.ratioData[0]
+                        scale = tsScale * self.ratioData[0]
                     else:
-                        scale = self.quantityScale
-                    if self.useNormalization and abs(self._simDataReference) > 1e-15:
-                        scale *= self._simDataReference/self.quantityScale
-                    if self.field in (epspFields + epscFields):
-                        scale = self.quantityScale
+                        scale = tsScale
+                    #print( "LEN(ratioData) = {}, quantScale={}, simDataReference={}".format( len(self.ratioData), self.quantityScale,self._simDataReference ) )
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
@@ -310,9 +315,17 @@ class Readout:
                         pylab.plot( xpts, ypts, 'r:', label = j.name )
 
                 pylab.plot( xpts, sumvec, 'r--' )
+                ylabel = pp.ylabel
                 if self.field in ( epspFields + epscFields ):
+                    if self.field in ( epspFields  ):
+                        pylab.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
+                    else:
+                        pylab.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
+
                     pylab.figure(2)
-                pp.plotme( fname )
+                    if self.useNormalization:
+                        ylabel = '{} Fold change'.format( self.field )
+                pp.plotme( fname, ylabel )
 
     def applyRatio( self ):
         eps = 1e-16
@@ -885,7 +898,7 @@ def deliverStim( t, event, model ):
             else:
                 e.setField( s.field, val )
                 #print t, e.path, s.field, val
-                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/chem/psd/chan' ).n
+                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
                 #moose.showfield('/model/chem/spine/Ca/adapt' )
                 if t == 0:
                     ##At time zero we initial the value concInit or nInit
@@ -924,15 +937,18 @@ def doEpspReadout( readout, modelLookup ):
     n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
     assert( n > 5 )
     pts = np.array( readout.epspPlot.vector[-n:] )
+    #print readout.field
     #print ["{:.3f} ".format( x ) for x in pts]
-    if readout.field.find( "slope" ):
+    if "slope" in readout.field:
         dpts = pts[1:] - pts[:-1]
-        slope = max( abs( dpts ) )
+        slope = max( abs( dpts ) )/readout.epspPlot.dt
         readout.simData.append( slope )
-    elif readout.field.find( "peak" ):
+    elif "peak" in readout.field:
+        #print [ "{:.1f}  ".format( i*1000) for i in pts  ]
         pts -= pts[0]
         pk = max( abs(pts) )
         readout.simData.append( pk )
+    #print readout.field, readout.simData[-1]
 
 def doReferenceReadout( readout, modelLookup, field ):
     ratioReference = 0.0
@@ -1145,7 +1161,7 @@ class PlotPanel:
         for i in self.name:
             self.sumName += i
             self.sumName += " "
-            self.ylabel = i+' ({})'.format( readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
+            self.ylabel = '{} {} ({})'.format(i, readout.field, readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
 
     def convertBarChartLabels( self, readout, stim ):
         ret = []
@@ -1175,7 +1191,7 @@ class PlotPanel:
         ticklabels = self.convertBarChartLabels( readout, stim )
         pylab.xticks(barpos, ticklabels )
 
-    def plotme( self, scriptName, joinSimPoints = False ):
+    def plotme( self, scriptName, ylabel, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
         if self.useXlog:
             if self.useYlog:
@@ -1194,7 +1210,7 @@ class PlotPanel:
                 pylab.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
 
         pylab.xlabel( self.xlabel )
-        pylab.ylabel( self.ylabel )
+        pylab.ylabel( ylabel )
         pylab.title(scriptName)
         pylab.legend(fontsize="small",loc="lower right")
 
