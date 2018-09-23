@@ -1,0 +1,9 @@
+# This is configuration file for matplotlib used in examples. 
+# We use this configuration file to test the examples. Copy this configuration
+# file in the current working directory and run the snippet. 
+
+# This configuration file does the followings:
+# - plt.show() function become non-blocking.
+# This makes all plots non-blocking.
+interactive : True
+text.usetex : False
