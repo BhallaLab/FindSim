@@ -165,9 +165,6 @@ class Stimulus:
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
         
-        def __lt__( self, other ):
-            return self.data < other.data
-
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
         stim = Stimulus( **arg )
@@ -847,6 +844,15 @@ def pruneDanglingObj( kinpath, erSPlist):
     
 
 ##########################################################################
+class Qentry():
+    def __init__( self, t, entry, val ):
+        self.t = t
+        self.entry = entry
+        self.val = val
+
+    def __lt__( self, other ):
+        return self.t < other.t
+
 def putStimsInQ( q, stims, pauseHsolve ):
     for i in stims:
         for j in i.data:
@@ -857,13 +863,13 @@ def putStimsInQ( q, stims, pauseHsolve ):
             else:
                 val = float(j[1]) * i.quantityScale
             t = float(j[0])*i.timeScale
-            heapq.heappush( q, (t, [i, val ] ) )
+            heapq.heappush( q, Qentry( t, i, val ) )
             # Below we tell the Hsolver to turn off or on for elec calcn.
             if i.field in ['Im', 'current'] or (i.field=='rate' and 'syn' in i.entities[0]) :
                 if val == 0.0:
-                    heapq.heappush( q, (t+pauseHsolve.stimSettle, [pauseHsolve, 0 ] ) )
+                    heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
                 else:
-                    heapq.heappush( q, (t, [pauseHsolve, 1 ] ) ) # Turn on hsolve
+                    heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
 
 def makeReadoutPlots( readouts, modelLookup ):
     moose.Neutral('/model/plots')
@@ -896,11 +902,11 @@ def putReadoutsInQ( q, readouts, pauseHsolve ):
         if i.field in (epspFields + epscFields):
             for j in range( len( i.data ) ):
                 t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, (t, [pauseHsolve, 1 ] ) ) # Turn on hsolve
-                heapq.heappush( q, (t, [i.stim, i.epspFreq ] ) )
-                heapq.heappush( q, (t+1.0/i.epspFreq, [i.stim, 0] ) )
-                heapq.heappush( q, (t+i.epspWindow, [i, j] ) )# Measure after EPSP
-                heapq.heappush( q, (t+i.epspWindow+pauseHsolve.epspSettle, [pauseHsolve, 0] ) )
+                heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
+                heapq.heappush( q, Qentry(t, i.stim, i.epspFreq) )
+                heapq.heappush( q, Qentry(t+1.0/i.epspFreq, i.stim, 0) )
+                heapq.heappush( q, Qentry(t+i.epspWindow, i, j) )# Measure after EPSP
+                heapq.heappush( q, Qentry(t+i.epspWindow+pauseHsolve.epspSettle, pauseHsolve, 0) )
 
         else:
             # We push in the index of the data entry so the readout can
@@ -908,36 +914,35 @@ def putReadoutsInQ( q, readouts, pauseHsolve ):
             # ratio reference if needed.
             for j in range( len( i.data ) ):
                 t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, (t, [i, j] ) )
+                heapq.heappush( q, Qentry(t, i, j) )
 
         if i.useRatio and i.ratioReferenceTime >= 0.0:
             # We push in -1 to signify that this is to get ratio reference
-            heapq.heappush( q, (float(i.ratioReferenceTime)*i.timeScale, [i, -1] ) )
+            heapq.heappush( q, Qentry(float(i.ratioReferenceTime)*i.timeScale, i, -1) )
 
-def deliverStim( t, event, model ):
-    s = event[0]
-    val = event[1]
+def deliverStim( qe, model ):
+    field = qe.entry.field
     #field = model.fieldLookup[s.field]
-    for name in s.entities:
+    for name in qe.entry.entities:
         elms = model.modelLookup[name]
         for e in elms:
-            if s.field == 'Vclamp':
+            if field == 'Vclamp':
                 path = e.path + '/vclamp'
-                moose.element( path ).setField( 'command', val )
+                moose.element( path ).setField( 'command', qe.val )
             else:
-                e.setField( s.field, val )
-                #print t, e.path, s.field, val
-                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
-                if t == 0:
+                e.setField( field, qe.val )
+                #print qe.t, e.path, field, qe.val
+                #print qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
+                if qe.t == 0:
                     ## At time zero we initial the value concInit or nInit
-                    if s.field == 'conc':
-                        e.setField("concInit",val)
+                    if field == 'conc':
+                        e.setField("concInit",qe.val)
                         moose.reinit()
-                    elif s.field == "n":
-                        e.setField( 'nInit', val )
+                    elif field == "n":
+                        e.setField( 'nInit', qe.val )
                         moose.reinit()
 
-def doReadout( t, event, model ):
+def doReadout( qe, model ):
     ''' 
     This function obtains readout values from the simulation. 
     In all cases it checks to see if it should load in a simulation 
@@ -950,8 +955,8 @@ def doReadout( t, event, model ):
         array is to be filled with the value of reference entity at 
         t=ratioReferenceTime.
     '''
-    readout = event[0]
-    val = int(round( ( event[1] ) ) )
+    readout = qe.entry
+    val = int(round( ( qe.val ) ) )
     ratioReference = 0.0
     if readout.field in (epspFields + epscFields):
         doEpspReadout( readout, model.modelLookup )
@@ -1022,16 +1027,16 @@ def parseAndRun( model, stims, readouts, modelId ):
     moose.reinit()
     #model.pauseHsolve.setHsolveState( 0 )
     for i in range( len( q ) ):
-        t, event = heapq.heappop( q )
+        qe = heapq.heappop( q )
         currt = clock.currentTime
-        if ( t > currt ):
-            moose.start( t - currt )
-        if isinstance( event[0], Stimulus ):
-            deliverStim( t, event, model )
-        elif isinstance( event[0], Readout ):
-            doReadout( t, event, model )
-        elif isinstance( event[0], PauseHsolve ):
-            event[0].setHsolveState( int(event[1]) )
+        if ( qe.t > currt ):
+            moose.start( qe.t - currt )
+        if isinstance( qe.entry, Stimulus ):
+            deliverStim( qe, model )
+        elif isinstance( qe.entry, Readout ):
+            doReadout( qe, model )
+        elif isinstance( qe.entry, PauseHsolve ):
+            qe.entry.setHsolveState( int(qe.val) )
 
     score = processReadouts( readouts, model.scoringFormula )
 
