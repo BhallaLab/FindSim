@@ -164,9 +164,9 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
-
-    def __lt__( self, other ):
-        return self.data < other.data
+        
+        def __lt__( self, other ):
+            return self.data < other.data
 
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
@@ -263,9 +263,6 @@ class Readout:
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
         self.epspFreq = 100.0 # Used to generate a single synaptic event
         self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
-
-    def __lt__( self, other ):
-        return self.data < other.data
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -354,8 +351,6 @@ class Readout:
         else:
             normalization = self.quantityScale
         
-        #print( "SimData = {}".format( self.simData ) )
-        #print( normalization )
         self.simData = [ s/(r * normalization) for s, r in zip( self.simData, rd ) ]
 
     def doScore( self, scoringFormula ):
@@ -476,8 +471,6 @@ class Model:
         for j in struct[:]:
             #model.addStructuralChange( i[0], i[1] )
             model.addStructuralChange(j.lstrip(),"delete")
-        #print "################ Loading model, lookup=", modelLookup
-        # model.modelLookup = {} from constructor.
         model._tempModelLookup = modelLookup
         #model.fieldLookup = fieldLookup
         return model
@@ -1048,11 +1041,11 @@ def parseAndRun( model, stims, readouts, modelId ):
 ##########################################################################
 def parseAndRunDoser( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
-                stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs \
+            exactly one stimulus block, {} defined".format( len(stims)) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
-                readout block, {} defined".format( len( readouts ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs \
+            exactly one readout block, {} defined".format( len(readout) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1145,11 +1138,11 @@ def setUpBarChartStims( stim, modelLookup ):
 
 def parseAndRunBarChart( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
-                stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
+            one stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
-                readout block, {} defined".format( len( readouts ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
+            one readout block, {} defined".format( len( readout ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
