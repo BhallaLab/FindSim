@@ -43,6 +43,7 @@ import moose
 import os
 import re
 import ntpath
+import time
 import imp      # This is apparently deprecated in Python 3.4 and up
 convertTimeUnits = {('sec','s') : 1.0, 
     ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
@@ -61,6 +62,8 @@ epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
 
 elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
+elecDt = 50e-6
+elecPlotDt = 100e-6
 
 
 def keywordMatches( k, m ):
@@ -161,10 +164,7 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
-
-    def __lt__( self, other ):
-        return self.data < other.data
-
+        
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
         stim = Stimulus( **arg )
@@ -260,9 +260,6 @@ class Readout:
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
         self.epspFreq = 100.0 # Used to generate a single synaptic event
         self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
-
-    def __lt__( self, other ):
-        return self.data < other.data
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -351,8 +348,6 @@ class Readout:
         else:
             normalization = self.quantityScale
         
-        #print( "SimData = {}".format( self.simData ) )
-        #print( normalization )
         self.simData = [ s/(r * normalization) for s, r in zip( self.simData, rd ) ]
 
     def doScore( self, scoringFormula ):
@@ -473,8 +468,6 @@ class Model:
         for j in struct[:]:
             #model.addStructuralChange( i[0], i[1] )
             model.addStructuralChange(j.lstrip(),"delete")
-        #print "################ Loading model, lookup=", modelLookup
-        # model.modelLookup = {} from constructor.
         model._tempModelLookup = modelLookup
         #model.fieldLookup = fieldLookup
         return model
@@ -644,6 +637,26 @@ class Model:
             
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
+
+##########################################################################
+class PauseHsolve:
+    def __init__(self, optimizeElec = False):
+        self.optimizeElec = optimizeElec
+        self. epspSettle = 0.5
+        self. stimSettle = 2.0
+
+
+    def setHsolveState(self, state):
+        if not self.optimizeElec:
+            return
+        if moose.exists( '/model/elec/hsolve' ):
+            if state:
+                for i in range( 9 ):
+                    moose.setClock( i, elecDt )
+            else:
+                for i in range( 9 ):
+                    moose.setClock( i, 1e12 )
+            moose.setClock( 8, elecPlotDt )
 
 #######################################################################
 def list_to_dict(rlist):
@@ -831,7 +844,16 @@ def pruneDanglingObj( kinpath, erSPlist):
     
 
 ##########################################################################
-def putStimsInQ( q, stims, modelLookup ):
+class Qentry():
+    def __init__( self, t, entry, val ):
+        self.t = t
+        self.entry = entry
+        self.val = val
+
+    def __lt__( self, other ):
+        return self.t < other.t
+
+def putStimsInQ( q, stims, pauseHsolve ):
     for i in stims:
         for j in i.data:
             if len(j) == 0:
@@ -840,16 +862,21 @@ def putStimsInQ( q, stims, modelLookup ):
                 val = 0.0
             else:
                 val = float(j[1]) * i.quantityScale
-            heapq.heappush( q, (float(j[0])*i.timeScale, [i, val ] ) )
+            t = float(j[0])*i.timeScale
+            heapq.heappush( q, Qentry( t, i, val ) )
+            # Below we tell the Hsolver to turn off or on for elec calcn.
+            if i.field in ['Im', 'current'] or (i.field=='rate' and 'syn' in i.entities[0]) :
+                if val == 0.0:
+                    heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
+                else:
+                    heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
 
 def makeReadoutPlots( readouts, modelLookup ):
     moose.Neutral('/model/plots')
     for i in readouts:
         readoutElms = []
         for j in i.entities:
-            #print j, modelLookup[j]
             readoutElms.extend( modelLookup[j] )
-        #readoutElms = [ moose.element( modelLookup[j][0] ) for j in i.entities ]
         for elm in readoutElms:
             ######Creating tables for plotting for full run #############
             plotpath = '/model/plots/' + ntpath.basename(elm.name)
@@ -868,16 +895,18 @@ def makeReadoutPlots( readouts, modelLookup ):
                 fieldname = 'get' + i.field.title()
             moose.connect( plot, 'requestOut', elm, fieldname )
 
-def putReadoutsInQ( q, readouts, modelLookup ):
+def putReadoutsInQ( q, readouts, pauseHsolve ):
     stdError  = []
     plotLookup = {}
     for i in readouts:
         if i.field in (epspFields + epscFields):
             for j in range( len( i.data ) ):
                 t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, (t, [i.stim, i.epspFreq ] ) )
-                heapq.heappush( q, (t+1.0/i.epspFreq, [i.stim, 0] ) )
-                heapq.heappush( q, (t+i.epspWindow, [i, j] ) )# Measure after EPSP
+                heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
+                heapq.heappush( q, Qentry(t, i.stim, i.epspFreq) )
+                heapq.heappush( q, Qentry(t+1.0/i.epspFreq, i.stim, 0) )
+                heapq.heappush( q, Qentry(t+i.epspWindow, i, j) )# Measure after EPSP
+                heapq.heappush( q, Qentry(t+i.epspWindow+pauseHsolve.epspSettle, pauseHsolve, 0) )
 
         else:
             # We push in the index of the data entry so the readout can
@@ -885,37 +914,35 @@ def putReadoutsInQ( q, readouts, modelLookup ):
             # ratio reference if needed.
             for j in range( len( i.data ) ):
                 t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, (t, [i, j] ) )
+                heapq.heappush( q, Qentry(t, i, j) )
 
         if i.useRatio and i.ratioReferenceTime >= 0.0:
             # We push in -1 to signify that this is to get ratio reference
-            heapq.heappush( q, (float(i.ratioReferenceTime)*i.timeScale, [i, -1] ) )
+            heapq.heappush( q, Qentry(float(i.ratioReferenceTime)*i.timeScale, i, -1) )
 
-def deliverStim( t, event, model ):
-    s = event[0]
-    val = event[1]
+def deliverStim( qe, model ):
+    field = qe.entry.field
     #field = model.fieldLookup[s.field]
-    for name in s.entities:
+    for name in qe.entry.entities:
         elms = model.modelLookup[name]
         for e in elms:
-            if s.field == 'Vclamp':
+            if field == 'Vclamp':
                 path = e.path + '/vclamp'
-                moose.element( path ).setField( 'command', val )
+                moose.element( path ).setField( 'command', qe.val )
             else:
-                e.setField( s.field, val )
-                #print t, e.path, s.field, val
-                #print t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
-                #moose.showfield('/model/chem/spine/Ca/adapt' )
-                if t == 0:
-                    ##At time zero we initial the value concInit or nInit
-                    if s.field == 'conc':
-                        e.setField("concInit",val)
+                e.setField( field, qe.val )
+                #print qe.t, e.path, field, qe.val
+                #print qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
+                if qe.t == 0:
+                    ## At time zero we initial the value concInit or nInit
+                    if field == 'conc':
+                        e.setField("concInit",qe.val)
                         moose.reinit()
-                    elif s.field == "n":
-                        e.setField( 'nInit', val )
+                    elif field == "n":
+                        e.setField( 'nInit', qe.val )
                         moose.reinit()
 
-def doReadout( t, event, model ):
+def doReadout( qe, model ):
     ''' 
     This function obtains readout values from the simulation. 
     In all cases it checks to see if it should load in a simulation 
@@ -928,10 +955,9 @@ def doReadout( t, event, model ):
         array is to be filled with the value of reference entity at 
         t=ratioReferenceTime.
     '''
-    readout = event[0]
-    val = int(round( ( event[1] ) ) )
+    readout = qe.entry
+    val = int(round( ( qe.val ) ) )
     ratioReference = 0.0
-    #field = model.fieldLookup[readout.field]
     if readout.field in (epspFields + epscFields):
         doEpspReadout( readout, model.modelLookup )
     elif val == -1: # This is a special event to get RatioReferenceValue
@@ -950,11 +976,9 @@ def doEpspReadout( readout, modelLookup ):
         slope = max( abs( dpts ) )/readout.epspPlot.dt
         readout.simData.append( slope )
     elif "peak" in readout.field:
-        #print [ "{:.1f}  ".format( i*1000) for i in pts  ]
         pts -= pts[0]
         pk = max( abs(pts) )
         readout.simData.append( pk )
-    #print readout.field, readout.simData[-1]
 
 def doReferenceReadout( readout, modelLookup, field ):
     ratioReference = 0.0
@@ -997,19 +1021,22 @@ def processReadouts( readouts, scoringFormula ):
 def parseAndRun( model, stims, readouts, modelId ):
     q = []
     clock = moose.element( '/clock' )
-    putStimsInQ( q, stims, model.modelLookup )
-    putReadoutsInQ( q, readouts, model.modelLookup )
+    putStimsInQ( q, stims, model.pauseHsolve )
+    putReadoutsInQ( q, readouts, model.pauseHsolve )
 
     moose.reinit()
+    #model.pauseHsolve.setHsolveState( 0 )
     for i in range( len( q ) ):
-        t, event = heapq.heappop( q )
+        qe = heapq.heappop( q )
         currt = clock.currentTime
-        if ( t > currt ):
-            moose.start( t - currt )
-        if isinstance( event[0], Stimulus ):
-            deliverStim( t, event, model )
-        elif isinstance( event[0], Readout ):
-            doReadout( t, event, model )
+        if ( qe.t > currt ):
+            moose.start( qe.t - currt )
+        if isinstance( qe.entry, Stimulus ):
+            deliverStim( qe, model )
+        elif isinstance( qe.entry, Readout ):
+            doReadout( qe, model )
+        elif isinstance( qe.entry, PauseHsolve ):
+            qe.entry.setHsolveState( int(qe.val) )
 
     score = processReadouts( readouts, model.scoringFormula )
 
@@ -1019,11 +1046,11 @@ def parseAndRun( model, stims, readouts, modelId ):
 ##########################################################################
 def parseAndRunDoser( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
-                stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs \
+            exactly one stimulus block, {} defined".format( len(stims)) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs exactly one \
-                readout block, {} defined".format( len( readouts ) ) )
+        raise SimError( "parseAndRunDoser: Dose response run needs \
+            exactly one readout block, {} defined".format( len(readout) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1076,13 +1103,6 @@ def doBarChartStim( multiStimLine, doseMol, dose, field ):
     for j in indices:
         setFieldIncludingInit( doseMol[j], field, dose[j] )
 
-    '''
-    moose.reinit()
-    for k in doseMol:
-        print k.name, k.conc, k.concInit
-    print
-    '''
-
 def doBarChartReference( readout, stim, modelLookup ):
     if readout.useRatio and readout.ratioReferenceTime >= 0.0:
         responseScale = readout.quantityScale
@@ -1123,11 +1143,11 @@ def setUpBarChartStims( stim, modelLookup ):
 
 def parseAndRunBarChart( model, stims, readouts, modelId ):
     if len( stims ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
-                stimulus block, {} defined".format( len( stims ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
+            one stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly one \
-                readout block, {} defined".format( len( readouts ) ) )
+        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
+            one readout block, {} defined".format( len( readout ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1263,9 +1283,6 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
         #print( "Path = " + compt.path + "/##" )
-        #moose.le( compt.path + "/DEND" )
-        #foo = moose.wildcardFind( compt.path + "/##" )
-        #print ("LKSJDF:LKSJDF:LKJSDF LEN = " + str( len( foo ) ) )
         stoich.path = compt.path + '/##'
     # Here we remove and rebuild the HSolver because we have to add vclamp
     # after loading the model.
@@ -1273,8 +1290,6 @@ def buildSolver( modelId, solver, useVclamp = False ):
         if moose.exists( '/model/elec/hsolve' ):
             raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
     if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
-        elecDt = 50e-6
-        elecPlotDt = 100e-6
         for i in range( 9 ):
             moose.setClock( i, elecDt )
         moose.setClock( 8, elecPlotDt )
@@ -1331,16 +1346,19 @@ def main():
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
+    parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False, optimizeElec = True ):
+    global pause
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
     model.fileName = modelFile
+    model.pauseHsolve = PauseHsolve( optimizeElec )
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
     # First we load in the model using EE so it is easier to tweak
@@ -1389,8 +1407,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
         if readouts[0].field in ( epspFields + epscFields ):
             readouts[0].stim = stims[0]
 
-        if not hidePlot:
-            makeReadoutPlots( readouts, model.modelLookup )
+        makeReadoutPlots( readouts, model.modelLookup )
 
         if stims[0].field == 'Vclamp':
             #build the solver with a flag to say rebuild the hsolve.
@@ -1401,9 +1418,11 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.1 )
 
+        t0 = time.time()
         score = runit( expt, model,stims, readouts, modelId )
+        elapsedTime = time.time() - t0
         if not hidePlot:
-            print( "Score = {:.3f} for\t{}".format( score, os.path.basename(script) ) )
+            print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(script), elapsedTime ) )
             for i in readouts:
                 pylab.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
