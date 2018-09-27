@@ -108,13 +108,14 @@ class Experiment:
         arg = {}
         for line in fd:
             cols = line.split('\t')
-            if doneContext and (len( cols ) == 0 or cols[0] == '' or cols[0].isspace()):
+            c0 = cols[0].strip()
+            if doneContext and (len( cols ) == 0 or c0 == '' or c0.isspace()):
                 break
-            if cols[0] == "Experiment context":
+            if c0 == "Experiment context":
                 doneContext = True
                 continue
             for i in Experiment.argNames:
-                if keywordMatches( cols[0], i ):
+                if keywordMatches( c0, i ):
                     arg[i] = str.strip( nonBlank( cols ) )
                     continue
         return Experiment( **arg )
@@ -674,25 +675,26 @@ def innerLoad( fd, argNames, dataWidth = 2):
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             return arg, data, param, struct, modelLookup
 
-        if keywordMatches( cols[0], 'modelLookup' ):
+        c0 = cols[0].strip()
+        if keywordMatches( c0, 'modelLookup' ):
             # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
                 temp = cols[1].split( ',' )
                 modelLookup = { i.split(':')[0]:i.split(':')[1].strip() for i in temp }
 
-        if keywordMatches( cols[0], 'Data' ):
+        if keywordMatches( c0, 'Data' ):
             readData( fd, data, dataWidth )
             #print "Ret READ DATA from INNERLOAD", len( data )
             return arg, data, param, struct, modelLookup
 
         for i in argNames:
-            if keywordMatches( cols[0], i ):
+            if keywordMatches( c0, i ):
                 arg[i] = str.strip( nonBlank( cols) )
                 continue
-        if keywordMatches(cols[0],"parameterChange"):
+        if keywordMatches(c0,"parameterChange"):
             readParameter(fd,param,dataWidth)
 
-        if keywordMatches( cols[0], 'itemstodelete' ):
+        if keywordMatches( c0, 'itemstodelete' ):
             struct= cols[1].split(',')
 
     return arg, data, param, struct, modelLookup
@@ -711,7 +713,7 @@ def readData( fd, data, width ):
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        cl = cols[0].lower()
+        cl = cols[0].strip().lower()
         if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
             if cl == 'entity':
                 entityNameInFirstCol = True
@@ -734,7 +736,7 @@ def readParameter(fd, para, width):
         cols = line.split("\t")
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        if cols[0].lower() == "object":
+        if cols[0].strip().lower() == "object":
             continue
         row = []
         lcols = 0
@@ -1257,13 +1259,14 @@ def loadTsv( fname ):
             if len( line ) > 1 and line[0] != '#':
                 cols = line.split('\t')
                 if len( cols ) > 0:
-                    if cols[0] == 'Experiment metadata':
+                    c0 = cols[0].strip()
+                    if c0 == 'Experiment metadata':
                         expt = Experiment.load(fd )
-                    if cols[0] == 'Stimuli':
+                    if c0 == 'Stimuli':
                         stims.append( Stimulus.load(fd ) )
-                    if cols[0] == 'Readouts':
+                    if c0 == 'Readouts':
                         readouts.append( Readout.load(fd) )
-                    if cols[0] == 'Model mapping':
+                    if c0 == 'Model mapping':
                         model = Model.load(fd )
     return expt, stims, readouts, model
 
