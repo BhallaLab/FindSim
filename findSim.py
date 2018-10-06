@@ -531,6 +531,17 @@ class Model:
         else:
             return try2[0]
 
+    def _scaleParam( self, params ):
+        if len(params) == 0:
+            return
+        if len(params) != 3:
+            raise SimError( "scaleParam: expecting [obj, field, scale], got: '{}'".format( params ) )
+
+        obj = self.findObj( '/model', params[0] )
+        val = obj.getField( params[1] )
+        obj.setField( params[1], val * float( params[2] ) )
+        #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
+
     def modify( self, modelId, erSPlist, odelWarning):
         # Start off with things explicitly specified for deletion.
         kinpath = modelId.path
@@ -1350,11 +1361,12 @@ def main():
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
+    parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False, optimizeElec = True ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[] ):
     global pause
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
@@ -1389,6 +1401,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
 
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
+        model._scaleParam( scaleParam )
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
                 moose.mooseWriteKkit( modelId.path, dumpFname )
@@ -1435,7 +1448,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
         return score
         
     except SimError as msg:
-        print( "Error: findSim failed for script {}: {}".format(script, msg ))
+        if not silent:
+            print( "Error: findSim failed for script {}: {}".format(script, msg ))
         if modelId:
             moose.delete( modelId )
         return -1.0
