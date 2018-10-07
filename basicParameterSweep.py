@@ -66,6 +66,7 @@ def main():
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
     parser.add_argument( '-p', '--parameter_sweep', nargs='*', default=[],  help='Does a parameter sweep in range 0.5-2x of each object.field pair.' )
+    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter sweep', default = "sweep.out" )
     args = parser.parse_args()
     location = args.location
     if location[-1] != '/':
@@ -104,20 +105,28 @@ def main():
             temp[j] = [ k.get() for k in scaleDict[j] ]
         results[i] = temp
     print( "\n---------------- Completed ----------------- " )
+    fp = open( args.file, "a" )
     for objfield in results:
-        analyzeResults( objfield, results[objfield] )
+        analyzeResults( fp, objfield, results[objfield] )
+    fp.close()
 
-def analyzeResults( name, results ):
+def analyzeResults( fp, name, results ):
     score = []
     scale = []
+    numTotExpts = 0
+    numGoodExpts = 0
     for res in results:
+        numTotExpts += len( results[res] )
         goodRes = [ x for x in results[res] if x >= 0.0 ]
+        numGoodExpts += len( goodRes )
         if len( goodRes ) > 0:
             score.append( sum(goodRes)/len(goodRes) )
             scale.append( res )
 
     if len(score) == 0:
-        print( "-1 at {} with Q = 0".format(name) )
+        outputStr = "{}: score -1 at scale -  with Q = 0 in 0/{} expts".format(name, numTotExpts )
+        print( outputStr )
+        fp.write( outputStr )
         return
     bestScore = min( score )
     bestScoreIndex = score.index( bestScore )
@@ -129,9 +138,16 @@ def analyzeResults( name, results ):
         worstScore = max(score)
         worstScoreIndex = score.index( worstScore )
         Q = (worstScore - bestScore)/abs(scale[bestScoreIndex] - scale[worstScoreIndex])
-    print( "{}: {:3f} at {} with Q = {:3f}".format(name, bestScore, scale[bestScoreIndex],
-        Q) )
-
+    outputStr = "{}: score {:.3f} at scale {} with Q = {:.3f} in {}/{} expts".format(name, bestScore, scale[bestScoreIndex], Q, numGoodExpts, numTotExpts )
+    print( outputStr )
+    fp.write( outputStr + '\n' )
+    for i, j in sorted(zip( scale, score )):
+        fp.write( "{:.3f}   {:.3f}\n".format( i, j ) )
+    for res in results:
+        goodRes = [ x for x in results[res] if x >= 0.0 ]
+        if len( goodRes ) > 0:
+            score.append( sum(goodRes)/len(goodRes) )
+            scale.append( res )
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':

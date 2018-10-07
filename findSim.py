@@ -538,8 +538,20 @@ class Model:
             raise SimError( "scaleParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
         obj = self.findObj( '/model', params[0] )
-        val = obj.getField( params[1] )
-        obj.setField( params[1], val * float( params[2] ) )
+        scale = float( params[2] )
+        assert( scale >= 0.0 and scale <= 100.0 )
+        if params[1] == 'Kd':
+            if not obj.isA[ "ReacBase" ]:
+                raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
+            sf = np.sqrt( scale )
+            obj.Kb *= sf
+            obj.Kf /= sf
+        elif params[1] == 'tau':
+            obj.Kb /= scale
+            obj.Kf /= scale
+        else: 
+            val = obj.getField( params[1] )
+            obj.setField( params[1], val * scale)
         #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
 
     def modify( self, modelId, erSPlist, odelWarning):
