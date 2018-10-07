@@ -1342,6 +1342,53 @@ def buildVclamp( stim, modelLookup ):
     moose.connect( vclamp, 'currentOut', compt, 'injectMsg' )
     moose.reinit()
 
+def getUniqueName( model, obj ):
+    path1 = "{}/##/{},{}/{}".format( model, obj.name, model, obj.name )
+    wf = moose.wildcardFind( path1 )
+    assert( len( wf ) > 0 )
+    if len( wf ) == 1:
+        return obj.name
+    pa = obj.parent.name
+    path2 = "{}/##/{}/{},{}/{}/{}".format( model, pa, obj.name, model, pa, obj.name )
+    wf = moose.wildcardFind( path2 )
+    assert( len( wf ) > 0 )
+    if len( wf ) == 1:
+        return pa + "/" + obj.name
+    raise SimError( "getUniqueName: {} and {} non-unique, please rename.".format( wf[0].path, wf[1].path ) )
+    return obj.name
+
+
+def generateParamFile( model, fname ):
+    with open( fname, "w" ) as fp:
+        for i in moose.wildcardFind( model + "/##[ISA=PoolBase]" ):
+            conc = i.concInit
+            if conc > 0.0:
+                objName = getUniqueName( model, i )
+                fp.write( "{}   concInit\n".format( objName ) )
+
+        for i in moose.wildcardFind( model + "/##[ISA=ReacBase]" ):
+            Kf = i.Kf
+            Kb = i.Kb
+            if Kb <= 0.0 and Kf <= 0.0:
+                return
+            objName = getUniqueName(model, i)
+            if Kb <= 0.0:
+                fp.write( "{}   Kf\n".format( objName ) )
+            elif Kf <= 0.0:
+                fp.write( "{}   Kb\n".format( objName ) )
+            else:   # Prefer the Kd and tau where possible.
+                fp.write( "{}   Kd\n".format( objName ) )
+                fp.write( "{}   tau\n".format( objName ) )
+
+        for i in moose.wildcardFind( model + "/##[ISA=EnzBase]" ):
+            Km = i.Km
+            kcat = i.kcat
+            if Km <= 0.0 or kcat <= 0.0:
+                return
+            objName = getUniqueName(model, i)
+            fp.write( "{}   Km\n".format( objName ) )
+            fp.write( "{}   kcat\n".format( objName ) )
+
 def runit( expt, model, stims, readouts, modelId ):
     for i in stims:
         i.configure( model.modelLookup )
@@ -1370,15 +1417,16 @@ def main():
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "models/synSynth7.g" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
+    parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[] ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[] ):
     global pause
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
@@ -1421,6 +1469,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
                 moose.mooseWriteSBML( modelId.path, dumpFname )
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
+
+        if len(paramFname) > 0:
+            generateParamFile( modelId.path, paramFname )
 
         model.buildModelLookup()
 
