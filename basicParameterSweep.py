@@ -59,6 +59,30 @@ def reportReturn( result ):
     if resultCount % 50 == 0:
         print( " {}".format( resultCount ) )
 
+def enumerateFindSimFiles( location ):
+    if os.path.isdir( location ):
+        if location[-1] != '/':
+            location += '/'
+        fnames = [ (location + i) for i in os.listdir( location ) if i.endswith( ".tsv" )]
+        return fnames, [1.0] * len( fnames )
+    elif os.path.isfile( location ):
+        fnames = []
+        weights = []
+        with open( location, "r" ) as fp:
+            for line in fp:
+                if len( line ) <= 2:
+                    continue
+                if line[0] == '#':
+                    continue
+                f,w = line.split()
+                fnames.append( f )
+                weights.append( float( w ) )
+        return fnames, weights
+    else:
+        print( "Error: Unable to find file or directory at " + location )
+        quit()
+
+
 def main():
     parser = argparse.ArgumentParser( description = 'Wrapper script to run a lot of FindSim evaluations in parallel.' )
 
@@ -66,7 +90,7 @@ def main():
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
     parser.add_argument( '-p', '--parameter_sweep', nargs='*', default=[],  help='Does a parameter sweep in range 0.5-2x of each object.field pair.' )
-    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter sweep', default = "sweep.out" )
+    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter sweep', default = "" )
     args = parser.parse_args()
     location = args.location
     if location[-1] != '/':
@@ -79,7 +103,10 @@ def main():
         print( "Error: Unable to find model file {}".format( args.model ) )
         quit()
 
-    fnames = [ (location + i) for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
+    #fnames = [ (location + i) for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
+    fnames, weights = enumerateFindSimFiles( args.location )
+    #print( fnames )
+    #print( weights )
     pool = Pool( processes = args.numProcesses )
     #ret = findSim.innerMain(fnames[0], hidePlot=True)
 
@@ -105,28 +132,38 @@ def main():
             temp[j] = [ k.get() for k in scaleDict[j] ]
         results[i] = temp
     print( "\n---------------- Completed ----------------- " )
-    fp = open( args.file, "a" )
+    dumpData = False
+    fp = ""
+    if len( args.file ) > 0:
+        fp = open( args.file, "w" )
+        dumpData = True
     for objfield in results:
-        analyzeResults( fp, objfield, results[objfield] )
-    fp.close()
+        analyzeResults( fp, dumpData, objfield, results[objfield], weights )
+    if dumpData:
+        fp.close()
 
-def analyzeResults( fp, name, results ):
+def analyzeResults( fp, dumpData, name, results, weights ):
     score = []
     scale = []
     numTotExpts = 0
     numGoodExpts = 0
+    sumWts = 0.0
     for res in results:
+        assert( len( weights ) == len( results[res] ) )
         numTotExpts += len( results[res] )
-        goodRes = [ x for x in results[res] if x >= 0.0 ]
+        goodRes = [ x*w for x,w in zip(results[res], weights) if x >= 0.0 ]
+        sumWts = sum( [w for x,w in zip(results[res], weights) if x>= 0.0])
         numGoodExpts += len( goodRes )
         if len( goodRes ) > 0:
-            score.append( sum(goodRes)/len(goodRes) )
+            score.append( sum(goodRes)/sumWts )
+            #print( "{}, {}".format( goodRes, sumWts ) )
             scale.append( res )
 
     if len(score) == 0:
         outputStr = "{}: score -1 at scale -  with Q = 0 in 0/{} expts".format(name, numTotExpts )
         print( outputStr )
-        fp.write( outputStr )
+        if dumpData:
+            fp.write( outputStr )
         return
     bestScore = min( score )
     bestScoreIndex = score.index( bestScore )
@@ -140,14 +177,10 @@ def analyzeResults( fp, name, results ):
         Q = (worstScore - bestScore)/abs(scale[bestScoreIndex] - scale[worstScoreIndex])
     outputStr = "{}: score {:.3f} at scale {} with Q = {:.3f} in {}/{} expts".format(name, bestScore, scale[bestScoreIndex], Q, numGoodExpts, numTotExpts )
     print( outputStr )
-    fp.write( outputStr + '\n' )
-    for i, j in sorted(zip( scale, score )):
-        fp.write( "{:.3f}   {:.3f}\n".format( i, j ) )
-    for res in results:
-        goodRes = [ x for x in results[res] if x >= 0.0 ]
-        if len( goodRes ) > 0:
-            score.append( sum(goodRes)/len(goodRes) )
-            scale.append( res )
+    if dumpData:
+        fp.write( outputStr + '\n' )
+        for i, j in sorted(zip( scale, score )):
+            fp.write( "{:.3f}   {:.3f}\n".format( i, j ) )
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
