@@ -86,7 +86,7 @@ def enumerateFindSimFiles( location ):
 def main():
     parser = argparse.ArgumentParser( description = 'Wrapper script to run a lot of FindSim evaluations in parallel.' )
 
-    parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located.')
+    parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located. OR: File in which each line is the filename of a scripts.tsv file, followed by weight to assign for that file.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
     parser.add_argument( '-p', '--parameter_sweep', nargs='*', default=[],  help='Does a parameter sweep in range 0.5-2x of each object.field pair.' )
