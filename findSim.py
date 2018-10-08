@@ -108,13 +108,14 @@ class Experiment:
         arg = {}
         for line in fd:
             cols = line.split('\t')
-            if doneContext and (len( cols ) == 0 or cols[0] == '' or cols[0].isspace()):
+            c0 = cols[0].strip()
+            if doneContext and (len( cols ) == 0 or c0 == '' or c0.isspace()):
                 break
-            if cols[0] == "Experiment context":
+            if c0 == "Experiment context":
                 doneContext = True
                 continue
             for i in Experiment.argNames:
-                if keywordMatches( cols[0], i ):
+                if keywordMatches( c0, i ):
                     arg[i] = str.strip( nonBlank( cols ) )
                     continue
         return Experiment( **arg )
@@ -530,6 +531,29 @@ class Model:
         else:
             return try2[0]
 
+    def _scaleParam( self, params ):
+        if len(params) == 0:
+            return
+        if len(params) != 3:
+            raise SimError( "scaleParam: expecting [obj, field, scale], got: '{}'".format( params ) )
+
+        obj = self.findObj( '/model', params[0] )
+        scale = float( params[2] )
+        assert( scale >= 0.0 and scale <= 100.0 )
+        if params[1] == 'Kd':
+            if not obj.isA[ "ReacBase" ]:
+                raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
+            sf = np.sqrt( scale )
+            obj.Kb *= sf
+            obj.Kf /= sf
+        elif params[1] == 'tau':
+            obj.Kb /= scale
+            obj.Kf /= scale
+        else: 
+            val = obj.getField( params[1] )
+            obj.setField( params[1], val * scale)
+        #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
+
     def modify( self, modelId, erSPlist, odelWarning):
         # Start off with things explicitly specified for deletion.
         kinpath = modelId.path
@@ -674,25 +698,26 @@ def innerLoad( fd, argNames, dataWidth = 2):
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             return arg, data, param, struct, modelLookup
 
-        if keywordMatches( cols[0], 'modelLookup' ):
+        c0 = cols[0].strip()
+        if keywordMatches( c0, 'modelLookup' ):
             # Lines of the form exptName1:simName1,exptName2:simName2,...
             if cols[1] != "":
                 temp = cols[1].split( ',' )
                 modelLookup = { i.split(':')[0]:i.split(':')[1].strip() for i in temp }
 
-        if keywordMatches( cols[0], 'Data' ):
+        if keywordMatches( c0, 'Data' ):
             readData( fd, data, dataWidth )
             #print "Ret READ DATA from INNERLOAD", len( data )
             return arg, data, param, struct, modelLookup
 
         for i in argNames:
-            if keywordMatches( cols[0], i ):
+            if keywordMatches( c0, i ):
                 arg[i] = str.strip( nonBlank( cols) )
                 continue
-        if keywordMatches(cols[0],"parameterChange"):
+        if keywordMatches(c0,"parameterChange"):
             readParameter(fd,param,dataWidth)
 
-        if keywordMatches( cols[0], 'itemstodelete' ):
+        if keywordMatches( c0, 'itemstodelete' ):
             struct= cols[1].split(',')
 
     return arg, data, param, struct, modelLookup
@@ -711,7 +736,7 @@ def readData( fd, data, width ):
         cols = line.split("\t" )
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        cl = cols[0].lower()
+        cl = cols[0].strip().lower()
         if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
             if cl == 'entity':
                 entityNameInFirstCol = True
@@ -734,7 +759,7 @@ def readParameter(fd, para, width):
         cols = line.split("\t")
         if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
             break
-        if cols[0].lower() == "object":
+        if cols[0].strip().lower() == "object":
             continue
         row = []
         lcols = 0
@@ -1257,13 +1282,14 @@ def loadTsv( fname ):
             if len( line ) > 1 and line[0] != '#':
                 cols = line.split('\t')
                 if len( cols ) > 0:
-                    if cols[0] == 'Experiment metadata':
+                    c0 = cols[0].strip()
+                    if c0 == 'Experiment metadata':
                         expt = Experiment.load(fd )
-                    if cols[0] == 'Stimuli':
+                    if c0 == 'Stimuli':
                         stims.append( Stimulus.load(fd ) )
-                    if cols[0] == 'Readouts':
+                    if c0 == 'Readouts':
                         readouts.append( Readout.load(fd) )
-                    if cols[0] == 'Model mapping':
+                    if c0 == 'Model mapping':
                         model = Model.load(fd )
     return expt, stims, readouts, model
 
@@ -1316,6 +1342,53 @@ def buildVclamp( stim, modelLookup ):
     moose.connect( vclamp, 'currentOut', compt, 'injectMsg' )
     moose.reinit()
 
+def getUniqueName( model, obj ):
+    path1 = "{}/##/{},{}/{}".format( model, obj.name, model, obj.name )
+    wf = moose.wildcardFind( path1 )
+    assert( len( wf ) > 0 )
+    if len( wf ) == 1:
+        return obj.name
+    pa = obj.parent.name
+    path2 = "{}/##/{}/{},{}/{}/{}".format( model, pa, obj.name, model, pa, obj.name )
+    wf = moose.wildcardFind( path2 )
+    assert( len( wf ) > 0 )
+    if len( wf ) == 1:
+        return pa + "/" + obj.name
+    raise SimError( "getUniqueName: {} and {} non-unique, please rename.".format( wf[0].path, wf[1].path ) )
+    return obj.name
+
+
+def generateParamFile( model, fname ):
+    with open( fname, "w" ) as fp:
+        for i in moose.wildcardFind( model + "/##[ISA=PoolBase]" ):
+            conc = i.concInit
+            if conc > 0.0:
+                objName = getUniqueName( model, i )
+                fp.write( "{}   concInit\n".format( objName ) )
+
+        for i in moose.wildcardFind( model + "/##[ISA=ReacBase]" ):
+            Kf = i.Kf
+            Kb = i.Kb
+            if Kb <= 0.0 and Kf <= 0.0:
+                return
+            objName = getUniqueName(model, i)
+            if Kb <= 0.0:
+                fp.write( "{}   Kf\n".format( objName ) )
+            elif Kf <= 0.0:
+                fp.write( "{}   Kb\n".format( objName ) )
+            else:   # Prefer the Kd and tau where possible.
+                fp.write( "{}   Kd\n".format( objName ) )
+                fp.write( "{}   tau\n".format( objName ) )
+
+        for i in moose.wildcardFind( model + "/##[ISA=EnzBase]" ):
+            Km = i.Km
+            kcat = i.kcat
+            if Km <= 0.0 or kcat <= 0.0:
+                return
+            objName = getUniqueName(model, i)
+            fp.write( "{}   Km\n".format( objName ) )
+            fp.write( "{}   kcat\n".format( objName ) )
+
 def runit( expt, model, stims, readouts, modelId ):
     for i in stims:
         i.configure( model.modelLookup )
@@ -1344,14 +1417,16 @@ def main():
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "models/synSynth7.g" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
+    parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
+    parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot = True, hideSubplots = False, optimizeElec = True ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[] ):
     global pause
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
@@ -1386,6 +1461,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
 
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
+        model._scaleParam( scaleParam )
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
                 moose.mooseWriteKkit( modelId.path, dumpFname )
@@ -1393,6 +1469,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
                 moose.mooseWriteSBML( modelId.path, dumpFname )
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
+
+        if len(paramFname) > 0:
+            generateParamFile( modelId.path, paramFname )
 
         model.buildModelLookup()
 
@@ -1432,7 +1511,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", hidePlot
         return score
         
     except SimError as msg:
-        print( "Error: findSim failed for script {}: {}".format(script, msg ))
+        if not silent:
+            print( "Error: findSim failed for script {}: {}".format(script, msg ))
         if modelId:
             moose.delete( modelId )
         return -1.0
