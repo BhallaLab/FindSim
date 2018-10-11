@@ -531,11 +531,17 @@ class Model:
         else:
             return try2[0]
 
-    def _scaleParam( self, params ):
+    def _scaleParams( self, params ):
         if len(params) == 0:
             return
+        if (len(params) % 3) != 0:
+            raise SimError( "scaleParam: expecting triplets of [obj, field, scale], got: '{}'".format( params ) )
+        for i in range( 0, len(params), 3):
+            self._scaleOneParam( params[i:i+3] )
+
+    def _scaleOneParam( self, params ):
         if len(params) != 3:
-            raise SimError( "scaleParam: expecting [obj, field, scale], got: '{}'".format( params ) )
+            raise SimError( "scaleOneParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
         obj = self.findObj( '/model', params[0] )
         scale = float( params[2] )
@@ -1354,6 +1360,13 @@ def getUniqueName( model, obj ):
     assert( len( wf ) > 0 )
     if len( wf ) == 1:
         return pa + "/" + obj.name
+    grandpa = obj.parent.parent.name
+    path3 = "{}/##/{}/{}/{},{}/{}/{}/{}".format( model, grandpa, pa, obj.name, model, grandpa, pa, obj.name )
+    wf = moose.wildcardFind( path3 )
+    assert( len( wf ) > 0 )
+    if len( wf ) == 1:
+        return pa + "/" + obj.name
+    print ("Concinit = {}".format( obj.concInit ) )
     raise SimError( "getUniqueName: {} and {} non-unique, please rename.".format( wf[0].path, wf[1].path ) )
     return obj.name
 
@@ -1461,7 +1474,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
 
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
-        model._scaleParam( scaleParam )
+        model._scaleParams( scaleParam )
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
                 moose.mooseWriteKkit( modelId.path, dumpFname )
@@ -1472,6 +1485,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
 
         if len(paramFname) > 0:
             generateParamFile( modelId.path, paramFname )
+            quit()
 
         model.buildModelLookup()
 
