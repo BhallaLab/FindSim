@@ -19,34 +19,40 @@
 
 '''
 *******************************************************************
- * File:            runAllParallel.py
+ * File:            Brent_minimization.py
  * Description:
  * Author:          Upinder S. Bhalla
  * E-mail:          bhalla@ncbs.res.in
  ********************************************************************/
 
 /**********************************************************************
-** This program is part of 'MOOSE', the
-** Messaging Object Oriented Simulation Environment,
+** This program is part of 'FindSim', the
+** Framework for Integrating Neuronal Data and SIgnaling Models
 **           copyright (C) 2003-2018 Upinder S. Bhalla. and NCBS
 **********************************************************************/
 
-This script runs the findSim program on all tsv files in the specified
-directory, computes their scores, and prints out basic stats of the scores.
-It can do this in parallel using Python's multiprocessing library.
+This script does a one-dimensional minimization on the model. It runs the 
+findSim program on all tsv files in the specified directory with 
+modifications of the selected parameters. It computes the weighted score 
+for each run as the return value for the minimization function. While the
+Brent algorithm is serial, there are lots of indvidual tsv calculations 
+for each step that can be done in parallel.
 '''
 
 from __future__ import print_function
 import numpy
+from scipy import optimize
 import argparse
 import os
 import sys
 import argparse
-import time
 import findSim
 from multiprocessing import Pool
 
+scaleFactors = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1, 1.05, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
+
 resultCount = 0
+
 def reportReturn( result ):
     global resultCount
     print( ".", end = '' )
@@ -78,14 +84,35 @@ def enumerateFindSimFiles( location ):
         print( "Error: Unable to find file or directory at " + location )
         quit()
 
+class EvalFunc:
+    def __init__( self, objField, expts, weights, pool, modelFile ):
+        self.objField = objField
+        self.expts = expts
+        self.weights = weights
+        self.pool = pool # pool of available CPUs
+        self.modelFile = modelFile
+
+    def doEval( self, x ):
+        ret = []
+        spl = self.objField.split( '.' )
+        assert( len(spl) == 2 )
+        obj, field = spl
+        for k in self.expts:
+            ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=[obj,field,str(x)]), callback = reportReturn ) )
+        score = [ i.get() for i in ret ]
+        sumScore = sum([ s*w for s,w in zip(score, self.weights) if s>=0.0])
+        sumWts = sum( [ w for s,w in zip(score, self.weights) if s>=0.0 ] )
+        return sumScore/sumWts
+
+
 def main():
-    t0 = time.time()
     parser = argparse.ArgumentParser( description = 'Wrapper script to run a lot of FindSim evaluations in parallel.' )
 
-    parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located.')
+    parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located. OR: File in which each line is the filename of a scripts.tsv file, followed by weight to assign for that file.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
-    parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
+    parser.add_argument( '-p', '--parameter_sweep', nargs='*', default=[],  help='Does a parameter sweep in range 0.5-2x of each object.field pair.' )
+    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter sweep', default = "" )
     args = parser.parse_args()
     location = args.location
     if location[-1] != '/':
@@ -98,26 +125,35 @@ def main():
         print( "Error: Unable to find model file {}".format( args.model ) )
         quit()
 
-    fnames, weights = enumerateFindSimFiles( args.location )
     #fnames = [ (location + i) for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
+    fnames, weights = enumerateFindSimFiles( args.location )
     pool = Pool( processes = args.numProcesses )
-    #ret = findSim.innerMain(fnames[0], hidePlot=True)
 
-    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=True, scaleParam=args.scale_param ), callback=reportReturn ) for i in fnames ]
-    results = [ i.get() for i in ret ]
-    numGood = 0
-    sumScore = 0.0
-    sumWts = 0.0
-    print( "\n---------Completed---------\nScores = " )
-    for i, j, w in zip( fnames, results, weights ):
-        print( "{}  {:.3f}  {}".format( i, j, w ) )
-        if j >= 0:
-            numGood += 1
-            sumScore += j * w
-            sumWts += w
-    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format( numGood, sumScore / sumWts, time.time() - t0 ) )
-        #print( "{0} : {1:.2f}".format( i, j ) )
+    results = {}
+    for i in args.parameter_sweep:
+        print( "{}".format( i ) )
+        spl = i.split( '.' )
+        assert( len(spl) == 2 )
+        obj, field = spl
+        ev = EvalFunc( i, fnames, weights, pool, modelFile )
+        results[i] = optimize.minimize_scalar( ev.doEval )
+        print( "\n Finished optimizing for " + i)
+    print( "\n---------------- Completed ----------------- " )
+    dumpData = False
+    fp = ""
+    if len( args.file ) > 0:
+        fp = open( args.file, "w" )
+        dumpData = True
+    for objfield in results:
+        analyzeResults( fp, dumpData, objfield, results[objfield] )
+    if dumpData:
+        fp.close()
 
+def analyzeResults( fp, dumpData, name, result ):
+    outputStr = "Parameter = {},    optimized scale={:.3f},     score = {:.3f}".format( name, result.x, result.fun )
+    print( outputStr )
+    if dumpData:
+        fp.write( outputStr + '\n' )
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
