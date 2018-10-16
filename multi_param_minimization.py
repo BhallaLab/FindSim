@@ -94,6 +94,7 @@ class EvalFunc:
         self.weights = weights
         self.pool = pool # pool of available CPUs
         self.modelFile = modelFile
+        self.score = []
 
     def doEval( self, x ):
         ret = []
@@ -109,9 +110,9 @@ class EvalFunc:
 
         for k in self.expts:
             ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=paramList), callback = reportReturn ) )
-        score = [ i.get() for i in ret ]
-        sumScore = sum([ s*w for s,w in zip(score, self.weights) if s>=0.0])
-        sumWts = sum( [ w for s,w in zip(score, self.weights) if s>=0.0 ] )
+        self.score = [ i.get() for i in ret ]
+        sumScore = sum([ s*w for s,w in zip(self.score, self.weights) if s>=0.0])
+        sumWts = sum( [ w for s,w in zip(self.score, self.weights) if s>=0.0 ] )
         return sumScore/sumWts
 
 def optCallback( x ):
@@ -157,6 +158,10 @@ def main():
         else:
             bounds.append( (0.0, 30 ) ) # Concs, Kfs and Kbs can be zero.
     ev = EvalFunc( params, fnames, weights, pool, modelFile )
+    # Generate the score for each expt for the initial condition
+    ev.doEval( [1.0]* len( params ) )
+    initScore = ev.score
+    # Do the minimization
     results = optimize.minimize( ev.doEval, np.ones( len(params) ), method='L-BFGS-B', tol = TOLERANCE, callback = optCallback, bounds = bounds )
     print( "\n----------- Completed in {:.3f} sec ---------- ".format(time.time() - t0 ) )
     print( "\n----- Score= {:.4f} ------ ".format(results.fun ) )
@@ -165,18 +170,32 @@ def main():
     if len( args.file ) > 0:
         fp = open( args.file, "w" )
         dumpData = True
-    analyzeResults( fp, dumpData, results, params )
+    analyzeResults( fp, dumpData, results, params, ev, initScore )
     if dumpData:
         fp.close()
 
-def analyzeResults( fp, dumpData, results, params ):
+def analyzeResults( fp, dumpData, results, params, evalObj, initScore ):
     #assert( len(results.x) == len( results.fun ) )
     assert( len(results.x) == len( params ) )
+    out = []
     for p,x, in zip(params, results.x):
-        outputStr = "Parameter = {},\toptimized scale={:.3f}".format(p, x)
-        print( outputStr )
+        out.append( "Parameter = {:40s}scale = {:.3f}".format(p, x) )
+    out.append( "\n{:40s}{:>12s}{:>12s}{:>12s}".format( "File", "initScore", "finalScore", "weight" ) )
+    initSum = 0.0
+    finalSum = 0.0
+    numSum = 0.0
+    assert( len( evalObj.expts ) == len( initScore ) )
+    for e, i, f, w in zip( evalObj.expts, initScore, evalObj.score, evalObj.weights ):
+        out.append( "{:40s}{:12.3f}{:12.3f}{:12.3f}".format( e, i, f, w ) )
+        if i >= 0:
+            initSum += i * w
+            finalSum += f * w
+            numSum += w
+    out.append( "\nInit score = {:.4f}, final = {:.4f}".format(initSum/numSum, finalSum / numSum) )
+    for i in out:
+        print( i )
         if dumpData:
-            fp.write( outputStr + '\n' )
+            fp.write( i + '\n' )
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
