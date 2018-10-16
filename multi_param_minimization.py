@@ -54,7 +54,7 @@ scaleFactors = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1, 1.05, 1.1, 1.2, 1.4, 1.6, 1.8,
 
 resultCount = 0
 numIterations = 0
-TOLERANCE = 0.001 # Don't want to go too tight on tolarance.
+TOLERANCE = 0.0001 # Don't want to go too tight on tolarance.
 
 def reportReturn( result ):
     global resultCount
@@ -146,13 +146,18 @@ def main():
     pool = Pool( processes = args.numProcesses )
 
     params = []
+    bounds = []
     for i in args.parameters:
         print( "{}".format( i ) )
         spl = i.split( '.' )
         assert( len(spl) == 2 )
         params.append( i )
+        if spl[1] == 'Kd' or spl[1] == 'tau' or spl[1] == 'Km':
+            bounds.append( (0.03,30) )
+        else:
+            bounds.append( (0.0, 30 ) ) # Concs, Kfs and Kbs can be zero.
     ev = EvalFunc( params, fnames, weights, pool, modelFile )
-    results = optimize.minimize( ev.doEval, np.ones( len(params) ), tol = TOLERANCE, callback = optCallback )
+    results = optimize.minimize( ev.doEval, np.ones( len(params) ), method='L-BFGS-B', tol = TOLERANCE, callback = optCallback, bounds = bounds )
     print( "\n----------- Completed in {:.3f} sec ---------- ".format(time.time() - t0 ) )
     print( "\n----- Score= {:.4f} ------ ".format(results.fun ) )
     dumpData = False
