@@ -85,20 +85,30 @@ def enumerateFindSimFiles( location ):
         quit()
 
 class EvalFunc:
-    def __init__( self, objField, expts, weights, pool, modelFile ):
+    def __init__( self, objField, expts, weights, pool, modelFile, presettle = [] ):
         self.objField = objField
         self.expts = expts
         self.weights = weights
         self.pool = pool # pool of available CPUs
         self.modelFile = modelFile
+        self.presettle = presettle
 
     def doEval( self, x ):
         ret = []
         spl = self.objField.split( '.' )
         assert( len(spl) == 2 )
         obj, field = spl
+
+        settleDict = {}
+        if len( self.presettle ) == 3:
+            presettleTime = float( self.presettle[2] )
+            if presettleTime > 0:
+            #print("{}".format( self.presettle ) )
+                settleDict = findSim.innerMain( self.presettle[0], modelFile = self.presettle[1], hidePlot=True, silent=True, scaleParam=[obj,field,str(x)], settleTime = presettleTime )
+        #print( "Doing presettle, len = {}".format( len(settleDict) ) )
+
         for k in self.expts:
-            ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=[obj,field,str(x)]), callback = reportReturn ) )
+            ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=[obj,field,str(x)], settleDict=settleDict ), callback = reportReturn ) )
         score = [ i.get() for i in ret ]
         sumScore = sum([ s*w for s,w in zip(score, self.weights) if s>=0.0])
         sumWts = sum( [ w for s,w in zip(score, self.weights) if s>=0.0 ] )
@@ -111,8 +121,10 @@ def main():
     parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located. OR: File in which each line is the filename of a scripts.tsv file, followed by weight to assign for that file.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
-    parser.add_argument( '-p', '--parameter_sweep', nargs='*', default=[],  help='Does a parameter sweep in range 0.5-2x of each object.field pair.' )
-    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter sweep', default = "" )
+    parser.add_argument( '-p', '--parameter_optimize', nargs='*', default=[],  help='Does a parameter optimization for each specified object.field pair.' )
+    parser.add_argument( '-ps', '--presettle', nargs=3, default=[],  help='Arguments: tsv_file, model_file, settle_time. Obtains values of all concentrations after a specified settle-time, so that all calculations for the optimization runs can be initialized to this presettled value. The tsv_file is to specify which subset of the model_file to use. This option is most useful in costly multiscale models.' )
+    parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter optimization', default = ""
+    )
     args = parser.parse_args()
     location = args.location
     if location[-1] != '/':
@@ -130,13 +142,14 @@ def main():
     pool = Pool( processes = args.numProcesses )
 
     results = {}
-    for i in args.parameter_sweep:
+    for i in args.parameter_optimize:
         print( "{}".format( i ) )
         spl = i.split( '.' )
         assert( len(spl) == 2 )
         obj, field = spl
-        ev = EvalFunc( i, fnames, weights, pool, modelFile )
-        results[i] = optimize.minimize_scalar( ev.doEval )
+        ev = EvalFunc( i, fnames, weights, pool, modelFile, args.presettle )
+        # Bounded method uses Bounded Brent method.
+        results[i] = optimize.minimize_scalar( ev.doEval, method = 'bounded', bounds = (0.0, 100.0) )
         print( "\n Finished optimizing for " + i)
     print( "\n---------------- Completed ----------------- " )
     dumpData = False

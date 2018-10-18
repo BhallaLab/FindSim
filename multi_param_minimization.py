@@ -49,12 +49,12 @@ import argparse
 import time
 import findSim
 from multiprocessing import Pool
+import moose
 
 scaleFactors = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1, 1.05, 1.1, 1.2, 1.4, 1.6, 1.8, 2.0]
 
 resultCount = 0
 numIterations = 0
-TOLERANCE = 0.001 # Don't want to go too tight on tolarance.
 
 def reportReturn( result ):
     global resultCount
@@ -94,6 +94,7 @@ class EvalFunc:
         self.weights = weights
         self.pool = pool # pool of available CPUs
         self.modelFile = modelFile
+        self.score = []
 
     def doEval( self, x ):
         ret = []
@@ -109,9 +110,9 @@ class EvalFunc:
 
         for k in self.expts:
             ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=paramList), callback = reportReturn ) )
-        score = [ i.get() for i in ret ]
-        sumScore = sum([ s*w for s,w in zip(score, self.weights) if s>=0.0])
-        sumWts = sum( [ w for s,w in zip(score, self.weights) if s>=0.0 ] )
+        self.score = [ i.get() for i in ret ]
+        sumScore = sum([ s*w for s,w in zip(self.score, self.weights) if s>=0.0])
+        sumWts = sum( [ w for s,w in zip(self.score, self.weights) if s>=0.0 ] )
         return sumScore/sumWts
 
 def optCallback( x ):
@@ -122,14 +123,15 @@ def optCallback( x ):
 
 def main():
     t0 = time.time()
-    parser = argparse.ArgumentParser( description = 'Wrapper script to run a lot of FindSim evaluations in parallel.' )
-
+    parser = argparse.ArgumentParser( description = 'Script to run a multi-parameter optimization in which each function evaluation is the weighted mean of a set of FindSim evaluations. These evaluations may be run in parallel. The optimiser uses the BGFR method with bounds. Since we are doing relative scaling the bounds are between 0.03 and 30 for Kd, tau and Km, and between 0 and 30 for other parameters' )
     parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located. OR: File in which each line is the filename of a scripts.tsv file, followed by weight to assign for that file.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
+    parser.add_argument( '-t', '--tolerance', type = float, help='Optional: Tolerance criterion for completion of minimization', default = 1e-4 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
-    parser.add_argument( '-p', '--parameters', nargs='*', default=[],  help='Parameter to vary. Each is defined as an object.field pair. The object is defined as a unique MOOSE name, typically name or parent/name. The field is separated from the object by a period. The field may be concInit for molecules, Kf, Kb, Kd or tau for reactions, and Km or Kcat for enzymes. One can specify more than one parameter for a given reaction or enzyme. It is advisable to use Kd and tau for reactions unless you have a unidirectional reaction.' )
+    parser.add_argument( '-p', '--parameters', nargs='*', default=[],  help='Parameter to vary. Each is defined as an object.field pair. The object is defined as a unique MOOSE name, typically name or parent/name. The field is separated from the object by a period. The field may be concInit for molecules, Kf, Kb, Kd or tau for reactions, and Km or kcat for enzymes. One can specify more than one parameter for a given reaction or enzyme. It is advisable to use Kd and tau for reactions unless you have a unidirectional reaction.' )
     parser.add_argument( '-f', '--file', type = str, help='Optional: File name for output of parameter minimization', default = "" )
     args = parser.parse_args()
+
     location = args.location
     if location[-1] != '/':
         location += '/'
@@ -146,13 +148,22 @@ def main():
     pool = Pool( processes = args.numProcesses )
 
     params = []
+    bounds = []
     for i in args.parameters:
         print( "{}".format( i ) )
         spl = i.split( '.' )
         assert( len(spl) == 2 )
         params.append( i )
+        if spl[1] == 'Kd' or spl[1] == 'tau' or spl[1] == 'Km':
+            bounds.append( (0.03,30) )
+        else:
+            bounds.append( (0.0, 30 ) ) # Concs, Kfs and Kbs can be zero.
     ev = EvalFunc( params, fnames, weights, pool, modelFile )
-    results = optimize.minimize( ev.doEval, np.ones( len(params) ), tol = TOLERANCE, callback = optCallback )
+    # Generate the score for each expt for the initial condition
+    ev.doEval( [1.0]* len( params ) )
+    initScore = ev.score
+    # Do the minimization
+    results = optimize.minimize( ev.doEval, np.ones( len(params) ), method='L-BFGS-B', tol = args.tolerance, callback = optCallback, bounds = bounds )
     print( "\n----------- Completed in {:.3f} sec ---------- ".format(time.time() - t0 ) )
     print( "\n----- Score= {:.4f} ------ ".format(results.fun ) )
     dumpData = False
@@ -160,18 +171,69 @@ def main():
     if len( args.file ) > 0:
         fp = open( args.file, "w" )
         dumpData = True
-    analyzeResults( fp, dumpData, results, params )
+    analyzeResults( fp, dumpData, results, params, ev, initScore )
     if dumpData:
         fp.close()
+        dumpTweakedModelFile( args, params, results )
 
-def analyzeResults( fp, dumpData, results, params ):
+def dumpTweakedModelFile( args, params, results ):
+    filename, file_extension = os.path.splitext( args.model )
+    resfname, res_ext = os.path.splitext( args.file )
+    if file_extension == ".xml":
+        modelId, errormsg = moose.mooseReadSBML( args.model, 'model', 'ee' )
+        tweakParams( params, results.x )
+        moose.mooseWriteSBML( modelId.path, resfname + "_tweaked.xml" )
+        moose.delete( modelId )
+    elif file_extension == ".g":
+        modelId = moose.loadModel( args.model, 'model', 'ee' )
+        tweakParams( params, results.x )
+        moose.mooseWriteKkit( modelId.path, resfname + "_tweaked.g" )
+        moose.delete( modelId )
+    else:
+        print( "Warning: dumpTweakedModelFile: Don't know file type for {}".format( args.model ) )
+
+def tweakParams( params, scaleFactors ):
+    for i, x in zip( params, scaleFactors ):
+        objname, field = i.split( '.' )
+        w = moose.wildcardFind( "/model/##/{0},/model/{0}".format(objname) )
+        if len(w) != 1:
+            print( "Error: tweakParams: Need precisely one object to match name '{}', got {}".format( objname, len(w) ) )
+            continue
+        obj = w[0]
+        if field == 'Kd':
+            obj.Kf /= np.sqrt( x )
+            obj.Kb *= np.sqrt( x )
+        elif field == 'tau':
+            obj.Kf /= x
+            obj.Kb /= x
+        else:
+            obj.setField( field, obj.getField( field ) * x )
+        #print( "Tweaked {}.{} by {}".format( obj.path, field, x ) )
+
+
+
+def analyzeResults( fp, dumpData, results, params, evalObj, initScore ):
     #assert( len(results.x) == len( results.fun ) )
     assert( len(results.x) == len( params ) )
+    out = []
     for p,x, in zip(params, results.x):
-        outputStr = "Parameter = {},\toptimized scale={:.3f}".format(p, x)
-        print( outputStr )
+        out.append( "Parameter = {:40s}scale = {:.3f}".format(p, x) )
+    out.append( "\n{:40s}{:>12s}{:>12s}{:>12s}".format( "File", "initScore", "finalScore", "weight" ) )
+    initSum = 0.0
+    finalSum = 0.0
+    numSum = 0.0
+    assert( len( evalObj.expts ) == len( initScore ) )
+    for e, i, f, w in zip( evalObj.expts, initScore, evalObj.score, evalObj.weights ):
+        out.append( "{:40s}{:12.3f}{:12.3f}{:12.3f}".format( e, i, f, w ) )
+        if i >= 0:
+            initSum += i * w
+            finalSum += f * w
+            numSum += w
+    out.append( "\nInit score = {:.4f}, final = {:.4f}".format(initSum/numSum, finalSum / numSum) )
+    for i in out:
+        print( i )
         if dumpData:
-            fp.write( outputStr + '\n' )
+            fp.write( i + '\n' )
         
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':

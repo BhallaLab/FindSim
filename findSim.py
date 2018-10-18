@@ -33,7 +33,7 @@
 **********************************************************************/
 
 '''
-
+from __future__ import print_function
 import heapq
 import pylab
 import numpy as np
@@ -545,7 +545,10 @@ class Model:
 
         obj = self.findObj( '/model', params[0] )
         scale = float( params[2] )
-        assert( scale >= 0.0 and scale <= 100.0 )
+        if not ( scale >= 0.0 and scale <= 100.0 ):
+            print( "Error: Scale {} out of range".format( scale ) )
+            assert( False )
+        #assert( scale >= 0.0 and scale <= 100.0 )
         if params[1] == 'Kd':
             if not obj.isA[ "ReacBase" ]:
                 raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
@@ -1435,11 +1438,19 @@ def main():
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
+    parser.add_argument( '-settle_time', '--settle_time', type=float, default=0,  help='Run model for specified settle time and return dict of {path,conc}.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param, settleTime = args.settle_time )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[] ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {} ):
+    ''' If *settleTime* > 0, then we need to return a dict of concs of
+    all variable pools in the chem model obtained after loading in model, 
+    applying all modifications, and running for specified settle time.\n
+    If the *settleDict* is not empty, then the system goes through and 
+    matches up pools to assign initial concentrations.
+    '''
+
     global pause
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
@@ -1511,6 +1522,33 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.1 )
 
+        ##############################################################
+        # Here we handle presettling. First to generate, then to apply
+        # the dict of settled values.
+        if settleTime > 0:
+            t0 = time.time()
+            moose.reinit()
+            #print settleTime
+            moose.start( settleTime )
+            w = moose.wildcardFind( modelId.path + "/##[ISA=PoolBase]" )
+            ret = {}
+            for i in w:
+                if not i.isBuffered:
+                    ret[i.path] = i.n
+                    #print( "{}.nInit =   {:.3f}".format( i.path, i.n ))
+            #print "-------------------- settle done -------------------"
+            moose.delete( modelId )
+            if moose.exists( '/library' ):
+                moose.delete( '/library' )
+            #print( "Done settling in {:.2f} seconds".format( time.time()-t0))
+            print( "s", end = '' )
+            sys.stdout.flush()
+            return ret
+
+        for key, value in settleDict.items():
+            moose.element( key ).nInit = value
+        ##############################################################
+
         t0 = time.time()
         score = runit( expt, model,stims, readouts, modelId )
         elapsedTime = time.time() - t0
@@ -1522,6 +1560,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 
             pylab.show()
         moose.delete( modelId )
+        if moose.exists( '/library' ):
+            moose.delete( '/library' )
         return score
         
     except SimError as msg:
@@ -1529,6 +1569,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             print( "Error: findSim failed for script {}: {}".format(script, msg ))
         if modelId:
             moose.delete( modelId )
+            if moose.exists( '/library' ):
+                moose.delete( '/library' )
         return -1.0
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
