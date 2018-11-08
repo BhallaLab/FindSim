@@ -1,0 +1,73 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 17012621	
+authors	Tran_TM et al.	
+journal	Mol Pharm, 2007	
+		
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species		
+cell-types		
+temperature-in-Celsius		
+includePathway	mGluR,barr2,MAPK,PP2A	
+details	Fig2A	
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+entities	Glutamate	
+field	conc	
+Data		
+Time	Value	
+300	0.00E+00	
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	0	
+ratioReferenceTime	300	
+ratioReferenceEntities	phosphorylated_beta2AR	
+ratioReferenceDose	0	
+entities	phosphorylated_beta2AR	
+field	conc	
+Data		
+Time	Value	stderr
+300	1	0
+600	0.95	0
+900	0.82	0
+1200	0.65	0
+1500	0.52	0
+2100	0.32	0
+3900	0.09	0
+5700	0.01	0
+		
+		
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	kinetics/mGluR,barr2_signaling,PP2A,kinetics/MAPK	
+modelLookup	Glutamate:Glutamate,phosphorylated_beta2AR:Internal_mGluR_p+L.mGluR_p	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	Rec_Gq,Rec_Glu_Gq,Rec_Glu_bind_Gq,Glu_bind_Rec_Gq,Activate_Gq,Rec_bind_Gq,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,cluster_phospho_S6K,MAPK_p_p_feedback,MAPK_p_p/MAPK_p_p,phosph_Sos,MAPK_4E_BP_p_p,MAPK_4E_BP_phospho	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+Glutamate	concInit	0.1

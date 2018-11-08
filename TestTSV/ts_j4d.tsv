@@ -1,0 +1,72 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 8386634	
+authors	Redpath et al.	
+journal	Eur J Biochem. 1993	
+		
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species		
+cell-types		
+temperature-in-Celsius		
+includePathway	Phosphatase,eEF2,eEFthr56	
+details		
+notes	1:400 dilution of reticulocyte lysate used as source for PP2A. Assuming 0.26uM of PP2A in the reticulocyte lysate as this works well for this experiment. 1:400 dilution gives 0.00065uM	
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	mM	
+molecules	eEFthr_56	
+field	conc	
+Data		
+Time	Value	
+		
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	nM	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	0	
+ratioReferenceTime	0	
+ratioReferenceEntities		
+ratioReferenceDose	0	
+entities	eEF2	
+field	conc	
+Data		
+Time	Value	stderr
+0	0	0
+300	0.24	0
+600	0.44	0
+900	0.62	0
+1000	0.7	0
+1200	0.82	0
+1500	0.92	0
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	PP2A,eEF2,eEFthr_56	
+modelLookup	eEFthr_56:eEFthr_56,eEF2:eEF2	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,mGluR_dephosph	
+solver	Runge kutta method (gsl)	
+notes	Jain2009_Fig4D	
+parameterChange		
+Object	parameter	Value
+PP2A	concInit	6.50E-07
+eEF2	concInit	0
+eEFthr_56	concInit	2.20E-05

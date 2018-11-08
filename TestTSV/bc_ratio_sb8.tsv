@@ -1,0 +1,77 @@
+Experiment metadata		
+transcriber	Upi Bhalla
+organization	National Centre for Biological Sciences	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 8410192
+authors	Schaechter and Benowitz
+journal	JNeurosci 1993
+		
+		
+		
+Experiment context		
+exptType	barchart	
+species	rats
+cell-types	All cerebral cortex
+temperature (Celsius)		
+Include pathway	PKC
+details	Figure 8
+notes		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+field	conc	
+Data		
+Entity	Value	
+Ca	1.0	
+DAG	100
+AA	50
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useRatio	TRUE	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	150	
+ratioReferenceEntities	PKC_active	
+entities	PKC_active	
+field	conc	
+useSum	TRUE	
+useNormalization	FALSE	
+settleTime	150
+Data		
+Entity	Value	stderr
+000	1.00	0
+001	2.50	0
+010	12.0	0
+011	19.5	0
+100	9.0	0
+101	18.0	0
+110	17.0	0
+111	19.5	0
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	Ca/Ca,Arachidonic_Acid,PKC,DAG
+modelLookup	Ca:Ca/Ca,AA:Arachidonic_Acid,DAG:DAG,PKC_active:PKC_active	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	PKC_act_raf,PKC_inact_GAP,PKC_act_GEF,PKC_phosph_neurogranin,PKC_phosph_ng_CaM,phosph_AC2
+solver	Runge kutta method (gsl)	
+notes	The molecule PDB is used in this figure as a DAG analogue, at 1 uM. Unsure how to scale it. Clearly has a larger effect than synthetic DAG from Fig 7.
+parameterChange		
+Object	parameter	Value	
+Ca/Ca	concInit	0.0001	
+Ca/Ca	isBuffered	1	
+DAG	concInit	0	
+DAG	isBuffered	1	
+Arachidonic_Acid	concInit	0	
+Arachidonic_Acid	isBuffered	1	
+

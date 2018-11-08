@@ -1,0 +1,73 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 1316902	
+authors	Wahl MI et al.	
+journal	J Biol Chem. 1992	
+		
+		
+		
+Experiment context		
+exptType	DoseResponse	
+species		
+cell-types		
+temperature (Celsius)		
+Include pathway	EGFR,PLCg	
+details	Fig 7A	
+notes	Dose Response	
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+entities	Ca	
+field	conc	
+Data		
+Time	Value	
+		
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	TRUE	
+useYlog	FALSE	
+ratioReferenceDose	100	
+ratioReferenceTime	300	
+ratioReferenceEntities	Ca.PLC_g_p	
+entities	Ca.PLC_g_p	
+settleTime	300	
+field	conc	
+useNormalization	FALSE	
+Data		
+Dose	Value	sem
+0	0	0
+0.032	0.15	0
+0.065	0.2	0
+0.1	0.25	0
+0.21	0.35	0
+0.43	0.6	0
+1	0.9	0
+100	1	0
+		
+		
+		
+Model mapping		
+modelSource	DOQCS	
+fileName	models/synSynth7.g
+citationId		
+citation		
+authors		
+modelSubset	kinetics/Ca,kinetics/PLC_g,kinetics/EGFR	
+modelLookup	Ca.PLC_g_p:Ca.PLC_g_p,Ca:Ca/Ca	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	PLC_g_p_dephospho,L.EGFR/SHC_phospho,Ca.PLC_g/PIP2_hydrolysis,Ca.PLC_g_p/PIP2_hydrolysis	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value
+EGF	concInit	0.0001
+PLC_g/PLC_g	concInit	0.00082
+Ca/Ca	isBuffered	1

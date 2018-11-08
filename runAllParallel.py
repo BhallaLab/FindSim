@@ -84,7 +84,7 @@ def main():
 
     parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
-    parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "FindSim_compositeModel_1.g" )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "" )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     args = parser.parse_args()
     location = args.location
@@ -92,10 +92,10 @@ def main():
         location += '/'
     if os.path.isfile( location + args.model ):
         modelFile = location + args.model
-    elif os.path.isfile( args.model ):
+    elif args.model == "" or os.path.isfile( args.model ):
         modelFile = args.model
     else:
-        print( "Error: Unable to find model file {}".format( args.model ) )
+        print( "Error: runAllParallel: Unable to find model file '{}'".format( args.model ) )
         quit()
 
     fnames, weights = enumerateFindSimFiles( args.location )
@@ -103,7 +103,7 @@ def main():
     pool = Pool( processes = args.numProcesses )
     #ret = findSim.innerMain(fnames[0], hidePlot=True)
 
-    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=True, scaleParam=args.scale_param ), callback=reportReturn ) for i in fnames ]
+    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=True, scaleParam=args.scale_param, optimizeElec = False ), callback=reportReturn ) for i in fnames ]
     results = [ i.get() for i in ret ]
     numGood = 0
     sumScore = 0.0

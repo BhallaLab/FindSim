@@ -165,6 +165,8 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
+
+
         
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
@@ -294,6 +296,7 @@ class Readout:
             elif self.useNormalization and abs(self._simDataReference)>1e-15:
                 tsUnits = 'Fold change'
             tsScale = convertQuantityUnits[tsUnits]
+            #print( "tsScale = {}, {}".format( tsScale, tsUnits ) )
 
             for i in self.entities:
                 elms = modelLookup[i]
@@ -312,6 +315,7 @@ class Readout:
                     else:
                         scale = tsScale
                     #print( "LEN(ratioData) = {}, quantScale={}, simDataReference={}".format( len(self.ratioData), self.quantityScale,self._simDataReference ) )
+                    #print( "plotvec name = {}, val= {}".format( j.name, self.plots[j.name].vector ) )
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
@@ -386,7 +390,7 @@ class Readout:
                 sim = elmList[0].getField( rd.field )
                 score += eval( scoringFormula )
                 numScore += 1.0
-                #print entity, rd.field, sim, expt, sem, score, numScore, "\n"
+                #print( entity, rd.field, sim, expt, sem, score, numScore, "\n" )
         #print( "direct score of {}".format( score / numScore ) )
         if numScore == 0:
             return -1
@@ -480,6 +484,7 @@ class Model:
             paths = self._tempModelLookup[i].split('+')
             # Summed sim entities are separated with a '+', but map to a 
             # single experimentally defined entity.
+            #print( "In buildModelLookup, seeking {}:{}".format( i, paths[0] ) )
             foundObj = [ self.findObj( '/model', p) for p in paths ]
             self.modelLookup[i] = foundObj
 
@@ -525,7 +530,7 @@ class Model:
         if len( try1 ) + len( try2 ) > 1:
             raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
-            raise SimError( "findObj: No object found on: '{}'".format( name) )
+            raise SimError( "findObj: No object found named: '{}'".format( name) )
         if len( try1 ) == 1:
             return try1[0]
         else:
@@ -899,7 +904,8 @@ def putStimsInQ( q, stims, pauseHsolve ):
             t = float(j[0])*i.timeScale
             heapq.heappush( q, Qentry( t, i, val ) )
             # Below we tell the Hsolver to turn off or on for elec calcn.
-            if i.field in ['Im', 'current'] or (i.field=='rate' and 'syn' in i.entities[0]) :
+            #print( "in putStimsInQ, field = {}".format( i.field ) )
+            if i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0]) :
                 if val == 0.0:
                     heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
                 else:
@@ -924,6 +930,13 @@ def makeReadoutPlots( readouts, modelLookup ):
                 i.epspPlot = plot
             elif i.field in epscFields:   # Do EPSC stuff.
                 fieldname = 'getCurrent'
+                '''
+                path = elm.path + '/vclamp'
+                if moose.exists( path ):
+                    elm = moose.element( path )
+                else:
+                    raise SimError( "makeReadoutPlots: Cannot find vclamp on {}".format( elm.path ) )
+                '''
                 i.epspPlot = plot
             else:
                 fieldname = 'get' + i.field.title()
@@ -963,10 +976,11 @@ def deliverStim( qe, model ):
             if field == 'Vclamp':
                 path = e.path + '/vclamp'
                 moose.element( path ).setField( 'command', qe.val )
+                #print(" Setting Vclamp {} to {}".format( path, qe.val ))
             else:
                 e.setField( field, qe.val )
                 #print qe.t, e.path, field, qe.val
-                #print qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
+                #print( "########Stim = {} {} {} {} {}".format( qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight ) )
                 if qe.t == 0:
                     ## At time zero we initial the value concInit or nInit
                     if field == 'conc':
@@ -1003,8 +1017,8 @@ def doEpspReadout( readout, modelLookup ):
     n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
     assert( n > 5 )
     pts = np.array( readout.epspPlot.vector[-n:] )
-    #print readout.field
-    #print ["{:.3f} ".format( x ) for x in pts]
+    #print( "DOING EPSP READOUT WITH " +  readout.field )
+    #print( ["{:.3g} ".format( x ) for x in pts] )
     if "slope" in readout.field:
         dpts = pts[1:] - pts[:-1]
         slope = max( abs( dpts ) )/readout.epspPlot.dt
@@ -1303,6 +1317,21 @@ def loadTsv( fname ):
     return expt, stims, readouts, model
 
 def buildSolver( modelId, solver, useVclamp = False ):
+    # Here we remove and rebuild the HSolver because we have to add vclamp
+    # after loading the model.
+    if useVclamp: 
+        if moose.exists( '/model/elec/hsolve' ):
+            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
+    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
+        for i in range( 9 ):
+            moose.setClock( i, elecDt )
+        moose.setClock( 8, elecPlotDt )
+        tgt = '/model/elec/soma'
+        hsolve = moose.HSolve( '/model/elec/hsolve' )
+        hsolve.dt = elecDt
+        hsolve.target = tgt
+        moose.reinit()
+
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
         if solver.lower() in ['none','ee','exponential euler method (ee)']:
@@ -1319,20 +1348,6 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich.ksolve = ksolve
         #print( "Path = " + compt.path + "/##" )
         stoich.path = compt.path + '/##'
-    # Here we remove and rebuild the HSolver because we have to add vclamp
-    # after loading the model.
-    if useVclamp: 
-        if moose.exists( '/model/elec/hsolve' ):
-            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
-    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
-        for i in range( 9 ):
-            moose.setClock( i, elecDt )
-        moose.setClock( 8, elecPlotDt )
-        tgt = '/model/elec/soma'
-        hsolve = moose.HSolve( '/model/elec/hsolve' )
-        hsolve.dt = elecDt
-        hsolve.target = tgt
-        moose.reinit()
 
 def buildVclamp( stim, modelLookup ):
     # Stim.entities should be the compartment name here.
@@ -1344,7 +1359,9 @@ def buildVclamp( stim, modelLookup ):
     vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
     vclamp.ti = 20e-6   # Integral time
     vclamp.td = 5e-6    # Differential time. Should it be >= dt?
-    vclamp.gain = 0.00005   # Gain of vclamp ckt.
+    #vclamp.gain = 0.00005   # Gain of vclamp ckt used for squid: 500x500um
+    vclamp.gain = compt.Cm * 5e3  # assume SI units. Scaled by area so that gain is reasonable. Needed to avert NaNs.
+    #print( "Building Vclamp on {}. Compt Cm = {}".format( path, compt.Cm ))
 
     # Connect voltage clamp circuitry
     moose.connect( compt, 'VmOut', vclamp, 'sensedIn' )
@@ -1431,7 +1448,7 @@ def main():
     )
 
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
-    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "models/synSynth7.g" )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
@@ -1456,7 +1473,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
-    model.fileName = modelFile
+    if modelFile != "":
+        model.fileName = modelFile
     model.pauseHsolve = PauseHsolve( optimizeElec )
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
@@ -1498,22 +1516,48 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             generateParamFile( modelId.path, paramFname )
             quit()
 
+
         model.buildModelLookup()
 
-        if expt.exptType == 'directparameter':
-            return Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
 
+        if expt.exptType == 'directparameter':
+            score = Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
+            if not hidePlot:
+                print( "Score = {:.3f} for\t{}\tElapsed Time = 0.0 s".format( score, os.path.basename(script) ) )
+            moose.delete( modelId )
+            if moose.exists( '/library' ):
+                moose.delete( '/library' )
+            return score
+
+        '''
+        for i in stims:
+            if i.field == 'Vclamp':
+                buildVclamp( i, model.modelLookup )
+        '''
+
+        
+        '''
         if stims[0].field == 'Vclamp':
             readouts[0].entities = ['vclamp']
-            readouts[0].field = 'current'
+            #readouts[0].field = 'current'
             buildVclamp( stims[0], model.modelLookup )
+        '''
 
+
+        hasVclamp = False
+        readoutStim = stims[0]
+        for i in stims:
+            if i.field.lower() == 'vclamp':
+                hasVclamp = True
+                buildVclamp( i, model.modelLookup )
+            elif i.field.lower() == 'inject':
+                readoutStim = i
+            if len(i.entities) > 0 and i.entities[0].lower() == 'syninput':
+                readoutStim = i
         if readouts[0].field in ( epspFields + epscFields ):
-            readouts[0].stim = stims[0]
-
+            readouts[0].stim = readoutStim 
         makeReadoutPlots( readouts, model.modelLookup )
-
-        if stims[0].field == 'Vclamp':
+        if hasVclamp:
             #build the solver with a flag to say rebuild the hsolve.
             buildSolver( modelId, model.solver, useVclamp = True )
         else:
