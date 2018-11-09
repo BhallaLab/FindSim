@@ -514,7 +514,7 @@ class Model:
 
         self.itemstodelete.append((entity,change))
 
-    def findObj( self,rootpath, name ):
+    def findObj( self,rootpath, name, noRaise = False ):
         '''
         Model:: findObj locates objects uniquely specified by a string. 
         The object can be located at any depth in the model tree.
@@ -530,7 +530,10 @@ class Model:
         if len( try1 ) + len( try2 ) > 1:
             raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
-            raise SimError( "findObj: No object found named: '{}'".format( name) )
+            if noRaise:
+                return moose.element('/')
+            else:
+                raise SimError( "findObj: No object found named: '{}'".format( name) )
         if len( try1 ) == 1:
             return try1[0]
         else:
@@ -548,7 +551,10 @@ class Model:
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
-        obj = self.findObj( '/model', params[0] )
+        obj = self.findObj( '/model', params[0], noRaise = True )
+        if obj.path == '/':  # No object found
+            return
+
         scale = float( params[2] )
         if not ( scale >= 0.0 and scale <= 100.0 ):
             print( "Error: Scale {} out of range".format( scale ) )
