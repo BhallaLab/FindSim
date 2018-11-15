@@ -574,113 +574,122 @@ class Model:
             obj.setField( params[1], val * scale)
         #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
 
-    def modify( self, modelId, erSPlist, odelWarning):
-        # Start off with things explicitly specified for deletion.
-        kinpath = modelId.path
+    def deleteItems( self, kinpath ):
         if self.itemstodelete:
             for ( entity, change ) in self.itemstodelete[:]:
                 if entity != "":
                     obj = self.findObj(kinpath, entity)
                     if change == 'delete':
-                        if obj.path != modelId.path and obj.path != '/model[0]':
+                        if obj.path != kinpath:
                             moose.delete( obj )
                         else:
                             raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
-                
-        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
-            '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
-                specific is delete from the group.
-                And if group/obj is written then group's obj is saved.
-            '''
-            # Generate list of all included groups
-            allCompts, directCompts, indirectCompts = [], [], []
-            allGroups, directGroups, indirectGroups = [], [], []
-            
-            #Get all Groups under all compartment, all compartment under model
-            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
-                allCompts.append(c)
-                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
-                    allGroups.append(grps)
 
-            subsets = re.sub(r'\s', '', self.modelSubset).split(',')
-            nonGroups = []
-            nonCompts = []
-            survivorsGroup = []
-            #here all the object direct and indirect groups and compartment is queried
-            #indirectgroup/compartment are those in which group/object or comparetment/object
-            #are specified in modelmapping
+    def subsetItems( self, kinpath ):
+        nonContainers, directContainers, indirectContainers = [],[],[]
+        for i in ['moregraphs', 'info', 'graphs']:
+            directContainers.append( moose.element( kinpath + '/' + i ) )
+        subsets = re.sub(r'\s', '', self.modelSubset).split(',')
 
-            for i in subsets: 
-                elm = self.findObj(kinpath, i)
-                if isCompartment(elm):
-                    directCompts.append(elm)
-                elif isGroup( elm ):
-                    directGroups.extend( findChildGroups( elm ) )
-                    survivorsGroup.append(elm)
-                    objCompt = findCompartment(elm)
-                    if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                        indirectCompts.append(objCompt)
-                else:
-                    obj = findParentGroup(elm)
-                    if (moose.element(obj).className == "Neutral"):
-                        indirectGroups.append( obj )
-                        nonGroups.append(elm)
-                        objCompt = findCompartment(obj)
-                        if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                            indirectCompts.append(objCompt)
-                    elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
-                        indirectCompts.append(obj)
-                        nonCompts.append(elm)
-            
-            includedGroups = set( directGroups + indirectGroups )
-            allGroups = set(allGroups)
-            # Find groups to delete, and delete them.
-            excludedGroups = allGroups - includedGroups
-            for i in excludedGroups:
+        for i in subsets: 
+            elm = self.findObj(kinpath, i)
+            if isContainer(elm):
+                indirectContainers.extend( getContainerTree(elm, kinpath))
+                directContainers.append(elm)
+            else:
+                indirectContainers.extend( getContainerTree(elm, kinpath))
+                nonContainers.append( elm )
+
+        # Eliminate indirectContainers that are descended from a
+        # directContainer: all descendants of a direct are included
+        dirset = set( [i.path for i in directContainers] )
+        indirectContainers = [ i for i in indirectContainers if isNotDescendant( i, dirset ) ]
+
+        # Make the containers unique. Put in a set.
+        inset = set( [i.path for i in indirectContainers] )
+        nonset = set( [i.path for i in nonContainers] )
+        doomed = set()
+
+        # Go through all immediate children of indirectContainers, 
+        #   and mark for deletion in doomedList
+        for i in inset:
+            doomed.update( [j.path for j in moose.wildcardFind( i + '/#[]' ) ] )
+        # Remove nonContainers, IndrectContainers and DirectContainers
+        #   from doomedList
+        doomed = ((doomed - inset) - dirset) - nonset
+
+        # Delete everything in doomedList
+        for i in doomed:
+            if moose.exists( i ):
                 moose.delete( i )
+            else:
+                print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
 
-            # Generate list of all surviving objects. We're going to get
-            # rid of them too, unless they are saved by the subset list.
-            survivors = []
-            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
-                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
-                    survivors.append(grps)
-            survivors = set(survivors)
-            # Go through the subsets again in case some are already deleted
-            nonGroupSet = ornamentPools( nonGroups )
-            nonComptSet = ornamentPools( nonCompts )
+    def modify( self, modelId, erSPlist, odelWarning):
+        '''
+        Semantics: There are two specifiers: what to save (modelSubset) 
+        and what to delete (itemstodelete). 
+        modelSubset: A list of object identifier strings.
+        - If the object is a group or compartment: 
+                - it is saved
+                - everything under it is saved
+                - Parent group and compartment is saved, recursively
+                - Siblings are NOT saved.
+         - If the object is a pool, reaction, etc:
+                - it is saved
+                - Parent group and compartment is saved, recursively
+                - Siblings are NOT saved.
+        itemstodelete: A list of object identifier strings.
+        - If the object is a group or compartment: 
+            - It is deleted
+            - Everthing under it is deleted
+        - If the object is a regular pool, reaction etc:
+            - It is deleted
+            - Everthing under it is deleted. Note that a pool might have
+                multiple enzyme sites. All of them will be deleted.
+        After all this is done, there is a cleanup:
+            - If a reaction or enzyme has had a substrate or product
+                deleted, it is deleted. Otherwise we would end up with
+                dangling reactions.
+        '''
+        kinpath = modelId.path
+        self.deleteItems( kinpath )
+        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
+            self.subsetItems( kinpath )
 
-            for l in survivors-set(survivorsGroup):
-                elmGrp = set(moose.wildcardFind(l.path+'/##[ISA=PoolBase]'+','+ l.path+'/##[ISA=ReacBase]'))
-                deleteObjsfromGroup = list(elmGrp-nonGroupSet)
-                deleteObjsfromGroup = [i for i in deleteObjsfromGroup if not isinstance(moose.element(i.parent), moose.EnzBase)]
-                for elmGrpl in deleteObjsfromGroup:
-                    if moose.exists(elmGrpl.path):
-                         moose.delete(elmGrpl)
-            #getting rid of object which are not specified under compartment
-            for l in set(allCompts)-set(directCompts):
-                elmCmpt = set(moose.wildcardFind(l.path+'/#[ISA=PoolBase]'+','+ l.path+'/#[ISA=ReacBase]'))
-                deleteObjsfromCompt = list(elmCmpt-nonComptSet)
-                deleteObjsfromCompt = [i for i in deleteObjsfromCompt if not isinstance(moose.element(i.parent), moose.EnzBase)]
-                for elmCmpt in deleteObjsfromCompt:
-                    if moose.exists(elmCmpt.path):
-                         moose.delete(elmCmpt)
-            #deleting compartment 
-            for dc in set(set(allCompts) - set(directCompts+indirectCompts)):
-                moose.delete(dc)
+        #Function call for checking dangling Reaction/Enzyme/Function's
+        pruneDanglingObj( kinpath, erSPlist)
             
-            for (entity, field, value) in self.parameterChange:
-                obj = self.findObj(kinpath, entity)
-                if field == "concInit (uM)":
-                    field = "concInit"
-                #print " obj ", obj, field, value
-                obj.setField( field, value )
+        for (entity, field, value) in self.parameterChange:
+            obj = self.findObj(kinpath, entity)
+            if field == "concInit (uM)":
+                field = "concInit"
+            #print " obj ", obj, field, value
+            obj.setField( field, value )
 
-            #Function call for checking dangling Reaction/Enzyme/Function's
-            pruneDanglingObj( kinpath, erSPlist)
             
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
+
+##########################################################################
+# Utility functions needed by Model class.
+                
+def getContainerTree( elm, kinpath ):
+    tree = []
+    pa = elm.parent
+    while (pa.path != kinpath and pa.path != '/'):
+        tree.append( pa )
+        pa = pa.parent
+    return tree
+
+def isNotDescendant( elm, ancestorSet ):
+    # Start by getting rid of cases where elm itself is in ancestor set.
+    pa = elm
+    while (pa.path != '/'):
+        if pa.path in ancestorSet:
+            return False
+        pa = pa.parent
+    return True
 
 ##########################################################################
 class PauseHsolve:
@@ -802,55 +811,9 @@ def str2bool( arg ):
         return False
     return True
 
-def isGroup( elm ):
-    return elm.className == 'Neutral' or elm.className.find( 'Mesh' ) != -1
+def isContainer( elm ):
+    return elm.className == 'Neutral' or elm.isA[ 'ChemCompt']
 
-def isCompartment( elm ):
-    return elm.className in ['CubeMesh','CyclMesh'] or elm.className.find( 'Mesh' ) != -1
-
-def findChildGroups( elm ):
-    return list( (elm,) + moose.wildcardFind( elm.path + '/##[TYPE=Neutral],' + elm.path + '/##[ISA=ChemCompt]' ) )
-
-def findCompartment(element):
-    if element.path == '/':
-        return moose.element('/')
-    elif mooseIsInstance(element, ["CubeMesh", "CyclMesh"]):
-        return (element)
-    else:
-        return findCompartment(moose.element(element.parent))
-
-def mooseIsInstance(element, classNames):
-    return moose.element(element).__class__.__name__ in classNames
-
-def findParentGroup( elm ):
-    
-    if isGroup( elm ):
-        return elm
-    if elm.parent.name == 'root':
-        print( 'Warning: findParentGroup: root element found, likely naming error' )
-        return moose.element('/model')
-    return findParentGroup( elm.parent )
-
-def pruneExcludedElements( elms ):
-    #Eliminate all elments in list whose parents are also in list.
-    prunes = set( [ i for i in elms if i.parent in elms ] )
-    return elms - prunes
-
-def ornamentPools( elms ):
-    #Add to the list all descendants of pools: enzymes, cplx, funcs...
-    # Do things uniquely and avoiding indices
-    s1 = set( elms )
-    appendees = []
-    for i in s1:
-        if i.className.find( 'Pool' ) != -1:
-            appendees.extend( i.children )
-            for j in set( i.children ):
-                appendees.extend( j[0].children )
-
-    ret = set( elms + [k[0] for k in appendees] )
-    return ret
-    #elms.extend( list(set(appendees)) ) # make it unique.
-    
 def pruneDanglingObj( kinpath, erSPlist):
     erlist = moose.wildcardFind(kinpath+"/##[ISA=ReacBase],"+kinpath+ "/##[ISA=EnzBase]")
     subprdNotfound = False

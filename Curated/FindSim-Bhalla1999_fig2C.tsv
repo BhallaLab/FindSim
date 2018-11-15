@@ -56,7 +56,7 @@ Dose	Value	sem
 		
 Model mapping		
 modelSource	DOQCS	
-fileName		
+fileName	models/synSynth7.g
 citationId		
 citation		
 authors		
