@@ -56,7 +56,8 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
         'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
-        'Hz': 1.0, '1/sec':1.0, 'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
+        'Hz': 1.0, '1/sec':1.0, 'sec':1.0, 's':1.0, 'min':60.0, 
+        'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
 
 epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
@@ -219,8 +220,7 @@ class Readout:
         if self.quantityUnits in convertQuantityUnits:
             self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            raise SimError( "Readout::__init__: unknown quantity units" +
-                    self.quantityUnits )
+            raise SimError( "Readout::__init__: unknown quantity units '{}'".format( self.quantityUnits ) )
 
         if useXlog != "":    
             self.useXlog = str2bool(useXlog)
@@ -387,7 +387,10 @@ class Readout:
                 elmList = modelLookup[entity]
                 if len( elmList ) != 1:
                     raise SimError( "Readout::directParamScore: Should only have 1 object, found {} ".format( len( elmList ) ) )
-                sim = elmList[0].getField( rd.field )
+                # We use a utility function because findSim may permit
+                # parameters like Kd that need to be evaluated.
+                sim = getObjParam( elmList[0], rd.field )
+                #sim = elmList[0].getField( rd.field )
                 score += eval( scoringFormula )
                 numScore += 1.0
                 #print( entity, rd.field, sim, expt, sem, score, numScore, "\n" )
@@ -690,6 +693,25 @@ def isNotDescendant( elm, ancestorSet ):
             return False
         pa = pa.parent
     return True
+
+def getObjParam( elm, field ):
+    if field == 'Kd':
+        if not elm.isA['ReacBase']:
+            raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( obj.className ) )
+        return elm.Kb/elm.Kf
+    elif field == 'tau':
+        # This is a little dubious, because order 1 reac has 1/conc.time
+        # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
+        # This latter is the Kf we want to use, assuming typical concs are
+        # around 1 uM.
+        if not elm.isA['ReacBase']:
+            raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
+        scaleKf = 0.001 ** (elm.numSubstrates-1)
+        scaleKb = 0.001 ** (elm.numProducts-1)
+        #print( "scaleKf={}; scaleKb={}, numsu ={}, numPrd={},Kb={},Kf={}".format( scaleKf, scaleKb, elm.numSubstrates, elm.numProducts, elm.Kb, elm.Kf ) )
+        return 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
+    else:
+        return elm.getField( field )
 
 ##########################################################################
 class PauseHsolve:
