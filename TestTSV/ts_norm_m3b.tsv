@@ -1,0 +1,68 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 11483657	
+authors	Mundell SJ et al.	
+journal	Journal of Neuroschemistry. 2001	
+		
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species		
+cell-types		
+temperature-in-Celsius		
+includePathway	mGluR,barr2	
+details	Fig3B	
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	uM	
+entities	Glutamate	
+field	conc	
+Data		
+Time	Value	
+0	1.00E+02	
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	TRUE	
+settleTime	0	
+ratioReferenceTime	0	
+ratioReferenceEntities	mGluR1a	
+ratioReferenceDose	0	
+entities	tot_surface_mGluR1a	
+field	conc	
+Data		
+Time	Value	stderr
+0	1	0
+300	0.43	0
+600	0.38	0
+900	0.32	0
+1800	0.34	0
+		
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	kinetics/mGluR,barr2_signaling,PP2A	
+modelLookup	Glutamate:Glutamate,tot_surface_mGluR1a:mGluR/mGluR+Rec_Glu+L.mGluR_p+L.mGluR_p.barr2+mGluR_p.barr2,mGluR1a:mGluR/mGluR	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	Rec_Gq,Rec_Glu_Gq,Rec_Glu_bind_Gq,Glu_bind_Rec_Gq,Activate_Gq,Rec_bind_Gq,dephos_clus_S6K,dephos_S6K,dephosp_S6K,Dephos_AKTser473,Dephosph_AKTthr308,eEF2thr_56_dephospho,PP2A_4E_BP_p_p,PP2A_4E_BP_p,PP2A_4E_BP,PP2A_4EBP,PP2A_dephospho_I1,PP2A_dephospho_PP1_I_p	
+solver	Runge kutta method (gsl)	
+notes		
+parameterChange		
+Object	parameter	Value

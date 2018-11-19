@@ -1,0 +1,48 @@
+Experiment metadata		
+transcriber	Upinder S. Bhalla
+organization	NCBS	
+emailId	bhalla@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 15548210 
+authors	Bhalla
+journal	Test Journal
+		
+		
+Experiment context		
+exptType	DirectParameter
+species		rat
+cell-types	hippocampal CA1 pyramidal neuron
+temperature (Celsius)	30		
+Include all
+details	Figure 1 panel B
+notes		Direct param readouts test script.
+		
+Readouts		
+readoutType	DirectParameter	
+quantityUnits	1/sec	
+field	kcat	
+Data		
+entity	Value	stderr
+MAPK_phosph_PLA2	20		5.0
+MAPK_phosph_4EBP	0.1		0.05
+
+Readouts		
+readoutType	DirectParameter	
+quantityUnits	uM
+field	Km
+Data		
+entity	Value	stderr
+MAPK_phosph_PLA2	27		5.0
+MAPK_phosph_4EBP	20		1.0
+		
+Model mapping		
+modelSource	internal
+fileName	models/synSynth7.g
+citationId	
+citation		
+authors		Bhalla
+modelSubset	all
+modelLookup	MAPK_phosph_PLA2:MAPK_p_p/MAPK_p_p,MAPK_phosph_4EBP:MAPK_p_p/MAPK_4E_BP_phospho
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+solver	none
+notes		Test for direct measure of parameters. Note that each Readouts entry can be used for a different parameter, but may apply to many objects.

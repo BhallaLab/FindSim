@@ -1,0 +1,69 @@
+Experiment metadata		
+transcriber	Nisha Ann Viswan	
+organization	NCBS	
+emailId	nishaav@ncbs.res.in	
+exptSource	Paper	
+citationId	PMID: 10486198	
+authors	Yuen and Mobley	
+journal	Exp Neurol 1999	
+		
+		
+		
+Experiment context		
+exptType	DoseResponse	
+species		
+cell-types		
+temperature-in-Celsius		
+includePathway	BDNF,TrKB,Sos	
+details		
+notes		
+		
+		
+Stimuli		
+timeUnits	sec	
+quantityUnits	nM	
+entities	BDNF	
+field	conc	
+Data		
+Time	Value	
+		
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	nM	
+useXlog	FALSE	
+useYlog	FALSE	
+useNormalization	FALSE	
+settleTime	300	
+ratioReferenceTime	0	
+ratioReferenceEntities		
+ratioReferenceDose	0	
+entities	SHC_p	
+field	conc	
+Data		
+Dose	Value	sem
+0	0	0
+1	6.5	0
+2	12.5	0
+3.8	14	0
+7.5	18	0
+		
+		
+		
+		
+Model mapping		
+modelSource	Local path	
+fileName	models/synSynth7.g	
+citationId		
+citation		
+authors		
+modelSubset	kinetics/BDNF,kinetics/TrKB,SHC,SHC_p,SHC_p_dephospho	
+modelLookup	BDNF:BDNF/BDNF,SHC_p:SHC_p	
+scoringFormula	abs((expt-sim)/(expt+sim+1e-9))	
+itemstodelete	BDNF_TrKB2_p_clx/PLC_g_phospho	
+solver	Runge kutta method (gsl)	
+notes	Jain2009_Fig2C	
+parameterChange		
+Object	parameter	Value
+SHC_p_dephospho	Kf	0.2

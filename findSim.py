@@ -56,7 +56,8 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
         'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
-        'Hz': 1.0, '1/sec':1.0, 'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
+        'Hz': 1.0, '1/sec':1.0, 'sec':1.0, 's':1.0, 'min':60.0, 
+        'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
 
 epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
@@ -165,6 +166,8 @@ class Stimulus:
         conc for a molecule, or currentInjection for compartment"""
         self.data = data
         """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
+
+
         
     def load( fd ):
         arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
@@ -217,8 +220,7 @@ class Readout:
         if self.quantityUnits in convertQuantityUnits:
             self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         else:
-            raise SimError( "Readout::__init__: unknown quantity units" +
-                    self.quantityUnits )
+            raise SimError( "Readout::__init__: unknown quantity units '{}'".format( self.quantityUnits ) )
 
         if useXlog != "":    
             self.useXlog = str2bool(useXlog)
@@ -294,6 +296,7 @@ class Readout:
             elif self.useNormalization and abs(self._simDataReference)>1e-15:
                 tsUnits = 'Fold change'
             tsScale = convertQuantityUnits[tsUnits]
+            #print( "tsScale = {}, {}".format( tsScale, tsUnits ) )
 
             for i in self.entities:
                 elms = modelLookup[i]
@@ -312,6 +315,7 @@ class Readout:
                     else:
                         scale = tsScale
                     #print( "LEN(ratioData) = {}, quantScale={}, simDataReference={}".format( len(self.ratioData), self.quantityScale,self._simDataReference ) )
+                    #print( "plotvec name = {}, val= {}".format( j.name, self.plots[j.name].vector ) )
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
@@ -383,10 +387,13 @@ class Readout:
                 elmList = modelLookup[entity]
                 if len( elmList ) != 1:
                     raise SimError( "Readout::directParamScore: Should only have 1 object, found {} ".format( len( elmList ) ) )
-                sim = elmList[0].getField( rd.field )
+                # We use a utility function because findSim may permit
+                # parameters like Kd that need to be evaluated.
+                sim = getObjParam( elmList[0], rd.field )
+                #sim = elmList[0].getField( rd.field )
                 score += eval( scoringFormula )
                 numScore += 1.0
-                #print entity, rd.field, sim, expt, sem, score, numScore, "\n"
+                #print( entity, rd.field, sim, expt, sem, score, numScore, "\n" )
         #print( "direct score of {}".format( score / numScore ) )
         if numScore == 0:
             return -1
@@ -480,6 +487,7 @@ class Model:
             paths = self._tempModelLookup[i].split('+')
             # Summed sim entities are separated with a '+', but map to a 
             # single experimentally defined entity.
+            #print( "In buildModelLookup, seeking {}:{}".format( i, paths[0] ) )
             foundObj = [ self.findObj( '/model', p) for p in paths ]
             self.modelLookup[i] = foundObj
 
@@ -509,7 +517,7 @@ class Model:
 
         self.itemstodelete.append((entity,change))
 
-    def findObj( self,rootpath, name ):
+    def findObj( self,rootpath, name, noRaise = False ):
         '''
         Model:: findObj locates objects uniquely specified by a string. 
         The object can be located at any depth in the model tree.
@@ -525,7 +533,10 @@ class Model:
         if len( try1 ) + len( try2 ) > 1:
             raise SimError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
-            raise SimError( "findObj: No object found on: '{}'".format( name) )
+            if noRaise:
+                return moose.element('/')
+            else:
+                raise SimError( "findObj: No object found named: '{}'".format( name) )
         if len( try1 ) == 1:
             return try1[0]
         else:
@@ -543,7 +554,10 @@ class Model:
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
-        obj = self.findObj( '/model', params[0] )
+        obj = self.findObj( '/model', params[0], noRaise = True )
+        if obj.path == '/':  # No object found
+            return
+
         scale = float( params[2] )
         if not ( scale >= 0.0 and scale <= 100.0 ):
             print( "Error: Scale {} out of range".format( scale ) )
@@ -563,113 +577,141 @@ class Model:
             obj.setField( params[1], val * scale)
         #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
 
-    def modify( self, modelId, erSPlist, odelWarning):
-        # Start off with things explicitly specified for deletion.
-        kinpath = modelId.path
+    def deleteItems( self, kinpath ):
         if self.itemstodelete:
             for ( entity, change ) in self.itemstodelete[:]:
                 if entity != "":
                     obj = self.findObj(kinpath, entity)
                     if change == 'delete':
-                        if obj.path != modelId.path and obj.path != '/model[0]':
+                        if obj.path != kinpath:
                             moose.delete( obj )
                         else:
                             raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
-                
-        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
-            '''If group and group/obj is written in model subset, then entire group is saved and nothing \ 
-                specific is delete from the group.
-                And if group/obj is written then group's obj is saved.
-            '''
-            # Generate list of all included groups
-            allCompts, directCompts, indirectCompts = [], [], []
-            allGroups, directGroups, indirectGroups = [], [], []
-            
-            #Get all Groups under all compartment, all compartment under model
-            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
-                allCompts.append(c)
-                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
-                    allGroups.append(grps)
 
-            subsets = re.sub(r'\s', '', self.modelSubset).split(',')
-            nonGroups = []
-            nonCompts = []
-            survivorsGroup = []
-            #here all the object direct and indirect groups and compartment is queried
-            #indirectgroup/compartment are those in which group/object or comparetment/object
-            #are specified in modelmapping
+    def subsetItems( self, kinpath ):
+        nonContainers, directContainers, indirectContainers = [],[],[]
+        for i in ['moregraphs', 'info', 'graphs']:
+            directContainers.append( moose.element( kinpath + '/' + i ) )
+        subsets = re.sub(r'\s', '', self.modelSubset).split(',')
 
-            for i in subsets: 
-                elm = self.findObj(kinpath, i)
-                if isCompartment(elm):
-                    directCompts.append(elm)
-                elif isGroup( elm ):
-                    directGroups.extend( findChildGroups( elm ) )
-                    survivorsGroup.append(elm)
-                    objCompt = findCompartment(elm)
-                    if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                        indirectCompts.append(objCompt)
-                else:
-                    obj = findParentGroup(elm)
-                    if (moose.element(obj).className == "Neutral"):
-                        indirectGroups.append( obj )
-                        nonGroups.append(elm)
-                        objCompt = findCompartment(obj)
-                        if (moose.element(objCompt).className in ["CubeMesh","CyclMesh"]):
-                            indirectCompts.append(objCompt)
-                    elif (moose.element(obj).className in ["CubeMesh","CyclMesh"]):
-                        indirectCompts.append(obj)
-                        nonCompts.append(elm)
-            
-            includedGroups = set( directGroups + indirectGroups )
-            allGroups = set(allGroups)
-            # Find groups to delete, and delete them.
-            excludedGroups = allGroups - includedGroups
-            for i in excludedGroups:
+        for i in subsets: 
+            elm = self.findObj(kinpath, i)
+            if isContainer(elm):
+                indirectContainers.extend( getContainerTree(elm, kinpath))
+                directContainers.append(elm)
+            else:
+                indirectContainers.extend( getContainerTree(elm, kinpath))
+                nonContainers.append( elm )
+
+        # Eliminate indirectContainers that are descended from a
+        # directContainer: all descendants of a direct are included
+        dirset = set( [i.path for i in directContainers] )
+        indirectContainers = [ i for i in indirectContainers if isNotDescendant( i, dirset ) ]
+
+        # Make the containers unique. Put in a set.
+        inset = set( [i.path for i in indirectContainers] )
+        nonset = set( [i.path for i in nonContainers] )
+        doomed = set()
+
+        # Go through all immediate children of indirectContainers, 
+        #   and mark for deletion in doomedList
+        for i in inset:
+            doomed.update( [j.path for j in moose.wildcardFind( i + '/#[]' ) ] )
+        # Remove nonContainers, IndrectContainers and DirectContainers
+        #   from doomedList
+        doomed = ((doomed - inset) - dirset) - nonset
+
+        # Delete everything in doomedList
+        for i in doomed:
+            if moose.exists( i ):
                 moose.delete( i )
+            else:
+                print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
 
-            # Generate list of all surviving objects. We're going to get
-            # rid of them too, unless they are saved by the subset list.
-            survivors = []
-            for c in moose.wildcardFind(kinpath+'/##[ISA=ChemCompt]'):
-                for grps in moose.wildcardFind(c.path+'/##[TYPE=Neutral]'):
-                    survivors.append(grps)
-            survivors = set(survivors)
-            # Go through the subsets again in case some are already deleted
-            nonGroupSet = ornamentPools( nonGroups )
-            nonComptSet = ornamentPools( nonCompts )
+    def modify( self, modelId, erSPlist, odelWarning):
+        '''
+        Semantics: There are two specifiers: what to save (modelSubset) 
+        and what to delete (itemstodelete). 
+        modelSubset: A list of object identifier strings.
+        - If the object is a group or compartment: 
+                - it is saved
+                - everything under it is saved
+                - Parent group and compartment is saved, recursively
+                - Siblings are NOT saved.
+         - If the object is a pool, reaction, etc:
+                - it is saved
+                - Parent group and compartment is saved, recursively
+                - Siblings are NOT saved.
+        itemstodelete: A list of object identifier strings.
+        - If the object is a group or compartment: 
+            - It is deleted
+            - Everthing under it is deleted
+        - If the object is a regular pool, reaction etc:
+            - It is deleted
+            - Everthing under it is deleted. Note that a pool might have
+                multiple enzyme sites. All of them will be deleted.
+        After all this is done, there is a cleanup:
+            - If a reaction or enzyme has had a substrate or product
+                deleted, it is deleted. Otherwise we would end up with
+                dangling reactions.
+        '''
+        kinpath = modelId.path
+        self.deleteItems( kinpath )
+        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
+            self.subsetItems( kinpath )
 
-            for l in survivors-set(survivorsGroup):
-                elmGrp = set(moose.wildcardFind(l.path+'/##[ISA=PoolBase]'+','+ l.path+'/##[ISA=ReacBase]'))
-                deleteObjsfromGroup = list(elmGrp-nonGroupSet)
-                deleteObjsfromGroup = [i for i in deleteObjsfromGroup if not isinstance(moose.element(i.parent), moose.EnzBase)]
-                for elmGrpl in deleteObjsfromGroup:
-                    if moose.exists(elmGrpl.path):
-                         moose.delete(elmGrpl)
-            #getting rid of object which are not specified under compartment
-            for l in set(allCompts)-set(directCompts):
-                elmCmpt = set(moose.wildcardFind(l.path+'/#[ISA=PoolBase]'+','+ l.path+'/#[ISA=ReacBase]'))
-                deleteObjsfromCompt = list(elmCmpt-nonComptSet)
-                deleteObjsfromCompt = [i for i in deleteObjsfromCompt if not isinstance(moose.element(i.parent), moose.EnzBase)]
-                for elmCmpt in deleteObjsfromCompt:
-                    if moose.exists(elmCmpt.path):
-                         moose.delete(elmCmpt)
-            #deleting compartment 
-            for dc in set(set(allCompts) - set(directCompts+indirectCompts)):
-                moose.delete(dc)
+        #Function call for checking dangling Reaction/Enzyme/Function's
+        pruneDanglingObj( kinpath, erSPlist)
             
-            for (entity, field, value) in self.parameterChange:
-                obj = self.findObj(kinpath, entity)
-                if field == "concInit (uM)":
-                    field = "concInit"
-                #print " obj ", obj, field, value
-                obj.setField( field, value )
+        for (entity, field, value) in self.parameterChange:
+            obj = self.findObj(kinpath, entity)
+            if field == "concInit (uM)":
+                field = "concInit"
+            #print " obj ", obj, field, value
+            obj.setField( field, value )
 
-            #Function call for checking dangling Reaction/Enzyme/Function's
-            pruneDanglingObj( kinpath, erSPlist)
             
 Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
             'modelSubset', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
+
+##########################################################################
+# Utility functions needed by Model class.
+                
+def getContainerTree( elm, kinpath ):
+    tree = []
+    pa = elm.parent
+    while (pa.path != kinpath and pa.path != '/'):
+        tree.append( pa )
+        pa = pa.parent
+    return tree
+
+def isNotDescendant( elm, ancestorSet ):
+    # Start by getting rid of cases where elm itself is in ancestor set.
+    pa = elm
+    while (pa.path != '/'):
+        if pa.path in ancestorSet:
+            return False
+        pa = pa.parent
+    return True
+
+def getObjParam( elm, field ):
+    if field == 'Kd':
+        if not elm.isA['ReacBase']:
+            raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( obj.className ) )
+        return elm.Kb/elm.Kf
+    elif field == 'tau':
+        # This is a little dubious, because order 1 reac has 1/conc.time
+        # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
+        # This latter is the Kf we want to use, assuming typical concs are
+        # around 1 uM.
+        if not elm.isA['ReacBase']:
+            raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
+        scaleKf = 0.001 ** (elm.numSubstrates-1)
+        scaleKb = 0.001 ** (elm.numProducts-1)
+        #print( "scaleKf={}; scaleKb={}, numsu ={}, numPrd={},Kb={},Kf={}".format( scaleKf, scaleKb, elm.numSubstrates, elm.numProducts, elm.Kb, elm.Kf ) )
+        return 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
+    else:
+        return elm.getField( field )
 
 ##########################################################################
 class PauseHsolve:
@@ -791,55 +833,9 @@ def str2bool( arg ):
         return False
     return True
 
-def isGroup( elm ):
-    return elm.className == 'Neutral' or elm.className.find( 'Mesh' ) != -1
+def isContainer( elm ):
+    return elm.className == 'Neutral' or elm.isA[ 'ChemCompt']
 
-def isCompartment( elm ):
-    return elm.className in ['CubeMesh','CyclMesh'] or elm.className.find( 'Mesh' ) != -1
-
-def findChildGroups( elm ):
-    return list( (elm,) + moose.wildcardFind( elm.path + '/##[TYPE=Neutral],' + elm.path + '/##[ISA=ChemCompt]' ) )
-
-def findCompartment(element):
-    if element.path == '/':
-        return moose.element('/')
-    elif mooseIsInstance(element, ["CubeMesh", "CyclMesh"]):
-        return (element)
-    else:
-        return findCompartment(moose.element(element.parent))
-
-def mooseIsInstance(element, classNames):
-    return moose.element(element).__class__.__name__ in classNames
-
-def findParentGroup( elm ):
-    
-    if isGroup( elm ):
-        return elm
-    if elm.parent.name == 'root':
-        print( 'Warning: findParentGroup: root element found, likely naming error' )
-        return moose.element('/model')
-    return findParentGroup( elm.parent )
-
-def pruneExcludedElements( elms ):
-    #Eliminate all elments in list whose parents are also in list.
-    prunes = set( [ i for i in elms if i.parent in elms ] )
-    return elms - prunes
-
-def ornamentPools( elms ):
-    #Add to the list all descendants of pools: enzymes, cplx, funcs...
-    # Do things uniquely and avoiding indices
-    s1 = set( elms )
-    appendees = []
-    for i in s1:
-        if i.className.find( 'Pool' ) != -1:
-            appendees.extend( i.children )
-            for j in set( i.children ):
-                appendees.extend( j[0].children )
-
-    ret = set( elms + [k[0] for k in appendees] )
-    return ret
-    #elms.extend( list(set(appendees)) ) # make it unique.
-    
 def pruneDanglingObj( kinpath, erSPlist):
     erlist = moose.wildcardFind(kinpath+"/##[ISA=ReacBase],"+kinpath+ "/##[ISA=EnzBase]")
     subprdNotfound = False
@@ -899,7 +895,8 @@ def putStimsInQ( q, stims, pauseHsolve ):
             t = float(j[0])*i.timeScale
             heapq.heappush( q, Qentry( t, i, val ) )
             # Below we tell the Hsolver to turn off or on for elec calcn.
-            if i.field in ['Im', 'current'] or (i.field=='rate' and 'syn' in i.entities[0]) :
+            #print( "in putStimsInQ, field = {}".format( i.field ) )
+            if i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0]) :
                 if val == 0.0:
                     heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
                 else:
@@ -924,6 +921,13 @@ def makeReadoutPlots( readouts, modelLookup ):
                 i.epspPlot = plot
             elif i.field in epscFields:   # Do EPSC stuff.
                 fieldname = 'getCurrent'
+                '''
+                path = elm.path + '/vclamp'
+                if moose.exists( path ):
+                    elm = moose.element( path )
+                else:
+                    raise SimError( "makeReadoutPlots: Cannot find vclamp on {}".format( elm.path ) )
+                '''
                 i.epspPlot = plot
             else:
                 fieldname = 'get' + i.field.title()
@@ -963,10 +967,11 @@ def deliverStim( qe, model ):
             if field == 'Vclamp':
                 path = e.path + '/vclamp'
                 moose.element( path ).setField( 'command', qe.val )
+                #print(" Setting Vclamp {} to {}".format( path, qe.val ))
             else:
                 e.setField( field, qe.val )
                 #print qe.t, e.path, field, qe.val
-                #print qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight
+                #print( "########Stim = {} {} {} {} {}".format( qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight ) )
                 if qe.t == 0:
                     ## At time zero we initial the value concInit or nInit
                     if field == 'conc':
@@ -1003,8 +1008,8 @@ def doEpspReadout( readout, modelLookup ):
     n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
     assert( n > 5 )
     pts = np.array( readout.epspPlot.vector[-n:] )
-    #print readout.field
-    #print ["{:.3f} ".format( x ) for x in pts]
+    #print( "DOING EPSP READOUT WITH " +  readout.field )
+    #print( ["{:.3g} ".format( x ) for x in pts] )
     if "slope" in readout.field:
         dpts = pts[1:] - pts[:-1]
         slope = max( abs( dpts ) )/readout.epspPlot.dt
@@ -1303,6 +1308,21 @@ def loadTsv( fname ):
     return expt, stims, readouts, model
 
 def buildSolver( modelId, solver, useVclamp = False ):
+    # Here we remove and rebuild the HSolver because we have to add vclamp
+    # after loading the model.
+    if useVclamp: 
+        if moose.exists( '/model/elec/hsolve' ):
+            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
+    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
+        for i in range( 9 ):
+            moose.setClock( i, elecDt )
+        moose.setClock( 8, elecPlotDt )
+        tgt = '/model/elec/soma'
+        hsolve = moose.HSolve( '/model/elec/hsolve' )
+        hsolve.dt = elecDt
+        hsolve.target = tgt
+        moose.reinit()
+
     compts = moose.wildcardFind( modelId.path + '/##[ISA=ChemCompt]' )
     for compt in compts:
         if solver.lower() in ['none','ee','exponential euler method (ee)']:
@@ -1319,20 +1339,6 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich.ksolve = ksolve
         #print( "Path = " + compt.path + "/##" )
         stoich.path = compt.path + '/##'
-    # Here we remove and rebuild the HSolver because we have to add vclamp
-    # after loading the model.
-    if useVclamp: 
-        if moose.exists( '/model/elec/hsolve' ):
-            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
-    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
-        for i in range( 9 ):
-            moose.setClock( i, elecDt )
-        moose.setClock( 8, elecPlotDt )
-        tgt = '/model/elec/soma'
-        hsolve = moose.HSolve( '/model/elec/hsolve' )
-        hsolve.dt = elecDt
-        hsolve.target = tgt
-        moose.reinit()
 
 def buildVclamp( stim, modelLookup ):
     # Stim.entities should be the compartment name here.
@@ -1344,7 +1350,9 @@ def buildVclamp( stim, modelLookup ):
     vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
     vclamp.ti = 20e-6   # Integral time
     vclamp.td = 5e-6    # Differential time. Should it be >= dt?
-    vclamp.gain = 0.00005   # Gain of vclamp ckt.
+    #vclamp.gain = 0.00005   # Gain of vclamp ckt used for squid: 500x500um
+    vclamp.gain = compt.Cm * 5e3  # assume SI units. Scaled by area so that gain is reasonable. Needed to avert NaNs.
+    #print( "Building Vclamp on {}. Compt Cm = {}".format( path, compt.Cm ))
 
     # Connect voltage clamp circuitry
     moose.connect( compt, 'VmOut', vclamp, 'sensedIn' )
@@ -1431,7 +1439,7 @@ def main():
     )
 
     parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
-    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "models/synSynth7.g" )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
@@ -1456,7 +1464,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
-    model.fileName = modelFile
+    if modelFile != "":
+        model.fileName = modelFile
     model.pauseHsolve = PauseHsolve( optimizeElec )
     #This list holds the entire models Reac/Enz sub/prd list for reference
     erSPlist = {}
@@ -1498,22 +1507,48 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             generateParamFile( modelId.path, paramFname )
             quit()
 
+
         model.buildModelLookup()
 
-        if expt.exptType == 'directparameter':
-            return Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
 
+        if expt.exptType == 'directparameter':
+            score = Readout.directParamScore( readouts, model.modelLookup, model.scoringFormula )
+            if not hidePlot:
+                print( "Score = {:.3f} for\t{}\tElapsed Time = 0.0 s".format( score, os.path.basename(script) ) )
+            moose.delete( modelId )
+            if moose.exists( '/library' ):
+                moose.delete( '/library' )
+            return score
+
+        '''
+        for i in stims:
+            if i.field == 'Vclamp':
+                buildVclamp( i, model.modelLookup )
+        '''
+
+        
+        '''
         if stims[0].field == 'Vclamp':
             readouts[0].entities = ['vclamp']
-            readouts[0].field = 'current'
+            #readouts[0].field = 'current'
             buildVclamp( stims[0], model.modelLookup )
+        '''
 
+
+        hasVclamp = False
+        readoutStim = stims[0]
+        for i in stims:
+            if i.field.lower() == 'vclamp':
+                hasVclamp = True
+                buildVclamp( i, model.modelLookup )
+            elif i.field.lower() == 'inject':
+                readoutStim = i
+            if len(i.entities) > 0 and i.entities[0].lower() == 'syninput':
+                readoutStim = i
         if readouts[0].field in ( epspFields + epscFields ):
-            readouts[0].stim = stims[0]
-
+            readouts[0].stim = readoutStim 
         makeReadoutPlots( readouts, model.modelLookup )
-
-        if stims[0].field == 'Vclamp':
+        if hasVclamp:
             #build the solver with a flag to say rebuild the hsolve.
             buildSolver( modelId, model.solver, useVclamp = True )
         else:

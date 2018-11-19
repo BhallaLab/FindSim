@@ -1,0 +1,72 @@
+Experiment metadata		
+transcriber	Upi	
+organization	NCBS	
+emailId	bhalla@ncbs.res.in	
+exptSource	None
+citationId	None
+authors	None
+journal	None. This is a purely fictional _experiment_ for the purposes of testing findSim
+		
+		
+Experiment context		
+exptType	TimeSeries	
+species	rat	
+cell-types	hippocampal CA1 pyramidal neuron	
+temperature (Celsius)	30	
+Include	all	
+details		
+notes	HFS, LTP	
+		
+Stimuli		
+compartment	dend	
+timeUnits	sec	
+quantityUnits	Hz	
+entities	synInput	
+field	rate	
+Data		
+Time	Value	
+0	0	
+10	100
+11	0	
+		
+Stimuli		
+compartment	dend	
+timeUnits	sec	
+quantityUnits	ratio	
+entities	synapse	
+field	weight	
+Data		
+Time	Value	
+0	0.4	
+10	1	
+11	0.4	
+		
+		
+Readouts		
+timeUnits	sec	
+quantityUnits	ratio	
+useXlog	FALSE	
+useYlog	FALSE	
+ratioReferenceTime	1	
+ratioReferenceEntity	soma	
+entities	soma	
+field	EPSP_peak	
+useNormalization	TRUE	
+Data		
+Time	Value	stderr
+4	1	0
+8	1	0
+15	5.5	0
+20	8.5	0
+		
+Model mapping		
+modelSource	internal	
+fileName	models/plastic8.py	
+citationId		
+citation		
+authors		
+modelSubset	all	
+modelLookup	soma:elec/soma,synInput:elec/head0/glu/sh/synapse/synInput,synapse:elec/head0/glu/sh/synapse	
+scoringFormula	abs((expt-sim)/(datarange+1e-9))	
+solver	none	
+notes		
