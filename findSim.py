@@ -61,10 +61,14 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
 
 epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
 epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
+fepspFields = [ 'fEPSP_peak', 'fEPSP_slope', 'fIPSP_peak', 'fIPSP_slope' ]
 
 elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
 elecDt = 50e-6
 elecPlotDt = 100e-6
+fepspScale = 4000.0 # Arb scaling. Need to figure out how to set,
+    # Obviously a function of stimulus strength but the experimentalist
+    # also typically adjusts stim to get response into a 'useful' range.
 
 
 def keywordMatches( k, m ):
@@ -263,6 +267,9 @@ class Readout:
         """Dict of continuous, fine-timeseries plots for readouts, only activated in single-run mode"""
         self.epspFreq = 100.0 # Used to generate a single synaptic event
         self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
+        self.ex = 0.0005   # Electrode position for field recordings.
+        self.ey = 0.0
+        self.ez = 0.0
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -293,6 +300,10 @@ class Readout:
                 tsUnits = 'mV'
             elif self.field in epscFields:
                 tsUnits = 'pA'
+            elif self.field in fepspFields:
+                if not hideSubplots:
+                    self.plotFepsps( fname )
+                    return
             elif self.useNormalization and abs(self._simDataReference)>1e-15:
                 tsUnits = 'Fold change'
             tsScale = convertQuantityUnits[tsUnits]
@@ -334,6 +345,26 @@ class Readout:
                     if self.useNormalization:
                         ylabel = '{} Fold change'.format( self.field )
                 pp.plotme( fname, ylabel )
+
+    def plotFepsps( self, fname ):
+        tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
+        numPts = len( self.epspPlot.vector )
+        xpts = np.array( range( numPts)  ) * self.epspPlot.dt / tconv
+        sumvec = np.zeros( numPts )
+        for i, wt in zip( self.epspPlot.vec, self.wts ):
+            #ypts = i.vector * wt * fepspScale
+            # I'm going to plot the original currents rather than the
+            # variously scaled contributions leading up to the fEPSP
+            ypts = i.vector * 1e12
+            pylab.plot( xpts, ypts, 'r:' )
+            sumvec += ypts
+        pylab.plot( xpts, sumvec, 'r--' )
+        pylab.xlabel( "time ({})".format( self.timeUnits) )
+        pylab.ylabel( "Compartment currents Im (pA)" )
+        pylab.figure(2)
+        pp = PlotPanel( self, "timeseries" )
+        pp.plotme( fname, "fEPSP (mV)" )
+
 
     def applyRatio( self ):
         eps = 1e-16
@@ -913,12 +944,30 @@ def makeReadoutPlots( readouts, modelLookup ):
             plotpath = '/model/plots/' + ntpath.basename(elm.name)
             if i.field in elecFields:
                 plot = moose.Table(plotpath)
+            elif i.field in fepspFields:
+                numCompts = moose.element( '/model/elec' ).numCompartments
+                plot = moose.Table(plotpath, numCompts )
             else:
                 plot = moose.Table2(plotpath)
             i.plots[elm.name] = plot
             if i.field in epspFields:   # Do EPSP stuff.
                 fieldname = 'getVm'
                 i.epspPlot = plot
+            elif i.field in fepspFields:   # Do fEPSP stuff.
+                fieldname = 'getIm'
+                i.epspPlot = plot
+                i.wts = []
+                pv = plot.vec
+                idx = 0
+                compts = moose.wildcardFind( '/model/elec/##[ISA=CompartmentBase]' )
+                for k,p in zip( compts, pv ):
+                    moose.connect( p, 'requestOut', k, fieldname )
+                    dx = k.x-i.ex
+                    dy = k.y-i.ey
+                    dz = k.z-i.ez
+                    r = np.sqrt( dx*dx + dy*dy + dz*dz )
+                    i.wts.append( fepspScale/r )
+                return
             elif i.field in epscFields:   # Do EPSC stuff.
                 fieldname = 'getCurrent'
                 '''
@@ -937,7 +986,7 @@ def putReadoutsInQ( q, readouts, pauseHsolve ):
     stdError  = []
     plotLookup = {}
     for i in readouts:
-        if i.field in (epspFields + epscFields):
+        if i.field in (fepspFields + epspFields + epscFields):
             for j in range( len( i.data ) ):
                 t = float( i.data[j][0] ) * i.timeScale
                 heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
@@ -999,10 +1048,33 @@ def doReadout( qe, model ):
     ratioReference = 0.0
     if readout.field in (epspFields + epscFields):
         doEpspReadout( readout, model.modelLookup )
+    elif readout.field in fepspFields:
+        doFepspReadout( readout, model.modelLookup )
     elif val == -1: # This is a special event to get RatioReferenceValue
         doReferenceReadout( readout, model.modelLookup, readout.field )
     else:
         doEntityAndRatioReadout(readout, model.modelLookup, readout.field)
+
+def doFepspReadout( readout, modelLookup ):
+    n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
+    assert( n > 5 )
+    pts = np.zeros( n )
+    numPlots = len( readout.epspPlot.vec )
+    assert( numPlots == len( readout.wts ) )
+    for i, wt in zip( readout.epspPlot.vec, readout.wts ):
+        pts += np.array( i.vector[-n:] ) * wt
+    #pts = np.array( readout.epspPlot.vector[-n:] )
+    pts /= len( readout.epspPlot.vec )
+    #print( "DOING EPSP READOUT WITH " +  readout.field )
+    #print( ["{:.3g} ".format( x ) for x in pts] )
+    if "slope" in readout.field:
+        dpts = pts[1:] - pts[:-1]
+        slope = max( abs( dpts ) )/readout.epspPlot.dt
+        readout.simData.append( slope )
+    elif "peak" in readout.field:
+        pts -= pts[0]
+        pk = max( abs(pts) )
+        readout.simData.append( pk )
 
 def doEpspReadout( readout, modelLookup ):
     n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
@@ -1545,7 +1617,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 readoutStim = i
             if len(i.entities) > 0 and i.entities[0].lower() == 'syninput':
                 readoutStim = i
-        if readouts[0].field in ( epspFields + epscFields ):
+        if readouts[0].field in ( fepspFields + epspFields + epscFields ):
             readouts[0].stim = readoutStim 
         makeReadoutPlots( readouts, model.modelLookup )
         if hasVclamp:
