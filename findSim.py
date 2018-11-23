@@ -35,7 +35,7 @@
 '''
 from __future__ import print_function
 import heapq
-import pylab
+import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import argparse
@@ -280,7 +280,11 @@ class Readout:
                 elms = modelLookup[i]
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    try:
+                        pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    except Exception as e:
+                        print('Warning: displayPlot: Failed to plot '
+                               '%s due to "%s"' % (fname,e))
         elif "barchart" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -320,17 +324,17 @@ class Readout:
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
                         # Plot summed components
-                        pylab.plot( xpts, ypts, 'r:', label = j.name )
+                        plt.plot( xpts, ypts, 'r:', label = j.name )
 
-                pylab.plot( xpts, sumvec, 'r--' )
+                plt.plot( xpts, sumvec, 'r--' )
                 ylabel = pp.ylabel
                 if self.field in ( epspFields + epscFields ):
                     if self.field in ( epspFields  ):
-                        pylab.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
+                        plt.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
                     else:
-                        pylab.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
+                        plt.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
 
-                    pylab.figure(2)
+                    plt.figure(2)
                     if self.useNormalization:
                         ylabel = '{} Fold change'.format( self.field )
                 pp.plotme( fname, ylabel )
@@ -1249,39 +1253,39 @@ class PlotPanel:
     def plotbar( self, readout, stim, scriptName ):
         barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
-        exptBar = pylab.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
-        simBar = pylab.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
-        pylab.xlabel( "Stimulus combinations" )
-        pylab.ylabel( self.ylabel )
-        pylab.title(scriptName)
-        pylab.legend(fontsize="small",loc="upper left")
+        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
+        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        plt.xlabel( "Stimulus combinations" )
+        plt.ylabel( self.ylabel )
+        plt.title(scriptName)
+        plt.legend(fontsize="small",loc="upper left")
         ticklabels = [ i[0] + '\n' for i in readout.data ] 
         assert len( ticklabels ) == len( barpos )
         ticklabels = self.convertBarChartLabels( readout, stim )
-        pylab.xticks(barpos, ticklabels )
+        plt.xticks(barpos, ticklabels )
 
     def plotme( self, scriptName, ylabel, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
         if self.useXlog:
             if self.useYlog:
-                pylab.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pylab.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                pylab.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pylab.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
         else:
             if self.useYlog:
-                pylab.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pylab.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                pylab.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
-                pylab.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                pylab.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
+                plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
+                plt.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
 
-        pylab.xlabel( self.xlabel )
-        pylab.ylabel( ylabel )
-        pylab.title(scriptName)
-        pylab.legend(fontsize="small",loc="lower right")
+        plt.xlabel( self.xlabel )
+        plt.ylabel( ylabel )
+        plt.title(scriptName)
+        plt.legend(fontsize="small",loc="lower right")
 
 ########################################################################
 def loadTsv( fname ):
@@ -1590,10 +1594,10 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         if not hidePlot:
             print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(script), elapsedTime ) )
             for i in readouts:
-                pylab.figure(1)
+                plt.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
-            pylab.show()
+            plt.show()
         moose.delete( modelId )
         if moose.exists( '/library' ):
             moose.delete( '/library' )
