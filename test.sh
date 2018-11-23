@@ -8,9 +8,13 @@ PYTHON=$(which python)
 # From here https://stackoverflow.com/a/40950971/1805129
 PYTHON_VERSION=$(python -V 2>&1 | sed 's/.* \([0-9]\).\([0-9]\).*/\1\2/')
 if [ "$PYTHON_VERSION" -eq "27" ]; then
+    $PYTHON -m pip uninstall matplotlib -y || echo "Failed to remove matplotlib"
     $PYTHON -m pip install matplotlib==2.2.3 --upgrade 
+    $PYTHON -m pip install scipy==1.1.0 --upgrade 
 else
+    $PYTHON -m pip uninstall matplotlib -y || echo "Failed to remove matplotlib"
     $PYTHON -m pip install matplotlib --upgrade 
+    $PYTHON -m pip install --upgrade 
 fi
 
 $PYTHON -m pip install pymoose --pre --upgrade
