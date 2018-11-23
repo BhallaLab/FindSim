@@ -23,6 +23,7 @@ find . -type f -name "*.py" | xargs -I file $PYTHON -m pylint \
 
 # Run it in ./TestTSV directory.
 for _tsv in $(find ./TestTSV -name *.tsv -type f); do
+    echo "[INFO] Running experiment ${_tsv}"
     $PYTHON findSim.py ${_tsv} --model models/synSynth7.g
 done
 
