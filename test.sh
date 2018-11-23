@@ -5,6 +5,14 @@ set -e
 # virtualenv does not require --user
 PYTHON=$(which python)
 
+# From here https://stackoverflow.com/a/40950971/1805129
+PYTHON_VERSION=$(python -V 2>&1 | sed 's/.* \([0-9]\).\([0-9]\).*/\1\2/')
+if [ "$ver" -eq "27" ]; then
+    $PYTHON -m pip install matplotlib==2.3 --upgrade 
+else
+    $PYTHON -m pip install matplotlib --upgrade 
+fi
+
 $PYTHON -m pip install pymoose --pre --upgrade
 $PYTHON -m pip install pylint numpy --upgrade 
 
