@@ -66,9 +66,11 @@ fepspFields = [ 'fEPSP_peak', 'fEPSP_slope', 'fIPSP_peak', 'fIPSP_slope' ]
 elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
 elecDt = 50e-6
 elecPlotDt = 100e-6
-fepspScale = 4000.0 # Arb scaling. Need to figure out how to set,
+fepspScale = 1.0e7 # Arb scaling. Need to figure out how to set,
     # Obviously a function of stimulus strength but the experimentalist
     # also typically adjusts stim to get response into a 'useful' range.
+    # Should redo in terms of resistivity, but that too is a function of
+    # slice geometry.
 
 
 def keywordMatches( k, m ):
@@ -270,6 +272,8 @@ class Readout:
         self.ex = 0.0005   # Electrode position for field recordings.
         self.ey = 0.0
         self.ez = 0.0
+        self.fepspMin = -0.002 # 2 mm to the left of trode
+        self.fepspMax = 0.001 # 1 mm to the right of trode
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -933,6 +937,36 @@ def putStimsInQ( q, stims, pauseHsolve ):
                 else:
                     heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
 
+def fepspInteg( x, dy ):
+    # phi(r, t) = (1/(4pi.sigma) ) * Sum_n_in_1toN( I_n(t) / |r-r_n|
+    # Here we assume that the cells are all in a single plane and are
+    # nearly at the same Y level, and are vertical sticks.
+    # Integ =  1/Y * ( ln|x/Y + sqrt(1+(x/Y)^2)| )
+    # where Y is y_compt - yelectrode, and x is x_cell, and we take
+    # x_electrode as zero.
+    # Problem here with singularities.
+    #return 1.0/dy * ln( abs(x/dy + np.sqrt( 1+(x/dy)*(x/dy))))
+    # Some recalc, I got rid of the exteranal 1.0/dy
+    #print("CALC_INTEEG:        ", x,dy, x + np.sqrt( x*x + dy*dy) )
+    return np.log( abs(x) + np.sqrt( x*x + dy*dy) )
+
+def cellLongAxis( compts ):
+    if len( compts ) < 2:
+        return np.array( [1.0,0.0,0.0] )
+    L = np.zeros(3)
+    soma = moose.wildcardFind( '/model/elec/#soma#' )
+    if len( soma ) < 1:
+        s = np.zeros(3)
+    else:
+        s = np.array( [soma[0].x, soma[0].y, soma[0].z] )
+    for i in compts:
+        L[0] += i.x
+        L[1] += i.y
+        L[2] += i.z
+    L -= s * len(compts)
+    return L/np.sqrt( sum( [x*x for x in L] ) )
+
+
 def makeReadoutPlots( readouts, modelLookup ):
     moose.Neutral('/model/plots')
     for i in readouts:
@@ -960,13 +994,31 @@ def makeReadoutPlots( readouts, modelLookup ):
                 pv = plot.vec
                 idx = 0
                 compts = moose.wildcardFind( '/model/elec/##[ISA=CompartmentBase]' )
+                L = cellLongAxis( compts )
                 for k,p in zip( compts, pv ):
                     moose.connect( p, 'requestOut', k, fieldname )
-                    dx = k.x-i.ex
-                    dy = k.y-i.ey
-                    dz = k.z-i.ez
-                    r = np.sqrt( dx*dx + dy*dy + dz*dz )
-                    i.wts.append( fepspScale/r )
+                    # We do not know ahead of time what the orientation of
+                    # the cell is. 
+                    # Assume a cell long axis vector L. 
+                    # Assume integration is in the plane orthogonal to r.
+                    # Assume soma roughly at 0,0,0
+                    dy = np.dot( L, [k.x-i.ex, k.y-i.ey, k.z-i.ez] )
+
+                    #dx = k.x-i.ex
+                    #dy = k.y-i.ey
+                    #dz = k.z-i.ez
+                    # This is the wrong, but easy version
+                    #r = np.sqrt( dx*dx + dy*dy + dz*dz )
+                    #i.wts.append( fepspScale/r )
+                    #
+                    # Here is the correct version, integrating over the
+                    # pyramidal cell layer.
+                    ret = fepspInteg(i.fepspMax, dy) - \
+                        fepspInteg(i.fepspMin, dy)
+                    #print( k.name, ret, i.fepspMax, dy )
+                    i.wts.append( ret * fepspScale )
+
+
                 return
             elif i.field in epscFields:   # Do EPSC stuff.
                 fieldname = 'getCurrent'
@@ -1449,7 +1501,7 @@ def getUniqueName( model, obj ):
     assert( len( wf ) > 0 )
     if len( wf ) == 1:
         return pa + "/" + obj.name
-    print ("Concinit = {}".format( obj.concInit ) )
+    #print ("Concinit = {}".format( obj.concInit ) )
     raise SimError( "getUniqueName: {} and {} non-unique, please rename.".format( wf[0].path, wf[1].path ) )
     return obj.name
 
