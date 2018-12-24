@@ -296,7 +296,12 @@ class Readout:
                 elms = modelLookup[i]
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    #pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    try:
+                        pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    except Exception as e:
+                        print('Warning: displayPlot: Failed to plot '
+                                '%s due to "%s"' % (fname,e))
         elif "barchart" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -1610,9 +1615,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 pyplot.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
-            #pyplot.show()
+            pyplot.show()
             pyplot_fig = mpld3.fig_to_html(pyplot.figure(1))
-            mpld3.show()
+            #mpld3.show()
 
         moose.delete( modelId )
         if moose.exists( '/library' ):
