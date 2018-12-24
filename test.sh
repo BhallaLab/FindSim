@@ -17,6 +17,7 @@ else
     $PYTHON -m pip install --upgrade 
 fi
 
+$PYTHON -m pip install mpld3
 $PYTHON -m pip install pymoose --pre --upgrade
 $PYTHON -m pip install pylint numpy --upgrade 
 
