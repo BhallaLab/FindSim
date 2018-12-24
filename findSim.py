@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-
+# 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 3, or
@@ -34,9 +33,9 @@
 **********************************************************************/
 
 '''
-from __future__ import print_function, division
+from __future__ import print_function
 import heapq
-import matplotlib.pyplot as plt
+#import pylab
 import numpy as np
 import sys
 import argparse
@@ -46,6 +45,22 @@ import re
 import ntpath
 import time
 import imp      # This is apparently deprecated in Python 3.4 and up
+
+import matplotlib.pyplot as pyplot,mpld3
+
+#mpld3 hack
+# suggested: https://github.com/mpld3/mpld3/issues/434
+import json
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        import numpy as np
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+from mpld3 import _display
+_display.NumpyEncoder = NumpyEncoder
+
+
 convertTimeUnits = {('sec','s') : 1.0, 
     ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
     ('ns','nanosec') : 1e-9, ('min','m') : 60.0, 
@@ -281,11 +296,7 @@ class Readout:
                 elms = modelLookup[i]
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    try:
-                        pp.plotme( fname, pp.ylabel, joinSimPoints = True )
-                    except Exception as e:
-                        print('Warning: displayPlot: Failed to plot '
-                               '%s due to "%s"' % (fname,e))
+                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
         elif "barchart" in exptType:
             for i in self.entities:
                 elms = modelLookup[i]
@@ -325,17 +336,17 @@ class Readout:
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
                         # Plot summed components
-                        plt.plot( xpts, ypts, 'r:', label = j.name )
+                        pyplot.plot( xpts, ypts, 'r:', label = j.name )
 
-                plt.plot( xpts, sumvec, 'r--' )
+                pyplot.plot( xpts, sumvec, 'r--' )
                 ylabel = pp.ylabel
                 if self.field in ( epspFields + epscFields ):
                     if self.field in ( epspFields  ):
-                        plt.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
+                        pyplot.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
                     else:
-                        plt.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
+                        pyplot.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
 
-                    plt.figure(2)
+                    pyplot.figure(2)
                     if self.useNormalization:
                         ylabel = '{} Fold change'.format( self.field )
                 pp.plotme( fname, ylabel )
@@ -596,7 +607,8 @@ class Model:
     def subsetItems( self, kinpath ):
         nonContainers, directContainers, indirectContainers = [],[],[]
         for i in ['moregraphs', 'info', 'graphs']:
-            directContainers.append( moose.element( kinpath + '/' + i ) )
+            if moose.exists( kinpath + '/' + i ):
+                directContainers.append( moose.element( kinpath + '/' + i ) )
         subsets = re.sub(r'\s', '', self.modelSubset).split(',')
 
         for i in subsets: 
@@ -1254,39 +1266,39 @@ class PlotPanel:
     def plotbar( self, readout, stim, scriptName ):
         barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
-        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
-        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
-        plt.xlabel( "Stimulus combinations" )
-        plt.ylabel( self.ylabel )
-        plt.title(scriptName)
-        plt.legend(fontsize="small",loc="upper left")
+        exptBar = pyplot.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
+        simBar = pyplot.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        pyplot.xlabel( "Stimulus combinations" )
+        pyplot.ylabel( self.ylabel )
+        pyplot.title(scriptName)
+        pyplot.legend(fontsize="small",loc="upper left")
         ticklabels = [ i[0] + '\n' for i in readout.data ] 
         assert len( ticklabels ) == len( barpos )
         ticklabels = self.convertBarChartLabels( readout, stim )
-        plt.xticks(barpos, ticklabels )
+        pyplot.xticks(barpos, ticklabels )
 
     def plotme( self, scriptName, ylabel, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
         if self.useXlog:
             if self.useYlog:
-                plt.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                pyplot.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                pyplot.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                pyplot.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                pyplot.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
         else:
             if self.useYlog:
-                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                pyplot.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                pyplot.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
             else:
-                plt.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
-                plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                plt.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                pyplot.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
+                pyplot.errorbar( self.xpts, self.expt, yerr=self.yerror )
+                pyplot.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
 
-        plt.xlabel( self.xlabel )
-        plt.ylabel( ylabel )
-        plt.title(scriptName)
-        plt.legend(fontsize="small",loc="lower right")
+        pyplot.xlabel( self.xlabel )
+        pyplot.ylabel( ylabel )
+        pyplot.title(scriptName)
+        pyplot.legend(fontsize="small",loc="lower right")
 
 ########################################################################
 def loadTsv( fname ):
@@ -1595,10 +1607,13 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         if not hidePlot:
             print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(script), elapsedTime ) )
             for i in readouts:
-                plt.figure(1)
+                pyplot.figure(1)
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
-            plt.show()
+            #pyplot.show()
+            pyplot_fig = mpld3.fig_to_html(pyplot.figure(1))
+            mpld3.show()
+
         moose.delete( modelId )
         if moose.exists( '/library' ):
             moose.delete( '/library' )
