@@ -1616,7 +1616,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
             pyplot.show()
-            pyplot_fig = mpld3.fig_to_html(pyplot.figure(1))
+            #pyplot_fig = mpld3.fig_to_html(pyplot.figure(1))
             #mpld3.show()
 
         moose.delete( modelId )
