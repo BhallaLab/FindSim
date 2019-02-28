@@ -8,5 +8,7 @@ def load():
             ['Na', 'soma', 'Gbar', '1200' ],
             ['K', 'soma', 'Gbar', '360' ]],
     )
+    return rdes
+
+def build( rdes ):
     rdes.buildModel()
-    return rdes.model

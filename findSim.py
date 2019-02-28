@@ -624,9 +624,16 @@ class Model:
                             raise SimError("modelId/rootPath is not allowed to delete {}".format( obj) )
 
     def subsetItems( self, kinpath ):
-        nonContainers, directContainers, indirectContainers = [],[],[]
+        nonContainers, directContainers = [],[]
+        indirectContainers = [moose.element(kinpath)]
+        # These objects are present in the base chem model container,
+        # below /kinetics. I'm not sure why we want to preserve this.
+        '''
         for i in ['moregraphs', 'info', 'graphs']:
-            directContainers.append( moose.element( kinpath + '/' + i ) )
+            if moose.exists( kinpath + '/' + i ) :
+                elm = moose.element( kinpath + '/' + i )
+                directContainers.append( elm )
+        '''
         subsets = re.sub(r'\s', '', self.modelSubset).split(',')
 
         for i in subsets: 
@@ -663,7 +670,7 @@ class Model:
             else:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
 
-    def modify( self, modelId, erSPlist, odelWarning):
+    def modify( self, modelId, erSPlist, modelWarning):
         '''
         Semantics: There are two specifiers: what to save (modelSubset) 
         and what to delete (itemstodelete). 
@@ -1436,7 +1443,9 @@ def buildSolver( modelId, solver, useVclamp = False ):
     # after loading the model.
     if useVclamp: 
         if moose.exists( '/model/elec/hsolve' ):
-            raise SimError( "Hsolve already created. Please rebuild model without HSolve. In rdesigneur use the 'turnOffElec = True' flag." )
+            raise SimError( "Hsolve already created. Please rebuild \
+                    model without HSolve." )
+
     if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
         for i in range( 9 ):
             moose.setClock( i, elecDt )
@@ -1609,15 +1618,29 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             # the model. At this point the model must be in the current dir
             mscript = imp.load_source( "mscript", model.fileName )
             #mscript = __import__( fileName )
-            modelId = mscript.load()
+            rdes = mscript.load()
+            if not moose.exists( '/library/chem' ):
+                modelId = moose.Neutral( '/library/chem' )
+            else:
+                modelId = moose.element( '/library/chem' )
 
-
-        for f in moose.wildcardFind('/model/##[ISA=ReacBase],/model/##[ISA=EnzBase]'):
+        mpath = modelId.path
+        for f in moose.wildcardFind('{0}/##[ISA=ReacBase],{0}/##[ISA=EnzBase]'.format( mpath ) ):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
         # Then we apply whatever modifications are specified by user or protocol
 
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
+        #moose.le( '/library/chem/compartment_1' )
+        if file_extension == ".py":
+            # Here we override the rdes to NOT make a solver.
+            temp = rdes.turnOffElec
+            rdes.turnOffElec = True
+            mscript.build( rdes )
+            rdes.turnOffElec = temp
+            #turnOffElec = rdes.turnOffElec
+            moose.reinit()
+
         model._scaleParams( scaleParam )
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
@@ -1680,7 +1703,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         if file_extension != '.py': # rdesigneur sims will set own clocks
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.1 )
-
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
@@ -1718,7 +1740,8 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 i.displayPlots( script, model.modelLookup, stims[0], hideSubplots, expt.exptType )
                 
             pylab.show()
-        moose.delete( modelId )
+        if moose.exists( '/model' ):
+            moose.delete( '/model' )
         if moose.exists( '/library' ):
             moose.delete( '/library' )
         return score
@@ -1726,10 +1749,10 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
     except SimError as msg:
         if not silent:
             print( "Error: findSim failed for script {}: {}".format(script, msg ))
-        if modelId:
-            moose.delete( modelId )
-            if moose.exists( '/library' ):
-                moose.delete( '/library' )
+        if moose.exists( '/model' ):
+            moose.delete( '/model' )
+        if moose.exists( '/library' ):
+            moose.delete( '/library' )
         return -1.0
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
