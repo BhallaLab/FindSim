@@ -1438,7 +1438,7 @@ def loadTsv( fname ):
                         model = Model.load(fd )
     return expt, stims, readouts, model
 
-def buildSolver( modelId, solver, useVclamp = False ):
+def buildSolver( modelId, solver, useVclamp = False, turnOffElec = False ):
     # Here we remove and rebuild the HSolver because we have to add vclamp
     # after loading the model.
     if useVclamp: 
@@ -1446,7 +1446,7 @@ def buildSolver( modelId, solver, useVclamp = False ):
             raise SimError( "Hsolve already created. Please rebuild \
                     model without HSolve." )
 
-    if moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
+    if (not turnOffElec) and moose.exists( '/model/elec/soma' ) and not moose.exists( '/model/elec/hsolve' ):
         for i in range( 9 ):
             moose.setClock( i, elecDt )
         moose.setClock( 8, elecPlotDt )
@@ -1632,12 +1632,13 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         modelWarning = ""
         model.modify( modelId, erSPlist,modelWarning )
         #moose.le( '/library/chem/compartment_1' )
+        turnOffElec = False
         if file_extension == ".py":
             # Here we override the rdes to NOT make a solver.
-            temp = rdes.turnOffElec
+            turnOffElec = rdes.turnOffElec
             rdes.turnOffElec = True
             mscript.build( rdes )
-            rdes.turnOffElec = temp
+            rdes.turnOffElec = turnOffElec
             #turnOffElec = rdes.turnOffElec
             moose.reinit()
 
@@ -1667,21 +1668,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
                 moose.delete( '/library' )
             return score
 
-        '''
-        for i in stims:
-            if i.field == 'Vclamp':
-                buildVclamp( i, model.modelLookup )
-        '''
-
-        
-        '''
-        if stims[0].field == 'Vclamp':
-            readouts[0].entities = ['vclamp']
-            #readouts[0].field = 'current'
-            buildVclamp( stims[0], model.modelLookup )
-        '''
-
-
         hasVclamp = False
         readoutStim = stims[0]
         for i in stims:
@@ -1699,7 +1685,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             #build the solver with a flag to say rebuild the hsolve.
             buildSolver( modelId, model.solver, useVclamp = True )
         else:
-            buildSolver( modelId, model.solver )
+            buildSolver( modelId, model.solver, turnOffElec = turnOffElec )
         if file_extension != '.py': # rdesigneur sims will set own clocks
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.1 )
