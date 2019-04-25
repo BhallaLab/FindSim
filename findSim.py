@@ -205,6 +205,7 @@ class Readout:
             quantityUnits = 'mM',
             useRatio = False,
             useNormalization=False,
+            tabulateOutput = False,
             settleTime = 300.0,
             ratioReferenceEntities = '',
             ratioReferenceTime = 0.0,
@@ -311,7 +312,6 @@ class Readout:
             elif self.useNormalization and abs(self._simDataReference)>1e-15:
                 tsUnits = 'Fold change'
             tsScale = convertQuantityUnits[tsUnits]
-            #print( "tsScale = {}, {}".format( tsScale, tsUnits ) )
 
             for i in self.entities:
                 elms = modelLookup[i]
@@ -329,8 +329,6 @@ class Readout:
                         scale = tsScale * self.ratioData[0]
                     else:
                         scale = tsScale
-                    #print( "LEN(ratioData) = {}, quantScale={}, simDataReference={}".format( len(self.ratioData), self.quantityScale,self._simDataReference ) )
-                    #print( "plotvec name = {}, val= {}".format( j.name, self.plots[j.name].vector ) )
                     ypts = self.plots[j.name].vector / scale
                     sumvec += ypts
                     if (not hideSubplots) and (len( elms ) > 1): 
@@ -396,11 +394,14 @@ class Readout:
         numScore = 0.0
         dvals = [i[1] for i in self.data]
         datarange = max( dvals ) - min( dvals )
+        if self.tabulateOutput:
+            print( "{:>12s}   {:>12s}  {:>12s}  {:>12s}".format( "t", "expt", "sim", "sem" ) )
         for i,sim in zip( self.data, self.simData ):
             t = i[0]
             expt = i[1]
             sem = i[2]
-            #print t, expt, sem, sim, datarange
+            if self.tabulateOutput:
+                print( "{:12.3f}   {:12.3f}  {:12.3f}  {:12.3f}".format( t, expt, sim, sem ) )
             #print "Formula = ", scoringFormula, eval( scoringFormula )
             score += eval( scoringFormula )
             numScore += 1.0
@@ -522,7 +523,6 @@ class Model:
             paths = self._tempModelLookup[i].split('+')
             # Summed sim entities are separated with a '+', but map to a 
             # single experimentally defined entity.
-            #print( "In buildModelLookup, seeking {}:{}".format( i, paths[0] ) )
             foundObj = [ self.findObj( '/model', p) for p in paths ]
             self.modelLookup[i] = foundObj
 
@@ -593,24 +593,26 @@ class Model:
         if obj.path == '/':  # No object found
             return
 
+        field = params[1]
         scale = float( params[2] )
         if not ( scale >= 0.0 and scale <= 100.0 ):
             print( "Error: Scale {} out of range".format( scale ) )
             assert( False )
-        #assert( scale >= 0.0 and scale <= 100.0 )
-        if params[1] == 'Kd':
+        if field == 'Kd':
             if not obj.isA[ "ReacBase" ]:
                 raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
             sf = np.sqrt( scale )
             obj.Kb *= sf
             obj.Kf /= sf
-        elif params[1] == 'tau':
+            #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
+        elif field == 'tau':
             obj.Kb /= scale
             obj.Kf /= scale
+            #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
         else: 
-            val = obj.getField( params[1] )
-            obj.setField( params[1], val * scale)
-        #print("ScaledParam {}.{} from {} to {}".format( params[0], params[1], val, obj.getField( params[1] ) ) )
+            val = obj.getField( field )
+            obj.setField( field, val * scale)
+            #print("ScaledParam {}.{} from {} to {}".format( params[0], field, val, obj.getField( field ) ) )
 
     def deleteItems( self, kinpath ):
         if self.itemstodelete:
@@ -709,7 +711,6 @@ class Model:
             obj = self.findObj(kinpath, entity)
             if field == "concInit (uM)":
                 field = "concInit"
-            #print " obj ", obj, field, value
             obj.setField( field, value )
 
             
@@ -750,7 +751,6 @@ def getObjParam( elm, field ):
             raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
         scaleKf = 0.001 ** (elm.numSubstrates-1)
         scaleKb = 0.001 ** (elm.numProducts-1)
-        #print( "scaleKf={}; scaleKb={}, numsu ={}, numPrd={},Kb={},Kf={}".format( scaleKf, scaleKb, elm.numSubstrates, elm.numProducts, elm.Kb, elm.Kf ) )
         return 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
     else:
         return elm.getField( field )
@@ -800,7 +800,6 @@ def innerLoad( fd, argNames, dataWidth = 2):
 
         if keywordMatches( c0, 'Data' ):
             readData( fd, data, dataWidth )
-            #print "Ret READ DATA from INNERLOAD", len( data )
             return arg, data, param, struct, modelLookup
 
         for i in argNames:
@@ -937,7 +936,6 @@ def putStimsInQ( q, stims, pauseHsolve ):
             t = float(j[0])*i.timeScale
             heapq.heappush( q, Qentry( t, i, val ) )
             # Below we tell the Hsolver to turn off or on for elec calcn.
-            #print( "in putStimsInQ, field = {}".format( i.field ) )
             if i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0]) :
                 if val == 0.0:
                     heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
@@ -954,7 +952,6 @@ def fepspInteg( x, dy ):
     # Problem here with singularities.
     #return 1.0/dy * ln( abs(x/dy + np.sqrt( 1+(x/dy)*(x/dy))))
     # Some recalc, I got rid of the exteranal 1.0/dy
-    #print("CALC_INTEEG:        ", x,dy, x + np.sqrt( x*x + dy*dy) )
     return np.log( abs(x) + np.sqrt( x*x + dy*dy) )
 
 def cellLongAxis( compts ):
@@ -1022,7 +1019,6 @@ def makeReadoutPlots( readouts, modelLookup ):
                     # pyramidal cell layer.
                     ret = fepspInteg(i.fepspMax, dy) - \
                         fepspInteg(i.fepspMin, dy)
-                    #print( k.name, ret, i.fepspMax, dy )
                     i.wts.append( ret * fepspScale )
 
 
@@ -1078,7 +1074,6 @@ def deliverStim( qe, model ):
                 #print(" Setting Vclamp {} to {}".format( path, qe.val ))
             else:
                 e.setField( field, qe.val )
-                #print qe.t, e.path, field, qe.val
                 #print( "########Stim = {} {} {} {} {}".format( qe.t, moose.element( '/model/elec/head0/glu' ).modulation, moose.element( '/model/chem/spine/Ca' ).conc, moose.element( '/model/elec/head0/Ca_conc' ).Ca, moose.element( '/model/elec/head0/glu/sh/synapse' ).weight ) )
                 if qe.t == 0:
                     ## At time zero we initial the value concInit or nInit
@@ -1246,6 +1241,8 @@ def runDoser( model, stim, readout, doseMol ):
     doseScale = stim.quantityScale
     referenceDose = readout.ratioReferenceDose * stim.quantityScale
     sim = 0.0
+    dts = moose.element('/clock').dts
+    #print( "In runDoser: settle time {:.2f}, dt = {:.3f}, {:.3f}".format( readout.settleTime, dts[10], dts[16] ) )
     for dose, response, sem in readout.data:
         doseMol.concInit = dose * doseScale
         moose.reinit()
@@ -1470,7 +1467,6 @@ def buildSolver( modelId, solver, useVclamp = False, turnOffElec = False ):
         stoich = moose.Stoich( compt.path + '/stoich' )
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
-        #print( "Path = " + compt.path + "/##" )
         stoich.path = compt.path + '/##'
 
 def buildVclamp( stim, modelLookup ):
@@ -1485,7 +1481,6 @@ def buildVclamp( stim, modelLookup ):
     vclamp.td = 5e-6    # Differential time. Should it be >= dt?
     #vclamp.gain = 0.00005   # Gain of vclamp ckt used for squid: 500x500um
     vclamp.gain = compt.Cm * 5e3  # assume SI units. Scaled by area so that gain is reasonable. Needed to avert NaNs.
-    #print( "Building Vclamp on {}. Compt Cm = {}".format( path, compt.Cm ))
 
     # Connect voltage clamp circuitry
     moose.connect( compt, 'VmOut', vclamp, 'sensedIn' )
@@ -1510,7 +1505,6 @@ def getUniqueName( model, obj ):
     assert( len( wf ) > 0 )
     if len( wf ) == 1:
         return pa + "/" + obj.name
-    #print ("Concinit = {}".format( obj.concInit ) )
     raise SimError( "getUniqueName: {} and {} non-unique, please rename.".format( wf[0].path, wf[1].path ) )
     return obj.name
 
@@ -1575,16 +1569,17 @@ def main():
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
+    parser.add_argument( '-t', '--tabulate_output', action="store_true", help='Flag: Print table of plot values. Default is NOT to print table' )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     parser.add_argument( '-settle_time', '--settle_time', type=float, default=0,  help='Run model for specified settle time and return dict of {path,conc}.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param, settleTime = args.settle_time )
+    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output )
 
 
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {} ):
+def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1597,6 +1592,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
     modelWarning = ""
     modelId = ""
     expt, stims, readouts, model = loadTsv( script )
+    for r in readouts:
+        r.tabulateOutput = tabulateOutput
+
     if modelFile != "":
         model.fileName = modelFile
     model.pauseHsolve = PauseHsolve( optimizeElec )
@@ -1630,6 +1628,9 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         # Then we apply whatever modifications are specified by user or protocol
 
         modelWarning = ""
+        # We have to scale params _before_ modifying the model since the
+        # expt modifications override anything done to the model params.
+        model._scaleParams( scaleParam )
         model.modify( modelId, erSPlist,modelWarning )
         #moose.le( '/library/chem/compartment_1' )
         turnOffElec = False
@@ -1642,7 +1643,6 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
             #turnOffElec = rdes.turnOffElec
             moose.reinit()
 
-        model._scaleParams( scaleParam )
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
                 moose.mooseWriteKkit( modelId.path, dumpFname )
@@ -1695,19 +1695,16 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         if settleTime > 0:
             t0 = time.time()
             moose.reinit()
-            #print settleTime
             moose.start( settleTime )
             w = moose.wildcardFind( modelId.path + "/##[ISA=PoolBase]" )
             ret = {}
             for i in w:
                 if not i.isBuffered:
                     ret[i.path] = i.n
-                    #print( "{}.nInit =   {:.3f}".format( i.path, i.n ))
-            #print "-------------------- settle done -------------------"
             moose.delete( modelId )
             if moose.exists( '/library' ):
                 moose.delete( '/library' )
-            #print( "Done settling in {:.2f} seconds".format( time.time()-t0))
+            print( "Done global settle time {:.2f} in {:.2f} seconds".format( settleTime, time.time()-t0))
             print( "s", end = '' )
             sys.stdout.flush()
             return ret
