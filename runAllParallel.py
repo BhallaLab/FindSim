@@ -35,8 +35,8 @@ This script runs the findSim program on all tsv files in the specified
 directory, computes their scores, and prints out basic stats of the scores.
 It can do this in parallel using Python's multiprocessing library.
 '''
+from __future__ import print_function, division
 
-from __future__ import print_function, division, absolute_import
 import numpy
 import argparse
 import os
@@ -45,13 +45,16 @@ import argparse
 import time
 from multiprocessing import Pool
 
-# Python's pain (import and scripts). See  https://stackoverflow.com/a/49480246/1805129
+# Python 2/3 pain (import and scripts). See  https://stackoverflow.com/a/49480246/1805129
 # This 'hack' is here to make sure that `python runAllParallel.py` also works
 # and described in old documents. 
-if __package__ is None or __package__ == '':
-    import findSim
+if sys.version_info.major > 2:
+    if __package__ is None or __package__ == '':
+        import findSim
+    else:
+        from FindSim import findSim
 else:
-    from FindSim import findSim
+    import findSim
 
 resultCount = 0
 def reportReturn( result ):

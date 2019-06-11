@@ -1,3 +1,6 @@
 numpy
 matplotlib
 networkx
+pymoose
+mpld3
+scipy

@@ -10,13 +10,13 @@ __maintainer__       = "Dilawar Singh"
 __email__            = "dilawars@ncbs.res.in"
 __status__           = "Development"
 
-from FindSim import findSim
-from FindSim import runAllParallel
 
 def run():
+    from FindSim import findSim
     findSim.main()
 
 def run_parallel():
+    from FindSim import runAllParallel
     runAllParallel.main()
 
 if __name__ == '__main__':
