@@ -43,8 +43,15 @@ import os
 import sys
 import argparse
 import time
-from . import findSim
 from multiprocessing import Pool
+
+# Python's pain (import and scripts). See  https://stackoverflow.com/a/49480246/1805129
+# This 'hack' is here to make sure that `python runAllParallel.py` also works
+# and described in old documents. 
+if __package__ is None or __package__ == '':
+    import findSim
+else:
+    from FindSim import findSim
 
 resultCount = 0
 def reportReturn( result ):

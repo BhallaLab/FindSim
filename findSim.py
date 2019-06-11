@@ -33,9 +33,8 @@
 **********************************************************************/
 
 '''
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import heapq
-#import pylab
 import numpy as np
 import sys
 import argparse
@@ -45,8 +44,8 @@ import re
 import ntpath
 import time
 import imp      # This is apparently deprecated in Python 3.4 and up
-
-import matplotlib.pyplot as pyplot,mpld3
+import matplotlib.pyplot as pyplot
+import mpld3
 
 #mpld3 hack
 # suggested: https://github.com/mpld3/mpld3/issues/434
@@ -59,7 +58,6 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 from mpld3 import _display
 _display.NumpyEncoder = NumpyEncoder
-
 
 convertTimeUnits = {('sec','s') : 1.0, 
     ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
