@@ -17,7 +17,7 @@ else
     $PYTHON -m pip install --upgrade 
 fi
 
-$PYTHON setup.py install --user
+# travis.yml should install FindSim
 # $PYTHON -m pip install Jinja2
 # $PYTHON -m pip install mpld3
 # $PYTHON -m pip install pymoose --pre --upgrade
@@ -40,4 +40,4 @@ findsim ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
 #findsim ./Curated/FindSim-Gu2004_fig3B.tsv --model models/synSynth7.g
 findsim ./Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
 findsim ./Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
-findsim_parallel Curated -N 8
+findsim_parallel Curated -n 4

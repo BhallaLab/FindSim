@@ -13,4 +13,5 @@ before_script:
 
 script:
     - cp ./.travis/matplotlibrc .
+    - python -m pip install
     - ./test.sh
