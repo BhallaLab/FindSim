@@ -31,9 +31,9 @@
 ** also known as GENESIS 3 base code.
 **           copyright (C) 2003-2018 Upinder S. Bhalla. and NCBS
 **********************************************************************/
-
 '''
-from __future__ import print_function
+
+from __future__ import print_function, division
 import heapq
 import pylab
 import numpy as np
@@ -1737,6 +1737,7 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         if moose.exists( '/library' ):
             moose.delete( '/library' )
         return -1.0
+
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()

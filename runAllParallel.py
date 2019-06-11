@@ -36,7 +36,7 @@ directory, computes their scores, and prints out basic stats of the scores.
 It can do this in parallel using Python's multiprocessing library.
 '''
 
-from __future__ import print_function
+from __future__ import print_function, division
 import numpy
 import argparse
 import os
@@ -115,8 +115,8 @@ def main():
             numGood += 1
             sumScore += j * w
             sumWts += w
-    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format( numGood, sumScore / sumWts, time.time() - t0 ) )
-        #print( "{0} : {1:.2f}".format( i, j ) )
+    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format(
+        numGood, sumScore / sumWts, time.time() - t0 ) )
 
         
 # Run the 'main' if this script is executed standalone.
