@@ -31,7 +31,7 @@ setuptools.setup(
         long_description_content_type = "text/markdown",
         packages = [ "FindSim" ],
         package_dir = { "FindSim" : "."},
-        install_requires = [ 'pymoose', 'scipy' ],
+        install_requires = [ 'pymoose', 'scipy', 'mpld3', 'networkx' ],
         author = "Dilawar Singh",   # author of packaging. See contributors for
                                     # the list of authors 
         author_email = "dilawar@ncbs.res.in",
