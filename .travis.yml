@@ -15,4 +15,4 @@ script:
     - cp ./.travis/matplotlibrc .
     - python -m pip install .
     - python -m pip install pymoose --pre --upgrade # till we relase 3.2.0
-    - ./test.sh
+    - ./test.sh 
