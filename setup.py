@@ -14,7 +14,7 @@ import setuptools
 with open("README.md") as f:
     readme = f.read()
 
-version_ = '1.0.0'
+version_ = '1.0.1'
 isPre_   = True
 if isPre_:
     import datetime
