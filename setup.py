@@ -14,9 +14,18 @@ import setuptools
 with open("README.md") as f:
     readme = f.read()
 
+version_ = '1.0.0'
+isPre_   = True
+if isPre_:
+    import datetime
+    version_ += '.dev' + datetime.datetime.today().strftime('%Y%m%d')
+    print( "[INFO ] Building version %s" % version_ )
+    
+
+
 setuptools.setup(
         name = "FindSim",
-        version = "0.0.1",
+        version = version_,
         description = "A Framework for Integrating Neuronal Data and Singalling Model",
         long_description = readme,
         long_description_content_type = "text/markdown",
@@ -28,7 +37,6 @@ setuptools.setup(
         author_email = "dilawar@ncbs.res.in",
         url = "http://github.com/BhallaLab/FindSime",
         package_data = { "FindSim" : [ '*.csv', '*.xml' ] },
-        include_pacakge_data  = True,
         license='GPLv3',
         entry_points = {
             'console_scripts' : [
