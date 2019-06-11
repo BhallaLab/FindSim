@@ -34,16 +34,16 @@ To run FindSim script one needs to
 
 # File organization:
 
-FindSim/             				: project directory  
-FindSim/stable					: Stable branch. Stable version of `develop` branch  
-FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
-FindSim/models					: Model files 
-FindSim/findSim.py				: Main findSim script  
-FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
-FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
-FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
-FindSim/FindSim-Schema.xml 			: Schema for tsv files for worksheet.  
-FindSim/README.md				: This file  
+    FindSim/             				: project directory  
+    FindSim/stable					: Stable branch. Stable version of `develop` branch  
+    FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
+    FindSim/models					: Model files 
+    FindSim/findSim.py				: Main findSim script  
+    FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
+    FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
+    FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
+    FindSim/FindSim-Schema.xml 			: Schema for tsv files for worksheet.  
+    FindSim/README.md				: This file  
 						
 # Quick start: 
 
