@@ -1,5 +1,5 @@
+# -*- coding: utf-8 -*-
 
-# 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 3, or
@@ -43,7 +43,7 @@ import os
 import sys
 import argparse
 import time
-import findSim
+from . import findSim
 from multiprocessing import Pool
 
 resultCount = 0

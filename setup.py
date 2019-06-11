@@ -34,8 +34,8 @@ setuptools.setup(
         license='GPLv3',
         entry_points = {
             'console_scripts' : [
-                'findsim = findsim.__main__:run',
-                'findsim_parallel = findsim.__main__:run_parallel'
+                'findsim = FindSim.__main__:run',
+                'findsim_parallel = FindSim.__main__:run_parallel'
                 ]
             },
         )
