@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-
 set -e 
-set -x
 
 # virtualenv does not require --user
 PYTHON=$(which python)
@@ -35,10 +33,10 @@ for _tsv in $(find ./TestTSV -name *.tsv -type f); do
     $PYTHON findSim.py ${_tsv} --model models/synSynth7.g
 done
 
-findsim ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
-findsim ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
+time findsim ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
+time findsim ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
 # Following takes a lot of time to run.
 #findsim ./Curated/FindSim-Gu2004_fig3B.tsv --model models/synSynth7.g
-findsim ./Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
-findsim ./Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
+time findsim ./Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
+time findsim ./Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
 timeout 60 findsim_parallel Curated -n 4 || echo "Timedout. We call it success!"
