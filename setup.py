@@ -4,10 +4,8 @@
     
 __author__           = "Dilawar Singh"
 __copyright__        = "Copyright 2017-, Dilawar Singh"
-__version__          = "1.0.0"
 __maintainer__       = "Dilawar Singh"
 __email__            = "dilawars@ncbs.res.in"
-__status__           = "Development"
 
 import os
 import sys
@@ -18,7 +16,7 @@ with open("README.md") as f:
 
 setuptools.setup(
         name = "FindSim",
-        version = "1.0.0",
+        version = "0.0.1",
         description = "A Framework for Integrating Neuronal Data and Singalling Model",
         long_description = readme,
         long_description_content_type = "text/markdown",
