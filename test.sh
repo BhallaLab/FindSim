@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e 
+set -x
 
 # virtualenv does not require --user
 PYTHON=$(which python)
@@ -14,7 +15,7 @@ if [ "$PYTHON_VERSION" -eq "27" ]; then
 else
     # $PYTHON -m pip uninstall matplotlib -y || echo "Failed to remove matplotlib"
     $PYTHON -m pip install matplotlib --upgrade 
-    $PYTHON -m pip install --upgrade 
+    $PYTHON -m pip install scipy --upgrade 
 fi
 
 # travis.yml should install FindSim
