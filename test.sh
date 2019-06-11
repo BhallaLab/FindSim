@@ -18,10 +18,10 @@ else
 fi
 
 # travis.yml should install FindSim
-# $PYTHON -m pip install Jinja2
+$PYTHON -m pip install Jinja2 --upgrade
+$PYTHON -m pip install pylint --upgrade
 # $PYTHON -m pip install mpld3
 # $PYTHON -m pip install pymoose --pre --upgrade
-# $PYTHON -m pip install pylint numpy --upgrade
 
 find . -type f -name "*.py" | xargs -I file $PYTHON -m pylint \
     --disable=no-member \
