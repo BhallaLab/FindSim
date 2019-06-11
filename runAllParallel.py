@@ -36,7 +36,7 @@ directory, computes their scores, and prints out basic stats of the scores.
 It can do this in parallel using Python's multiprocessing library.
 '''
 
-from __future__ import print_function, division
+from __future__ import print_function, division, absolute_import
 import numpy
 import argparse
 import os

@@ -17,19 +17,20 @@ with open("README.md") as f:
     readme = f.read()
 
 setuptools.setup(
-        name = "findsim",
+        name = "FindSim",
         version = "1.0.0",
         description = "A Framework for Integrating Neuronal Data and Singalling Model",
         long_description = readme,
         long_description_content_type = "text/markdown",
-        packages = [ "findsim" ],
-        package_dir = { "findsim" : "."},
+        packages = [ "FindSim" ],
+        package_dir = { "FindSim" : "."},
         install_requires = [ 'pymoose', 'scipy' ],
         author = "Dilawar Singh",   # author of packaging. See contributors for
-        # autor of findsime
+                                    # the list of authors 
         author_email = "dilawar@ncbs.res.in",
         url = "http://github.com/BhallaLab/FindSime",
-        package_data = { "findsim" : [ '*.csv' ] },
+        package_data = { "FindSim" : [ '*.csv', '*.xml' ] },
+        include_pacakge_data  = True,
         license='GPLv3',
         entry_points = {
             'console_scripts' : [
