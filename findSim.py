@@ -45,17 +45,20 @@ import ntpath
 import time
 import imp      # This is apparently deprecated in Python 3.4 and up
 import matplotlib.pyplot as pyplot
-import mpld3
 
-#mpld3 hack
+# mpld3 hack
 # suggested: https://github.com/mpld3/mpld3/issues/434
 import json
+
 class NumpyEncoder(json.JSONEncoder):
+    # pylint: disable=method-hidden
     def default(self, obj):
         import numpy as np
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return json.JSONEncoder.default(self, obj)
+
+import mpld3
 from mpld3 import _display
 _display.NumpyEncoder = NumpyEncoder
 
