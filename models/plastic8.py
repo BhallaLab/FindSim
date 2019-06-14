@@ -19,7 +19,7 @@ def load():
         chemDt = 0.002,
         diffDt = 0.002,
         chemPlotDt = 0.02,
-        turnOffElec = True, #FindSim needs to create Vclamp and then solver.
+        turnOffElec = False,#FindSim needs to create Vclamp and then solver.
         useGssa = False,
         # cellProto syntax: ['ballAndStick', 'name', somaDia, somaLength, dendDia, dendLength, numDendSegments ]
         cellProto = [['ballAndStick', 'soma', 12e-6, 12e-6, 4e-6, 100e-6, 1 ]],
@@ -52,6 +52,11 @@ def load():
         stimList = [['head#', '0.2','glu', 'periodicsyn', '0']],
     )
     moose.seed(1234567)
+    
+    return rdes
+
+
+def build( rdes ):
     rdes.buildModel()
     #moose.element( '/model/chem/dend/ksolve' ).numThreads = 4
     #moose.showfield( '/model/chem/dend/ksolve' )
@@ -63,5 +68,3 @@ def load():
     #moose.showmsg( '/model/elec/head0/glu/sh/synapse/synInput_rs' )
     #import presettle_CaMKII_MAPK7_init
     moose.reinit()
-    
-    return rdes.model

@@ -1,5 +1,5 @@
+# -*- coding: utf-8 -*-
 
-# 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 3, or
@@ -35,16 +35,26 @@ This script runs the findSim program on all tsv files in the specified
 directory, computes their scores, and prints out basic stats of the scores.
 It can do this in parallel using Python's multiprocessing library.
 '''
+from __future__ import print_function, division
 
-from __future__ import print_function
 import numpy
 import argparse
 import os
 import sys
 import argparse
 import time
-import findSim
 from multiprocessing import Pool
+
+# Python 2/3 pain (import and scripts). See  https://stackoverflow.com/a/49480246/1805129
+# This 'hack' is here to make sure that `python runAllParallel.py` also works
+# and described in old documents. 
+if sys.version_info.major > 2:
+    if __package__ is None or __package__ == '':
+        import findSim
+    else:
+        from FindSim import findSim
+else:
+    import findSim
 
 resultCount = 0
 def reportReturn( result ):
@@ -115,8 +125,8 @@ def main():
             numGood += 1
             sumScore += j * w
             sumWts += w
-    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format( numGood, sumScore / sumWts, time.time() - t0 ) )
-        #print( "{0} : {1:.2f}".format( i, j ) )
+    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format(
+        numGood, sumScore / sumWts, time.time() - t0 ) )
 
         
 # Run the 'main' if this script is executed standalone.
