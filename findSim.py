@@ -717,7 +717,7 @@ def isNotDescendant( elm, ancestorSet ):
 def getObjParam( elm, field ):
     if field == 'Kd':
         if not elm.isA['ReacBase']:
-            raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( obj.className ) )
+            raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
         return elm.Kb/elm.Kf
     elif field == 'tau':
         # This is a little dubious, because order 1 reac has 1/conc.time
@@ -725,7 +725,7 @@ def getObjParam( elm, field ):
         # This latter is the Kf we want to use, assuming typical concs are
         # around 1 uM.
         if not elm.isA['ReacBase']:
-            raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
+            raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( elm.className ) )
         scaleKf = 0.001 ** (elm.numSubstrates-1)
         scaleKb = 0.001 ** (elm.numProducts-1)
         #print( "scaleKf={}; scaleKb={}, numsu ={}, numPrd={},Kb={},Kf={}".format( scaleKf, scaleKb, elm.numSubstrates, elm.numProducts, elm.Kb, elm.Kf ) )
@@ -1109,7 +1109,7 @@ def parseAndRunDoser( model, stims, readouts, modelId ):
             exactly one stimulus block, {} defined".format( len(stims)) )
     if len( readouts ) != 1:
         raise SimError( "parseAndRunDoser: Dose response run needs \
-            exactly one readout block, {} defined".format( len(readout) ) )
+            exactly one readout block, {} defined".format( len(readouts) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
@@ -1206,7 +1206,7 @@ def parseAndRunBarChart( model, stims, readouts, modelId ):
             one stimulus block, {} defined".format( len( stims ) ) )
     if len( readouts ) != 1:
         raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
-            one readout block, {} defined".format( len( readout ) ) )
+            one readout block, {} defined".format( len( readouts ) ) )
     numLevels = len( readouts[0].data )
     
     if numLevels == 0:
