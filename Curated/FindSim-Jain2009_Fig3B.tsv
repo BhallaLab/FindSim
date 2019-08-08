@@ -13,8 +13,8 @@ Experiment context
 exptType	DoseResponse	
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway	S6K,mTOR	
+temperature-in-Celsius		
+IncludePathway	S6K,mTOR	
 details	Jain2009_fig3B	
 notes	Dose Response	
 		
