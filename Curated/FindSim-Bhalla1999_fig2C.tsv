@@ -13,8 +13,8 @@ Experiment context
 exptType	DoseResponse	
 species		
 cell-types		
-temperature (Celsius)		
-Include pathway	EGFR,PLCg	
+temperature-in-Celsius		
+IncludePathway	EGFR,PLCg	
 details	Fig 7A	
 notes	Dose Response	
 		
