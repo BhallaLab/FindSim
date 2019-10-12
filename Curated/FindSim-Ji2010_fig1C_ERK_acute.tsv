@@ -36,8 +36,8 @@ useXlog	FALSE
 useYlog	FALSE	
 useNormalization	TRUE	
 settleTime	0	
-ratioReferenceTime	0	
-ratioReferenceEntities	ERK1/2	
+ratioReferenceTime	1800	
+ratioReferenceEntities	pERK1/2	
 ratioReferenceDose	0	
 entities	pERK1/2	
 field	conc	
