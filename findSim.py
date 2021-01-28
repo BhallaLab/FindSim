@@ -1360,7 +1360,7 @@ def buildSolver( modelId, solver, useVclamp = False ):
         stoich.compartment = moose.element( compt.path )
         stoich.ksolve = ksolve
         #print( "Path = " + compt.path + "/##" )
-        stoich.path = compt.path + '/##'
+        stoich.reacSystemPath = compt.path + '/##'
 
 def buildVclamp( stim, modelLookup ):
     # Stim.entities should be the compartment name here.
