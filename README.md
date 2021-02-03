@@ -48,7 +48,7 @@ Latest release is 1.1.0, which can be downloadable at
 # Quick start: 
 A. Run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 	To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  
-  	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv --model synSynth7.g  
+  	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv --model models/synSynth7.g  
   				or  
   	>python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv  
 

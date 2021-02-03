@@ -107,9 +107,10 @@ class EvalFunc:
             paramList.append( obj )
             paramList.append( field )
             paramList.append( j )
+            #print( "{:6.3f}".format(j), end = "" )
 
         for k in self.expts:
-            ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=paramList), callback = reportReturn ) )
+            ret.append( self.pool.apply_async( findSim.innerMain, (k,), dict(modelFile = self.modelFile, hidePlot=True, silent=True, scaleParam=paramList, tabulateOutput = False ), callback = reportReturn ) )
         self.score = [ i.get() for i in ret ]
         sumScore = sum([ s*w for s,w in zip(self.score, self.weights) if s>=0.0])
         sumWts = sum( [ w for s,w in zip(self.score, self.weights) if s>=0.0 ] )
@@ -166,6 +167,8 @@ def main():
     results = optimize.minimize( ev.doEval, np.ones( len(params) ), method='L-BFGS-B', tol = args.tolerance, callback = optCallback, bounds = bounds )
     print( "\n----------- Completed in {:.3f} sec ---------- ".format(time.time() - t0 ) )
     print( "\n----- Score= {:.4f} ------ ".format(results.fun ) )
+
+
     dumpData = False
     fp = ""
     if len( args.file ) > 0:
@@ -208,12 +211,10 @@ def tweakParams( params, scaleFactors ):
             obj.Kb /= x
         else:
             obj.setField( field, obj.getField( field ) * x )
-        #print( "Tweaked {}.{} by {}".format( obj.path, field, x ) )
 
 
 
 def analyzeResults( fp, dumpData, results, params, evalObj, initScore ):
-    #assert( len(results.x) == len( results.fun ) )
     assert( len(results.x) == len( params ) )
     out = []
     for p,x, in zip(params, results.x):
@@ -224,12 +225,12 @@ def analyzeResults( fp, dumpData, results, params, evalObj, initScore ):
     numSum = 0.0
     assert( len( evalObj.expts ) == len( initScore ) )
     for e, i, f, w in zip( evalObj.expts, initScore, evalObj.score, evalObj.weights ):
-        out.append( "{:40s}{:12.3f}{:12.3f}{:12.3f}".format( e, i, f, w ) )
+        out.append( "{:40s}{:12.5f}{:12.5f}{:12.3f}".format( e, i, f, w ) )
         if i >= 0:
             initSum += i * w
             finalSum += f * w
             numSum += w
-    out.append( "\nInit score = {:.4f}, final = {:.4f}".format(initSum/numSum, finalSum / numSum) )
+    out.append( "\nInit score = {:.4f}, final = {:.8f}".format(initSum/numSum, results.fun ) )
     for i in out:
         print( i )
         if dumpData:
