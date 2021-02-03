@@ -222,7 +222,7 @@ class SimWrapMoose( SimWrap ):
 
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.xml':
-            self.modelId, errormsg = moose.mooseReadSBML( fname, 'model', 'ee' )
+            self.modelId, errormsg = moose.readSBML( fname, 'model', 'ee' )
         elif file_extension == '.g':
             self.modelId = moose.loadModel( fname, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
