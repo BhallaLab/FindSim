@@ -15,8 +15,23 @@ provides a score that reports how closely the two match.
 This file and the files in this repository are licensed under GPL v3 or later.
 
 # Version
+Latest release is 
+- LegacyVersion1.2.0
+    We have moved our Experiment datasheet from TSV to Json file format and Python 2 is no longer supported by the Python Software Foundation, moose-core which is our primary backend simulation tool will also stop supporting Python2 compilation. we have moved on to Python3.
 
-Latest release is 1.1.0, which can be downloadable at  
+    This version of the code is tested against python2 and python3 with moose-core,
+        <li> <a href="https://github.com/BhallaLab/moose-core/commit/2062ab231ff8fcc0644db4b5e054a3c571312bc2">BhallaLab/moose-core @ 2062ab2</a> version (tag Version <a href="https://github.com/BhallaLab/moose-core/releases/tag/FindSim-1.0-beta">FindSim-1.0-beta</a>) with python2 and 
+   <li><a href="https://github.com/BhallaLab/moose-core/commit/0ee20b3cd9ff9">BhallaLab/moose-core @ 0ee20b3cd9ff9</a> with python3. 
+
+   	LegacyVersion1.2.o can be downloaded at 
+	https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.zip
+	https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.tar.zip
+- 1.1.0,
+    FindSim scripts for the paper were run with https://github.com/BhallaLab/moose-core/commit/12cf83e17ae8ca3111441ff1899c3cd67cbc30dd version or <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim_1.0-alpha>FindSim-1.0-alpha</a> with python2, libsbml L3V.
+ 
+	The same was run https://github.com/BhallaLab/moose-core/commit/2062ab231ff8fcc0644db4b5e054a3c571312bc2 version or tag version <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim-1.0-beta> FindSim-1.0-beta</a> with python2 and found the result matched as documented in the paper. 
+    
+    version 1.1.0 which can be downloadable at
 	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip  
 	https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
 
