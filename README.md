@@ -25,16 +25,14 @@ Latest release is
     	* <a href="https://github.com/BhallaLab/moose-core/commit/2062ab231ff8fcc0644db4b5e054a3c571312bc2">BhallaLab/moose-core @ 2062ab2</a> version (tag Version <a href="https://github.com/BhallaLab/moose-core/releases/tag/FindSim-1.0-beta">FindSim-1.0-beta</a>) with python2. <br>
 	
    	One can download the code at <br>
-		https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.zip<br>
-		https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.tar.zip
-- 1.1.0,<br>
-    FindSim scripts for the paper was run with https://github.com/BhallaLab/moose-core/commit/12cf83e17ae8ca3111441ff1899c3cd67cbc30dd version or <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim_1.0-alpha>FindSim-1.0-alpha</a> with python2, libsbml L3V.
- <br> 
-	And later the same was run with latest code of moose-core https://github.com/BhallaLab/moose-core/commit/2062ab231ff8fcc0644db4b5e054a3c571312bc2 version or tag version <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim-1.0-beta> FindSim-1.0-beta</a> with python2 and found the result matched as documented in the paper. 
-    <br>
+		- https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.zip<br>
+		- https://github.com/BhallaLab/FindSim/archive/LegacyVersion1.2.0.tar.zip
+- **1.1.0**,<br>
+    FindSim scripts for the paper was run with https://github.com/BhallaLab/moose-core/commit/12cf83e17ae8ca3111441ff1899c3cd67cbc30dd version or <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim_1.0-alpha>FindSim-1.0-alpha</a> with python2, libsbml L3V.<br>
+    And later the same was run with latest code of moose-core https://github.com/BhallaLab/moose-core/commit/2062ab231ff8fcc0644db4b5e054a3c571312bc2 version or tag version <a href=https://github.com/BhallaLab/moose-core/releases/tag/FindSim-1.0-beta> FindSim-1.0-beta</a> with python2 and found the result matched as documented in the paper. <br>
     version 1.1.0 which can be downloadable at <br>
-	https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip <br> 
-	https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
+	- https://github.com/BhallaLab/FindSim/archive/v1.1.0.zip <br> 
+	- https://github.com/BhallaLab/FindSim/archive/v1.1.0.tar.gz
 
 
 # Install 
