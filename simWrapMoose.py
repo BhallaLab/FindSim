@@ -222,9 +222,9 @@ class SimWrapMoose( SimWrap ):
 
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.xml':
-            self.modelId, errormsg = moose.mooseReadSBML( fname, 'model', 'ee' )
+            self.modelId, errormsg = moose.readSBML( fname, 'model', 'ee' )
         elif file_extension == '.g':
-            self.modelId = moose.loadModel( fname, 'model', 'ee' )[0]
+            self.modelId = moose.loadModel( fname, 'model', 'ee' )
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
         elif file_extension == '.py':
             # Assume a moose script for creating the model in rdesigneur.
@@ -265,9 +265,9 @@ class SimWrapMoose( SimWrap ):
 
         if len(dumpFname) > 2:
             if dumpFname[-2:] == '.g':
-                moose.mooseWriteKkit( self.modelId.path, dumpFname )
+                moose.writeKkit( self.modelId.path, dumpFname )
             elif len(dumpFname) > 4 and dumpFname[-4:] == '.xml':
-                moose.mooseWriteSBML( self.modelId.path, dumpFname )
+                moose.writeSBML( self.modelId.path, dumpFname )
             else:
                 raise SimError( "Subset file type not known for '{}'".format( dumpFname ) )
 
