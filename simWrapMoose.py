@@ -313,7 +313,7 @@ class SimWrapMoose( SimWrap ):
             stoich = moose.Stoich( compt.path + '/stoich' )
             stoich.compartment = moose.element( compt.path )
             stoich.ksolve = ksolve
-            stoich.path = compt.path + '/##'
+            stoich.reacSystemPath = compt.path + '/##'
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.1 )
 
