@@ -1,0 +1,42 @@
+{
+	"type": "object",
+	"properties": {
+		"Author": {"type": "string"},
+		"Description": {"type": "string"},
+		"quantityUnits": {"type": "string",
+			"enum": ["M", "mM", "uM", "nM", "pM"]
+		},
+		"comment": {"type": "string"},
+		"Groups" : {"type": "object",
+			"additionalProperties": {"type": "object",
+				"properties": {
+					"comment": { "type": "string" },
+					"Species": { "type": "object",
+						"additionalProperties": { "type": "number" }
+				   	},
+					"Reacs": { "type": "object",
+						"additionalProperties": { "type": "object",
+							"properties": {
+								"subs": { "type": "array",
+									"items": {"type": "string"}
+								},
+								"KA": { "type": "number" },
+								"tau": { "type": "number" },
+								"tau2": { "type": "number" },
+								"inhibit": { "type": "number" },
+								"baseline": { "type": "number" }
+							},
+							"required": ["subs", "KA", "tau"],
+							"additionalProperties": false
+						}
+				   	},
+					"Eqns": { "type": "object",
+						"additionalProperties": { "type": "string" } 
+					}
+				}
+			}
+		}
+	},
+	"required": ["Author", "Description", "Groups"],
+	"additionalProperties": false
+}

@@ -1,0 +1,64 @@
+{
+    "Metadata": {
+        "transcriber": "Upinder S. Bhalla",
+        "organization": "NCBS",
+        "email": "bhalla@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 15548210,
+            "authors": "Bhalla",
+            "journal": "Test Journal",
+            "year": 0,
+            "figure": "Figure 1 panel B"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DirectParameter",
+        "species": "",
+        "cellType": "hippocampal CA1 pyramidal neuron",
+        "notes": ""
+    },
+    "Readouts": {
+        "paramdata": [
+            {
+                "entity": "RecLigandBinding",
+                "field": "tau",
+                "units": "sec",
+                "value": 0.04,
+                "stderr": 0.01
+            },
+            {
+                "entity": "makeTernary",
+                "field": "tau",
+                "units": "sec",
+                "value": 160,
+                "stderr": 50
+            },
+            {
+                "entity": "RecLigandBinding",
+                "field": "Kd",
+                "units": "uM",
+                "value": 0.6,
+                "stderr": 0.1
+            },
+            {
+                "entity": "makeTernary",
+                "field": "Kd",
+                "units": "uM",
+                "value": 0.015,
+                "stderr": 0.005
+            }
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "mGluR_g",
+            "G_GDP"
+        ],
+        "itemsToDelete": [
+            "Activate_Gq"
+        ]
+    }
+}

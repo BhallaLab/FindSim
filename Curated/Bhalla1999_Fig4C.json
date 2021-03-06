@@ -1,0 +1,600 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 9888852,
+            "authors": "Bhalla and Iyengar",
+            "journal": "Science ",
+            "year": 1999,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "",
+        "cellType": "",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "entity": "Ca",
+            "field": "conc",
+            "data": [
+                [
+                    1000,
+                    10
+                ],
+                [
+                    1000.2,
+                    9
+                ],
+                [
+                    1000.4,
+                    8
+                ],
+                [
+                    1000.8,
+                    7
+                ],
+                [
+                    1001,
+                    4
+                ],
+                [
+                    1002,
+                    1
+                ],
+                [
+                    1003,
+                    0.92
+                ],
+                [
+                    1004,
+                    0.8
+                ],
+                [
+                    1005,
+                    0.7
+                ],
+                [
+                    1006,
+                    0.6
+                ],
+                [
+                    1007,
+                    0.5
+                ],
+                [
+                    1008,
+                    0.48
+                ],
+                [
+                    1010,
+                    0.42
+                ],
+                [
+                    1012,
+                    0.38
+                ],
+                [
+                    1014,
+                    0.32
+                ],
+                [
+                    1016,
+                    0.28
+                ],
+                [
+                    1018,
+                    0.22
+                ],
+                [
+                    1020,
+                    0.18
+                ],
+                [
+                    1022,
+                    0.12
+                ],
+                [
+                    1032,
+                    0.1
+                ],
+                [
+                    1036,
+                    0.08
+                ],
+                [
+                    1600,
+                    10
+                ],
+                [
+                    1600.2,
+                    9
+                ],
+                [
+                    1600.4,
+                    8
+                ],
+                [
+                    1600.8,
+                    7
+                ],
+                [
+                    1601,
+                    4
+                ],
+                [
+                    1602,
+                    1
+                ],
+                [
+                    1603,
+                    0.92
+                ],
+                [
+                    1604,
+                    0.8
+                ],
+                [
+                    1605,
+                    0.7
+                ],
+                [
+                    1606,
+                    0.6
+                ],
+                [
+                    1607,
+                    0.5
+                ],
+                [
+                    1608,
+                    0.48
+                ],
+                [
+                    1610,
+                    0.42
+                ],
+                [
+                    1612,
+                    0.38
+                ],
+                [
+                    1614,
+                    0.32
+                ],
+                [
+                    1616,
+                    0.28
+                ],
+                [
+                    1618,
+                    0.22
+                ],
+                [
+                    1620,
+                    0.18
+                ],
+                [
+                    1622,
+                    0.12
+                ],
+                [
+                    1632,
+                    0.1
+                ],
+                [
+                    1636,
+                    0.08
+                ],
+                [
+                    2200,
+                    10
+                ],
+                [
+                    2200.2,
+                    9
+                ],
+                [
+                    2200.4,
+                    8
+                ],
+                [
+                    2200.8,
+                    7
+                ],
+                [
+                    2201,
+                    4
+                ],
+                [
+                    2202,
+                    1
+                ],
+                [
+                    2203,
+                    0.92
+                ],
+                [
+                    2204,
+                    0.8
+                ],
+                [
+                    2205,
+                    0.7
+                ],
+                [
+                    2206,
+                    0.6
+                ],
+                [
+                    2207,
+                    0.5
+                ],
+                [
+                    2208,
+                    0.48
+                ],
+                [
+                    2210,
+                    0.42
+                ],
+                [
+                    2212,
+                    0.38
+                ],
+                [
+                    2214,
+                    0.32
+                ],
+                [
+                    2216,
+                    0.28
+                ],
+                [
+                    2218,
+                    0.22
+                ],
+                [
+                    2220,
+                    0.18
+                ],
+                [
+                    2222,
+                    0.12
+                ],
+                [
+                    2232,
+                    0.1
+                ],
+                [
+                    2236,
+                    0.08
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "uM",
+        "entities": [
+            "MAPKpp"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                600,
+                0.0001,
+                0
+            ],
+            [
+                1000,
+                0.0002,
+                0
+            ],
+            [
+                1200,
+                0.0005,
+                0
+            ],
+            [
+                1800,
+                0.01,
+                0
+            ],
+            [
+                2400,
+                0.03,
+                0
+            ],
+            [
+                3000,
+                0.13,
+                0
+            ],
+            [
+                3600,
+                0.18,
+                0
+            ],
+            [
+                4200,
+                0.21,
+                0
+            ],
+            [
+                4800,
+                0.22,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "Ca_g",
+            "Phosphatase_g",
+            "Gprotein_g",
+            "mGluR_g",
+            "AC_g",
+            "PKA_g",
+            "PP2B_g",
+            "PLCg_g",
+            "Ras_g",
+            "MAPK_g",
+            "PP1_g",
+            "CaM_g",
+            "CaMKII_g",
+            "mGluRAntag_g",
+            "PLCb_g",
+            "PLA2_g",
+            "PKC_g",
+            "PIP2",
+            "temp_PIP2",
+            "IP3",
+            "EGFR_g",
+            "Sos_g"
+        ],
+        "itemsToDelete": [
+            "clus_S6K_deph",
+            "S6K_dephosp",
+            "Gab1",
+            "bPI3K",
+            "PI3K",
+            "PIP3",
+            "PTEN",
+            "SHCpGrb2Gab1_PI3K",
+            "bPLCg",
+            "bGEF_act",
+            "RasGTP_PI3K",
+            "S6K_deph",
+            "SHCpGrb2_Gab1",
+            "PI3K_act",
+            "bPI3K_act",
+            "PI3K_bind_RasGTP",
+            "AKTpS473_deph",
+            "AKTpT308_deph",
+            "eEF2p_deph",
+            "PP2A_4EBPpp",
+            "PP2A_4EBPp",
+            "PP2A_eIF4EBPpp",
+            "PP2A_eIF4EBPp",
+            "aCaMKIII",
+            "PLCgp_deph",
+            "Grb2_bind_SHC",
+            "PDK1_act_S6K",
+            "phospho_AKTpT308",
+            "phospho_AKTpS473",
+            "clus_S6K_phospho",
+            "MAPK_4EBPpp",
+            "MAPK_4EBP_phospho",
+            "MEK_phospho",
+            "MEKp_phospho",
+            "AKTpT308S473",
+            "mGluR_barr2_Raf",
+            "mGluR_deph"
+        ],
+        "parameterChange": [
+            {
+                "entity": "Ca",
+                "field": "concInit",
+                "value": 8e-05,
+                "units": "mM"
+            },
+            {
+                "entity": "Ca",
+                "field": "isBuffered",
+                "value": 1,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1",
+                "field": "concInit",
+                "value": 2e-06,
+                "units": "mM"
+            },
+            {
+                "entity": "Ras_act_craf",
+                "field": "Kf",
+                "value": 24000,
+                "units": "none"
+            },
+            {
+                "entity": "CaM_bind_GEF",
+                "field": "Kf",
+                "value": 60000,
+                "units": "none"
+            },
+            {
+                "entity": "MAPK",
+                "field": "concInit",
+                "value": 0.00036,
+                "units": "mM"
+            },
+            {
+                "entity": "MAPKKthr",
+                "field": "kcat",
+                "value": 0.15,
+                "units": "none"
+            },
+            {
+                "entity": "MAPKKtyr",
+                "field": "kcat",
+                "value": 0.15,
+                "units": "none"
+            },
+            {
+                "entity": "Rafp_RasGTP1",
+                "field": "kcat",
+                "value": 0.105,
+                "units": "none"
+            },
+            {
+                "entity": "Rafp_RasGTP2",
+                "field": "kcat",
+                "value": 0.105,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pT424_deph",
+                "field": "kcat",
+                "value": 1,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pY421_deph",
+                "field": "kcat",
+                "value": 1,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pT424_deph",
+                "field": "Km",
+                "value": 6.97e-05,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pY421_deph",
+                "field": "Km",
+                "value": 6.97e-05,
+                "units": "none"
+            },
+            {
+                "entity": "EGFR_act_SHC",
+                "field": "Km",
+                "value": 0.000871,
+                "units": "none"
+            },
+            {
+                "entity": "SHCp_deph",
+                "field": "Kf",
+                "value": 0.00167,
+                "units": "none"
+            },
+            {
+                "entity": "Sos_Ras_GEF",
+                "field": "kcat",
+                "value": 0.02,
+                "units": "none"
+            },
+            {
+                "entity": "PKC_act_raf",
+                "field": "Km",
+                "value": 0.0697,
+                "units": "none"
+            },
+            {
+                "entity": "CaMGEF_actRas",
+                "field": "kcat",
+                "value": 0.02,
+                "units": "none"
+            },
+            {
+                "entity": "bPKCp",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "craf1",
+                "field": "concInit",
+                "value": 0.0002,
+                "units": "mM"
+            },
+            {
+                "entity": "MAPKK",
+                "field": "concInit",
+                "value": 0.00018,
+                "units": "mM"
+            },
+            {
+                "entity": "PP2A",
+                "field": "concInit",
+                "value": 0.00012,
+                "units": "mM"
+            },
+            {
+                "entity": "PPhosphatase2A",
+                "field": "concInit",
+                "value": 0.000224,
+                "units": "mM"
+            },
+            {
+                "entity": "PIP2",
+                "field": "concInit",
+                "value": 0.01,
+                "units": "mM"
+            },
+            {
+                "entity": "DAG",
+                "field": "isBuffered",
+                "value": 0,
+                "units": "none"
+            },
+            {
+                "entity": "AA",
+                "field": "isBuffered",
+                "value": 0,
+                "units": "none"
+            },
+            {
+                "entity": "AA",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "DAG",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "PLCg",
+                "field": "concInit",
+                "value": 0.00082,
+                "units": "mM"
+            },
+            {
+                "entity": "GAP",
+                "field": "concInit",
+                "value": 2e-06,
+                "units": "mM"
+            },
+            {
+                "entity": "RasGDP",
+                "field": "concInit",
+                "value": 0.0002,
+                "units": "mM"
+            }
+        ],
+        "notes": "Bhalla1999_Fig4C"
+    }
+}

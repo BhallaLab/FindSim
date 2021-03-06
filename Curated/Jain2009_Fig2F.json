@@ -1,0 +1,116 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 9094314,
+            "authors": "Alessi et al.",
+            "journal": "Curr Biol. ",
+            "year": 1997,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "in-vitro",
+        "cellType": "GST-PKBa expressed in HEK293 cells, PDK1 purified from rabbit skeletal muscle ",
+        "temperature": 55,
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "PDK1",
+            "field": "conc",
+            "data": [
+                [
+                    0,
+                    3.5
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "nM",
+        "entities": [
+            "AKTpT308"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                300,
+                18,
+                0
+            ],
+            [
+                600,
+                25,
+                0
+            ],
+            [
+                1200,
+                40,
+                0
+            ],
+            [
+                2400,
+                70,
+                0
+            ],
+            [
+                4800,
+                110,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "AKT_g",
+            "PI3K_g"
+        ],
+        "itemsToDelete": [
+            "PTEN",
+            "RasGTP_PI3K",
+            "bind_Gab1",
+            "temp_PIP2",
+            "SHCpGrb2Gab1_PI3K",
+            "PI3K",
+            "Gab1",
+            "bPI3K",
+            "SHCpGrb2_Gab1",
+            "PI3K_act",
+            "bPI3K_act",
+            "PI3K_bind_RasGTP",
+            "PIP3_PDK2",
+            "AKTpT308S473",
+            "PDK1_act_S6K"
+        ],
+        "parameterChange": [
+            {
+                "entity": "PIP3",
+                "field": "concInit",
+                "value": 0.00025,
+                "units": "mM"
+            },
+            {
+                "entity": "AKT",
+                "field": "concInit",
+                "value": 0.0005,
+                "units": "mM"
+            }
+        ],
+        "notes": "Jain2009_Fig2F"
+    }
+}
