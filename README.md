@@ -11,7 +11,7 @@ at [https://doi.org/10.3389/fninf.2018.00038](https://doi.org/10.3389/fninf.2018
 The FindSim project maps models of neural and cellular signaling to 
 experimental protocols and readouts. It runs the experiment on the model, and
 provides a score that reports how closely the two match.
-
+FindSim Experiments is moved from TSV file format to Json format
 # LICENSE
 This file and the files in this repository are licensed under GPL v3 or later.
 
@@ -52,8 +52,9 @@ Latest release is
 	FindSim/             				: project directory  
 	FindSim/stable					: Stable branch. Stable version of `develop` branch  
 	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
-	FindSim/models					: Model files 
-	FindSim/findSim.py				: Main findSim script  
+	FindSim/models					: Model files and mapping file
+	FindSim/findSim2.py				: Main findSim script to read Json format  
+	FindSim/findSimSchema.json			: FindSim Schema definition
 	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
 	FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
 	FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
@@ -62,13 +63,13 @@ Latest release is
 						
 =============================================================================
 # Quick start: 
-FindSim comes in two versions. One (findSim.py) runs single experiment and one (runAllParallel.py) for batch processing of experiments.
-A. findSim.py script run one of the example experiments on the default model, generating a graph to compare model to experiment:  
+FindSim comes in two versions. One (findSim2.py) runs single experiment and one (runAllParallel.py) for batch processing of experiments.
+A. findSim2.py script run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  One can also pass the model explicitly
 
->python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv  
+>python findSim2.py Curated/FindSim-Jain2009-Fig2B.tsv --map models/synSynth7_map.json
 	  				or  
->python findSim.py Curated/FindSim-Jain2009-Fig2B.tsv  --model models/synSynth7.g  
+>python findSim2.py Curated/FindSim-Jain2009-Fig2B.tsv  --model models/synSynth7.g --map models/synSynth7_map.json
 
 B. Batch run:  
 	runAllParallel.py script runs the findSim program on all experiment files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.  
@@ -94,6 +95,7 @@ C. To see the help message, pass '-h' option to either of these commands.
     script                	Required: filename of experiment spec, in tsv format.
     optional arguments:
     -h, --help            	show this help message and exit
+    -map MAP, --map MAP   	Optional: mapping file from tsv names to sim-specific strings. JSON format
     -m MODEL, --model MODEL 	[Optional: model filename, .g or .xml]
     -d DUMP_SUBSET, --dump_subset DUMP_SUBSET
 	                        Optional: dump selected subset of model into named file
