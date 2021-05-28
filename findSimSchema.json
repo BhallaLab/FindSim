@@ -74,7 +74,7 @@
 						"description" : "label is used only by BarCharts. It uniquely identifies stimulus blocks. By default the BarChart uses the _entity_ name, but in case there are multiple stimuli involving the same entity the _label_ lets one give each a unique identifier."
 					},
 					"field": {"type": "string",
-						"enum": ["conc", "inject", "Vm", "Vclamp", "rate", "weight"],
+						"enum": ["conc", "inject", "Vm", "Vclamp", "rate", "weight","EPSP_peak","synInput"],
 						"description": "rate and weight are used for synaptic input"
 			   		},
 					"data": {"type": "array",

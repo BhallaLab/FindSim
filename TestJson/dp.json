@@ -11,8 +11,8 @@
             "year": 0,
             "figure": "Figure 1 panel B"
         },
-        "testModel": "Models/synSynth7_FMRP_19Dec2019.g",
-        "testMap": "Models/synSynth7_FMRP_20Dec2019.json"
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
     },
     "Experiment": {
         "design": "DirectParameter",

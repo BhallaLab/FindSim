@@ -12,7 +12,7 @@
             "figure": "Fig 7A"
         },
         "testModel": "models/synSynth7.g",
-        "testMap": "Models/synSynth7_map.json"
+        "testMap": "models/synSynth7_map.json"
     },
     "Experiment": {
         "design": "DoseResponse",
