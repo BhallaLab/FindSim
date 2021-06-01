@@ -11,8 +11,8 @@
             "year": 117,
             "figure": "Figure 13"
         },
-        "testModel": "models/plastic8.py",
-        "testMap": "models/plastic8.json"
+        "testModel": "models/loadhh.py",
+        "testMap": "models/loadhh.json"
     },
     "Experiment": {
         "design": "TimeSeries",

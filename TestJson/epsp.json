@@ -1,0 +1,100 @@
+{
+    "Metadata": {
+        "transcriber": "Upi",
+        "organization": "NCBS",
+        "email": "bhalla@ncbs.res.in",
+        "source": {
+            "sourceType": "inhouse",
+            "PMID": 0,
+            "authors": "None",
+            "journal": "None. This is a purely fictional _experiment_ for the purposes of testing findSim",
+            "year": 0,
+            "figure": ""
+        },
+         "testModel": "models/plastic8.py",
+        "testMap": "models/plastic8.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "rat",
+        "cellType": "hippocampal CA1 pyramidal neuron",
+        "notes": "HFS, LTP"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "Hz",
+            "entity": "synInput",
+            "field": "rate",
+            "data": [
+                [
+                    0,
+                    0
+                ],
+                [
+                    10,
+                    100
+                ],
+                [
+                    11,
+                    0
+                ]
+            ]
+        },
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "ratio",
+            "entity": "synapse",
+            "field": "weight",
+            "data": [
+                [
+                    0,
+                    0.4
+                ],
+                [
+                    10,
+                    1
+                ],
+                [
+                    11,
+                    0.4
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "mV",
+        "entities": [
+            "soma"
+        ],
+        "field": "EPSP_peak",
+        "data": [
+            [
+                4,
+                2,
+                0
+            ],
+            [
+                8,
+                2,
+                0
+            ],
+            [
+                15,
+                11,
+                0
+            ],
+            [
+                20,
+                19,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "all"
+        ]
+    }
+}
