@@ -1,0 +1,134 @@
+{
+    "Metadata": {
+        "transcriber": "Upinder S. Bhalla",
+        "organization": "NCBS",
+        "email": "bhalla@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 10486198,
+            "authors": "Hodgkin and Huxley",
+            "journal": "Journal of Physiology ",
+            "year": 117,
+            "figure": "Figure 13"
+        },
+        "testModel": "models/loadhh.py",
+        "testMap": "models/loadhh.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "",
+        "cellType": "giant axon",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "msec",
+            "quantityUnits": "mV",
+            "entity": "soma",
+            "field": "Vclamp",
+            "data": [
+                [
+                    0,
+                    -65.0
+                ],
+                [
+                    10,
+                    -25.0
+                ],
+                [
+                    60,
+                    -65.0
+                ],
+                [
+                    100,
+                    -65.0
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "msec",
+        "quantityUnits": "uA",
+        "entities": [
+            "vclamp"
+        ],
+        "field": "current",
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                10,
+                0,
+                0
+            ],
+            [
+                11,
+                -7.0,
+                0
+            ],
+            [
+                12,
+                -2.0,
+                0
+            ],
+            [
+                13,
+                1.5,
+                0
+            ],
+            [
+                14,
+                3.2,
+                0
+            ],
+            [
+                16,
+                6,
+                0
+            ],
+            [
+                20,
+                6.9,
+                0
+            ],
+            [
+                60,
+                6.9,
+                0
+            ],
+            [
+                61,
+                1.2,
+                0
+            ],
+            [
+                62,
+                0.8,
+                0
+            ],
+            [
+                63,
+                0.6,
+                0
+            ],
+            [
+                64,
+                0.4,
+                0
+            ],
+            [
+                100,
+                0,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "all"
+        ]
+    }
+}
