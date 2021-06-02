@@ -1,0 +1,222 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "National Centre for Biological Sciences",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 14576170,
+            "authors": "Gu J et al.",
+            "journal": "Glycobiology ",
+            "year": 2004,
+            "figure": "Fig 3B"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "Rat",
+        "cellType": "Pheochromocytoma cell line (PC12)",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "EGF",
+            "field": "conc",
+            "data": [
+                [
+                    3600,
+                    1.0
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "ratio",
+        "entities": [
+            "aMAPK"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 3600,
+            "entities": [
+                "aMAPK"
+            ],
+            "dose": 0,
+            "sampling": "start"
+        },
+        "data": [
+            [
+                3600,
+                1,
+                0
+            ],
+            [
+                3900,
+                2.5,
+                1
+            ],
+            [
+                5400,
+                1.5,
+                0.3
+            ],
+            [
+                7200,
+                1.3,
+                0.6
+            ],
+            [
+                14400,
+                1.2,
+                0.5
+            ],
+            [
+                36000,
+                1,
+                0.5
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "EGFR_g",
+            "Sos_g",
+            "Ras_g",
+            "MAPK_g",
+            "Ca_g",
+            "PKC_g",
+            "Phosphatase_g",
+            "PLCg_g",
+            "PLCb_g",
+            "PLA2_g",
+            "PC",
+            "IP3",
+            "PIP2"
+        ],
+        "itemsToDelete": [
+            "PP2A",
+            "phosph_AC2",
+            "GEF_Gprot_bg",
+            "bg_act_GEF",
+            "MEK_phospho",
+            "MEKp_phospho",
+            "mGluR_barr2_Raf_scaffolding",
+            "MAPK_p_p/cluster_phospho_S6K",
+            "MAPK_p_p/MAPK_4E_BP_p_p",
+            "MAPK_p_p/MAPK_4E_BP_phospho",
+            "Act_PLC_by_Gq",
+            "Inact_PLC_Gq",
+            "PLC_bind_Gq",
+            "PKC_phosph_neurogranin",
+            "PKC_phosph_ng_CaM",
+            "PIP2_PLA2_act",
+            "PIP2_Ca_PLA2_act",
+            "CaM_bind_GEF",
+            "PI3K_bind_Ras_GTP",
+            "PIP2_phospho_Ras_GTP"
+        ],
+        "parameterChange": [
+            {
+                "entity": "EGF",
+                "field": "concInit",
+                "value": 0.0,
+                "units": "mM"
+            },
+            {
+                "entity": "bPKCp",
+                "field": "concInit",
+                "value": 2e-05,
+                "units": "mM"
+            },
+            {
+                "entity": "GAP",
+                "field": "concInit",
+                "value": 2e-05,
+                "units": "mM"
+            },
+            {
+                "entity": "PIP2",
+                "field": "concInit",
+                "value": 0.007,
+                "units": "mM"
+            },
+            {
+                "entity": "enolase",
+                "field": "concInit",
+                "value": 0.0005,
+                "units": "mM"
+            },
+            {
+                "entity": "SHCp_deph",
+                "field": "Kf",
+                "value": 0.2,
+                "units": "none"
+            },
+            {
+                "entity": "Ras_act_craf",
+                "field": "Kf",
+                "value": 9999.26668,
+                "units": "none"
+            },
+            {
+                "entity": "PKC_act_raf",
+                "field": "Km",
+                "value": 0.02098,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pY421_deph",
+                "field": "Km",
+                "value": 0.00734,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pT424_deph",
+                "field": "Km",
+                "value": 0.00734,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pT424_deph",
+                "field": "kcat",
+                "value": 4,
+                "units": "none"
+            },
+            {
+                "entity": "MKP1pY421_deph",
+                "field": "kcat",
+                "value": 4,
+                "units": "none"
+            },
+            {
+                "entity": "Rafp_RasGTP1",
+                "field": "kcat",
+                "value": 0.3,
+                "units": "none"
+            },
+            {
+                "entity": "Rafp_RasGTP2",
+                "field": "kcat",
+                "value": 0.3,
+                "units": "none"
+            },
+            {
+                "entity": "CaMGEF_actRas",
+                "field": "kcat",
+                "value": 0.2,
+                "units": "none"
+            },
+            {
+                "entity": "Sos_Ras_GEF",
+                "field": "kcat",
+                "value": 0.2,
+                "units": "none"
+            }
+        ]
+    }
+}

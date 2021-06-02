@@ -1,0 +1,81 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 10486198,
+            "authors": "Yuen and Mobley",
+            "journal": "Exp Neurol ",
+            "year": 1999,
+            "figure": "Fig4"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "cell-line",
+        "cellType": "NIH 3T3 cells (murine fibroblasts)",
+        "temperature": 37,
+        "notes": "Deleting the rest of the model for convenience"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "BDNF",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 300,
+        "quantityUnits": "nM",
+        "entities": [
+            "SHCp"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                1,
+                6.5,
+                0
+            ],
+            [
+                2,
+                12.5,
+                0
+            ],
+            [
+                3.8,
+                14,
+                0
+            ],
+            [
+                7.5,
+                18,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "BDNF_g",
+            "TrKB_g",
+            "SHC",
+            "SHCp",
+            "SHCp_deph"
+        ],
+        "itemsToDelete": [
+            "TrKB_act_PLCg"
+        ],
+        "notes": "Jain2009_Fig2C"
+    }
+}
