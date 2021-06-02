@@ -50,12 +50,12 @@ Latest release is
 # File organization:
 	After successful cloning, the directory structure goes as follows,
 	FindSim/             			: project directory  
-	FindSim/stable					: Stable branch. Stable version of `develop` branch  
-	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
-	FindSim/Non-Curated				: Folder contains FindSim worksheets which is yet to curate.
-	FindSim/TestJson				: Folder contains examples of FindSim worksheets to which the model is well fit.
-	FindSim/models					: Model files and mapping file
-	FindSim/findSim.py				: Main findSim script to read Json format  
+	FindSim/stable				: Stable branch. Stable version of `develop` branch  
+	FindSim/Curated				: Folder contains FindSim worksheets to which the model is well fit.
+	FindSim/Non-Curated			: Folder contains FindSim worksheets which is yet to curate.
+	FindSim/TestJson			: Folder contains examples of FindSim worksheets to which the model is well fit.
+	FindSim/models				: Model files and mapping file
+	FindSim/findSim.py			: Main findSim script to read Json format  
 	FindSim/findSimSchema.json		: FindSim Schema definition
 	FindSim/runAllParallel.py		: Batch/parallel wrapper script.  
 	FindSim/FindSim-Schema.json		: Schema for Json files for worksheet.  
