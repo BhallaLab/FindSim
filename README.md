@@ -68,9 +68,9 @@ A. findSim.py script run one of the example experiments on the default model, ge
 To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  One can also pass the model explicitly
 
 >python findSim.py Curated/Jain2009-Fig2B.json <br> 
-					or
->python findSim.py Curated/Jain2009-Fig2B.json --model models/synSynth7.g --map models/synSynth7_map.json
-	  				or  
+					or <br>
+>python findSim.py Curated/Jain2009-Fig2B.json --model models/synSynth7.g --map models/synSynth7_map.json <br>
+	  				or  <br>
 >python findSim2.py Curated/Jain2009-Fig2B.json --map models/synSynth7_map.json
 
 B. Batch run:  

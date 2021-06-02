@@ -17,7 +17,7 @@
 
 '''
 *******************************************************************
- * File:            findSim2.py
+ * File:            findSim.py
  * Description:
  * Author:          Upinder S. Bhalla, NishaAnnViswan, HarshaRani
  * E-mail:          bhalla@ncbs.res.in
@@ -74,7 +74,7 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
 defaultScoreFunc = "(expt-sim)*(expt-sim)/(datarange*datarange + 1e-9)"
 
 sw = ""         #default dummy value for SimWrap
-fschema = "findSimSchema.json" # Name of JSON schema file
+fschema = "FindSim-Schema.json" # Name of JSON schema file
 
 def keywordMatches( k, m ):
     return k.lower() == m.lower()
