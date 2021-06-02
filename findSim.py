@@ -1134,6 +1134,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if readouts.field in Readout.postSynFields:
             readouts.stim = readoutStim 
         sw.makeReadoutPlots( [ readouts ] )
+
         sw.buildSolver( "gsl", useVclamp = hasVclamp )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
@@ -1152,7 +1153,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             plt.figure(1)
             readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
             plt.show()
-        print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
+        print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
         sw.deleteSimulation()
         return score, elapsedTime
         
