@@ -59,7 +59,7 @@ Latest release is
 	FindSim/findSimSchema.json		: FindSim Schema definition
 	FindSim/runAllParallel.py		: Batch/parallel wrapper script.  
 	FindSim/FindSim-Schema.json		: Schema for Json files for worksheet.  
-	FindSim/README.md				: This file  
+	FindSim/README.md			: This file  
 						
 =============================================================================
 # Quick start: 
@@ -67,7 +67,7 @@ FindSim comes in two versions. One (findSim.py) runs single experiment and one (
 A. findSim.py script run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  One can also pass the model explicitly
 
->python findSim.py Curated/Jain2009-Fig2B.json 
+>python findSim.py Curated/Jain2009-Fig2B.json <br> 
 					or
 >python findSim.py Curated/Jain2009-Fig2B.json --model models/synSynth7.g --map models/synSynth7_map.json
 	  				or  
