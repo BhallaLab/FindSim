@@ -49,27 +49,29 @@ Latest release is
 =============================================================================
 # File organization:
 	After successful cloning, the directory structure goes as follows,
-	FindSim/             				: project directory  
+	FindSim/             			: project directory  
 	FindSim/stable					: Stable branch. Stable version of `develop` branch  
 	FindSim/Curated					: Folder contains FindSim worksheets to which the model is well fit.
+	FindSim/Non-Curated				: Folder contains FindSim worksheets which is yet to curate.
+	FindSim/TestJson				: Folder contains examples of FindSim worksheets to which the model is well fit.
 	FindSim/models					: Model files and mapping file
-	FindSim/findSim2.py				: Main findSim script to read Json format  
-	FindSim/findSimSchema.json			: FindSim Schema definition
-	FindSim/runAllParallel.py			: Batch/parallel wrapper script.  
-	FindSim/FindSim-Exptworksheet.xlsx		: Template worksheet with inline help and units, for Microsoft Excel.  
-	FindSim/FindSim-Exptworksheet.ods		: Template worksheet with inline help and units, for Libre Office.  
-	FindSim/FindSim-Schema.xml 			: Schema for tsv files for worksheet.  
+	FindSim/findSim.py				: Main findSim script to read Json format  
+	FindSim/findSimSchema.json		: FindSim Schema definition
+	FindSim/runAllParallel.py		: Batch/parallel wrapper script.  
+	FindSim/FindSim-Schema.json		: Schema for Json files for worksheet.  
 	FindSim/README.md				: This file  
 						
 =============================================================================
 # Quick start: 
-FindSim comes in two versions. One (findSim2.py) runs single experiment and one (runAllParallel.py) for batch processing of experiments.
-A. findSim2.py script run one of the example experiments on the default model, generating a graph to compare model to experiment:  
+FindSim comes in two versions. One (findSim.py) runs single experiment and one (runAllParallel.py) for batch processing of experiments.
+A. findSim.py script run one of the example experiments on the default model, generating a graph to compare model to experiment:  
 To run the script, run the command in python and `synSynth7.g` is the latest model that is tested out the worksheets.  One can also pass the model explicitly
 
->python findSim2.py Curated/FindSim-Jain2009-Fig2B.tsv --map models/synSynth7_map.json
+>python findSim.py Curated/Jain2009-Fig2B.json 
+					or
+>python findSim.py Curated/Jain2009-Fig2B.json --model models/synSynth7.g --map models/synSynth7_map.json
 	  				or  
->python findSim2.py Curated/FindSim-Jain2009-Fig2B.tsv  --model models/synSynth7.g --map models/synSynth7_map.json
+>python findSim2.py Curated/Jain2009-Fig2B.json --map models/synSynth7_map.json
 
 B. Batch run:  
 	runAllParallel.py script runs the findSim program on all experiment files in the specified directory, computes their scores, and prints out basic stats of the scores. It can do this in parallel using Python's multiprocessing library.  
@@ -77,7 +79,7 @@ B. Batch run:
 	>python runAllParallel.py Curated -n 8  (run of the entire set of `Curated` experiments on 8 cores)
 It will run the entire set of `Curated` experiments in parallel using 8 independant processes (it will be effectively if your computer has at least 8 cores). The value of `-n` should not be more than `N+1` where `N` is the number of processors on your system (use system utility `nproc` to see this number).
 								 
-	>python runAllParallel.py Directory (of tsv files) -n (Number of processes to spawn) --model (synSynth7.g)  
+	>python runAllParallel.py Directory (of json files) -n (Number of processes to spawn) --model (synSynth7.g)  
 
 C. To see the help message, pass '-h' option to either of these commands.  
 >python findSim.py -h  
