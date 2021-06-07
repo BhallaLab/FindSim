@@ -14,8 +14,7 @@ find . -type f -name "*.py" | xargs -I file $PYTHON -m pylint \
     --exit-zero \
     -E file
 
-$PYTHON findSim.py ./Curated/FindSim-Jain2009_Fig4F.tsv --model models/synSynth7.g
-$PYTHON findSim.py ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynth7.g
-$PYTHON findSim.py ./Curated/FindSim-Gu2004_fig3B.tsv --model models/synSynth7.g
-$PYTHON findSim.py ./Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
-$PYTHON findSim.py ./Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
+$PYTHON findSim.py ./Curated/Jain2009_Fig3F.json --model models/synSynth7.g
+$PYTHON findSim.py ./Curated/Bhalla1999_fig2B.json --model models/synSynth7.g
+$PYTHON findSim.py ./Curated/Gu2004_fig3B.json --model models/synSynth7.g
+$PYTHON findSim.py ./Curated/Bhalla1999_fig4C.json --model models/synSynth7.g
