@@ -357,7 +357,7 @@ class Readout:
             assert( numPts > 0 )
             sumvec = np.zeros( numPts )
             scale = self.quantityScale
-            if self.quantityUnits == "ratio":
+            if self.useNormalization:
                 if self.normMode == "presetTime":
                     scale = tsScale * self.ratioReferenceValue
                 elif len( self.ratioData ) > 0:
@@ -399,7 +399,7 @@ class Readout:
                     plt.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
 
                 plt.figure(2)
-                if self.quantityUnits == "ratio":
+                if self.useNormalization:
                     ylabel = '{} Fold change'.format( self.field )
             pp.plotme( fname, ylabel )
 
@@ -829,9 +829,7 @@ def runBarChart( model, stims, readout ):
     ''' The possible stimuli in the bar chart are each defined in a
     separate stim.
     The Readouts bardata is an array with each entry a dict:
-    {"stimulusndSim2_new.py", line 867, in parseAndRunBarChart
-    runBarChart( model, stims, readouts )
-": ["stim1","stim2"...], "value": val, "stderr": ser}
+    {"stimulus": ["stim1","stim2"...], "value": val, "stderr": ser}
     Stim1, stim2 are the names/labels for the stims to be applied
     '''
 
