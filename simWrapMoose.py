@@ -135,7 +135,7 @@ class SimWrapMoose( SimWrap ):
             raise SimError( "simWrapMoose::_scaleOneParam: terminated" )
 
         if field == 'Kd':
-            if not obj.isA[ "ReacBase" ]:
+            if not obj.isA[ "Reac" ]:
                 #break 
                 raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
             sf = np.sqrt( scale )
@@ -143,7 +143,7 @@ class SimWrapMoose( SimWrap ):
             obj.Kf /= sf
             #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
         elif field == 'tau':
-            if not obj.isA[ "ReacBase" ]:
+            if not obj.isA[ "Reac" ]:
                 raise SimError( "scaleParam: can only assign tau to a Reac, was: '{}'".format( obj.className ) )
             obj.Kb /= scale
             obj.Kf /= scale
@@ -267,7 +267,7 @@ class SimWrapMoose( SimWrap ):
                 self.modelId = moose.element( '/library/chem' )
         self.buildModelLookup( self.objMap )
         mpath = self.modelId.path
-        for f in moose.wildcardFind('{0}/##[ISA=ReacBase],{0}/##[ISA=EnzBase]'.format( mpath ) ):
+        for f in moose.wildcardFind('{0}/##[ISA=Reac],{0}/##[ISA=EnzBase]'.format( mpath ) ):
             erSPlist[f] = {'s':len(f.neighbors['sub']), 'p':len(f.neighbors['prd'])}
         # Then we apply whatever modifications are specified by user or protocol
         
@@ -362,7 +362,7 @@ class SimWrapMoose( SimWrap ):
 
     def pruneDanglingObj( self, erSPlist):
         kinpath = self.modelId.path
-        erlist = moose.wildcardFind(kinpath+"/##[ISA=ReacBase],"+kinpath+ "/##[ISA=EnzBase]")
+        erlist = moose.wildcardFind(kinpath+"/##[ISA=Reac],"+kinpath+ "/##[ISA=EnzBase]")
         subprdNotfound = False
         ratelawchanged = False
         funcIPchanged  = False
@@ -627,7 +627,7 @@ class SimWrapMoose( SimWrap ):
             raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmList ) ) )
         elm = elmList[0]
         if field == 'Kd':
-            if not elm.isA['ReacBase']:
+            if not elm.isA['Reac']:
                 raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
             return elm.Kb/elm.Kf
         elif field == 'tau':
@@ -635,7 +635,7 @@ class SimWrapMoose( SimWrap ):
             # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
             # This latter is the Kf we want to use, assuming typical concs are
             # around 1 uM.
-            if not elm.isA['ReacBase']:
+            if not elm.isA['Reac']:
                 raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
             scaleKf = 0.001 ** (elm.numSubstrates-1)
             scaleKb = 0.001 ** (elm.numProducts-1)
@@ -674,7 +674,7 @@ def generateParamFile( model, fname ):
                 objName = getUniqueName( model, i )
                 fp.write( "{}   concInit\n".format( objName ) )
 
-        for i in moose.wildcardFind( model + "/##[ISA=ReacBase]" ):
+        for i in moose.wildcardFind( model + "/##[ISA=Reac]" ):
             Kf = i.Kf
             Kb = i.Kb
             if Kb <= 0.0 and Kf <= 0.0:

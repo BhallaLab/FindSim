@@ -363,13 +363,16 @@ class Readout:
                 elif len( self.ratioData ) > 0:
                     if self.normMode == "start" and self.ratioData[0] > 0.0:
                         scale = tsScale * self.ratioData[0]
-                elif self.normMode == "end" and self.ratioData[-1] > 0.0:
+                    elif self.normMode == "end" and self.ratioData[-1] > 0.0:
                         scale = tsScale * self.ratioData[-1]
-                elif self.normMode == "min" and min(self.ratioData) > 0.0:
+                    elif self.normMode == "min" and min(self.ratioData) > 0.0:
                         scale = tsScale * min( self.ratioData )
-                elif self.normMode == "max" and max(self.ratioData) > 0.0:
+                    elif self.normMode == "max" and max(self.ratioData) > 0.0:
                         scale = tsScale * max( self.ratioData )
-
+                    elif self.normMode == "each" and max(self.ratioData) > 0.0:
+                        scale = tsScale * max( self.ratioData )
+                        # For 'each' we don't realy have a good way to do
+                        # timeseries. So just use the biggest.
 
             '''
             if len( self.ratioData ) > 0:
@@ -534,7 +537,7 @@ class Model:
                     m2[ str(key) ] = [ str(i) for i in val ]
             self._tempModelLookup = m2
         except:
-            raise SimError( "Map file name {} not found".format( model.fileName ) )
+            raise SimError( "Map file name {} not found".format(mapFile) )
         #print( "LOADED MAPFILE {}".format( mapFile ) )
 
     def modify( self, erSPlist, modelWarning):
@@ -767,7 +770,7 @@ def parseAndRun( model, stims, readouts ):
     if readouts.useNormalization and readouts.normMode == "each":
         if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
             raise SimError( "runDoser: Normalization failed due to zero denominator" )
-        readouts.simData = [ x/y for x, y in (readouts.simData, readouts.ratioData) ]
+        readouts.simData = [ x/y for x, y in zip(readouts.simData, readouts.ratioData) ]
     else:
         if abs(norm) < eps:
             raise SimError( "runDoser: Normalization failed due to zero denominator" )
@@ -792,8 +795,8 @@ def parseAndRunDoser( model, stims, readouts ):
     runTime = readouts.settleTime
     
     if runTime <= 0.0:
-        print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
-        runTime = 300
+        print( "Currently unable to handle automatic settling to steady-state in doseResponse, using default 1000 s." )
+        runTime = 1000
     
     doseMol = ""
     #Stimulus Molecules
@@ -965,7 +968,7 @@ class PlotPanel:
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
         plt.ylabel( ylabel, fontsize = self.labelFontSize )
         plt.title( scriptName, fontsize = self.labelFontSize)
-        plt.legend( fontsize=self.tickFontSize, loc="lower right")
+        plt.legend( fontsize=self.tickFontSize, loc="upper right")
         plt.tick_params( labelsize=self.tickFontSize )
 
 ########################################################################
@@ -1076,18 +1079,15 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     model.scoringFormula = scoreFunc # Override the earlier version.
     readouts.tabulateOutput = tabulateOutput
 
-    if mapFile == "":
+    if mapFile == "" and modelFile == "":
+        model.fileName = expt.testModel
         mapFile = expt.testMap
-    
     if modelFile != "":
         model.fileName = modelFile
     else:
         model.fileName = expt.testModel
-        
-    
     if model.fileName.split('.')[-1] == "json":
         simWrap = "HillTau"
-    
     if simWrap == "":
         sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
     elif simWrap == "HillTau":
@@ -1117,7 +1117,10 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             return score, elapsedTime
 
         hasVclamp = False
-        readoutStim = stims[0]
+        if len( stims ) > 0:
+            readoutStim = stims[0]
+        else:
+            redoutStim = ""
         for i in stims:
             if i.field.lower() == 'vclamp':
                 hasVclamp = True
@@ -1147,11 +1150,10 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         score = runit( expt, model,stims, readouts  )
         elapsedTime = time.time() - t0
         if not hidePlot:
-            #print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
             plt.figure(1)
             readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
             plt.show()
-        print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
+            print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
         sw.deleteSimulation()
         return score, elapsedTime
         

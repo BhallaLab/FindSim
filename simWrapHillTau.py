@@ -67,7 +67,7 @@ class SimWrapHillTau( SimWrap ):
             c = self.model.concInit[ mol.index ] * scale 
             self.model.conc[ mol.index ]= self.model.concInit[mol.index]= c
             self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = c
-        elif field in ["KA", "tau", "tau2", "baseline"]:
+        elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]:
             reac = self.model.reacInfo[ entity ]
             dictReac = self.jsonDict["Groups"][reac.grp]["Reacs"][reac.name]
             if field == "KA":
@@ -76,6 +76,9 @@ class SimWrapHillTau( SimWrap ):
                 dictReac["KA"] = reac.KA
                 #print( "rescale {}.KA: new = {}, scale = {}".format( reac.name, reac.KA, scale ) )
             elif field == "tau":
+                # There is an implicit linkage of tau and tau2 when equal.
+                if np.isclose( reac.tau, reac.tau2 ):
+                    reac.tau2 = reac.tau * scale
                 reac.tau *= scale
                 dictReac["tau"] = reac.tau
             elif field == "tau2":
@@ -85,6 +88,15 @@ class SimWrapHillTau( SimWrap ):
                 reac.baseline *= scale
                 #print( "BASELINE = {};     SCALE = {}".format(reac.baseline, scale) )
                 dictReac["baseline"] = reac.baseline
+            elif field == "gain":
+                reac.gain *= scale
+                dictReac["gain"] = reac.gain
+            elif field == "Kmod":
+                reac.Kmod *= scale
+                dictReac["Kmod"] = reac.Kmod
+            elif field == "Amod":
+                reac.Amod *= scale
+                dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
         # This operates at the level of the JSON dict. We then have to
@@ -202,7 +214,7 @@ class SimWrapHillTau( SimWrap ):
                     if s and entity in s:
                         s[entity] = value
                         #print("Changing {} of '{}' to {}".format( field, entity, value ) )
-                elif field in ["KA", "tau", "tau2", "baseline"]: 
+                elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]: 
                     r = jg.get( "Reacs" )
                     if r and entity in r:
                         if field == "KA":
@@ -213,6 +225,12 @@ class SimWrapHillTau( SimWrap ):
                             r[entity]["tau2"] = value
                         elif field == "baseline":
                             r[entity]["baseline"] = value
+                        elif field == "gain":
+                            r[entity]["gain"] = value
+                        elif field == "Kmod":
+                            r[entity]["Kmod"] = value
+                        elif field == "Amod":
+                            r[entity]["Amod"] = value
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
         self.turnOffElec = True
@@ -241,7 +259,7 @@ class SimWrapHillTau( SimWrap ):
                 with open( dumpFname, 'w') as f:
                     json.dump( self.jsonDict, f, indent = 4)
         else:
-            raise SimError( "HillTau models are .json. Type '{}' not known".foramt( fname ) )
+            raise SimError( "HillTau models are .json. Type '{}' not known".format( fname ) )
         return
 
 
@@ -344,7 +362,7 @@ class SimWrapHillTau( SimWrap ):
                     self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
-        elif field in ['KA', 'tau', 'tau2', 'baseline']:
+        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
             if objName in self.model.reacInfo:
                 reac = self.model.reacInfo[elm]
             else:
@@ -358,6 +376,12 @@ class SimWrapHillTau( SimWrap ):
                 reac.tau2 = value
             elif field == 'baseline':
                 reac.baseline = value
+            elif field == 'gain':
+                reac.gain = value
+            elif field == 'Kmod':
+                reac.Kmod = value
+            elif field == 'Amod':
+                reac.Amod = value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
@@ -371,7 +395,7 @@ class SimWrapHillTau( SimWrap ):
             if objName in self.model.molInfo:
                 #print( "CONCINIT = {}".format( self.model.concInit[ self.model.molInfo[objName].index ] ) )
                 return self.model.concInit[ self.model.molInfo[objName].index ]
-        elif field in ['KA', 'tau', 'tau2', 'baseline']:
+        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
             if objName in self.model.reacInfo: 
                 reac = self.model.reacInfo[objName]
             else: 
@@ -384,6 +408,12 @@ class SimWrapHillTau( SimWrap ):
                 return reac.tau2
             elif field == 'baseline':
                 return reac.baseline
+            elif field == 'gain':
+                return reac.gain
+            elif field == 'Kmod':
+                return reac.Kmod
+            elif field == 'Amod':
+                return reac.Amod
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
