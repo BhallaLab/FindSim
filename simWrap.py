@@ -32,6 +32,9 @@ class SimWrap():
         self.ignoreMissingObj = kwargs["ignoreMissingObj"]
         self.silent = kwargs["silent"]
         self.modelLookup = {}
+        self.runtime = 0.0
+        self.loadtime = 0.0
+        self.paramAccessTime = 0.0
         if "mapFile" in kwargs and len( kwargs["mapFile"] ) > 5:
             with open( kwargs["mapFile"] ) as fd:
                 self.objMap = json.load( fd )
@@ -39,6 +42,9 @@ class SimWrap():
         self.plots = {} # Keys: Readout objects. Values: 2d numpy arrays
                 
         return
+
+    def diagnostics( self ):
+        return { "runtime": self.runtime, "loadtime": self.loadtime, "paramAccessTime": self.paramAccessTime }
 
     def lookup( self, key ):
         ret = self.modelLookup.get( key )

@@ -1114,7 +1114,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 #plt.show()
             #print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
             sw.deleteSimulation()
-            return score, elapsedTime
+            return score, elapsedTime, sw.diagnostics()
 
         hasVclamp = False
         if len( stims ) > 0:
@@ -1141,7 +1141,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
         if settleTime > 0:
-            return sw.presettle( settleTime ), 0.0
+            return sw.presettle( settleTime ), 0.0, {}
 
         sw.assignPresettle( settleDict )
         ##############################################################
@@ -1152,10 +1152,10 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if not hidePlot:
             plt.figure(1)
             readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+            print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f}s, evalTime = {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
-            print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
         sw.deleteSimulation()
-        return score, elapsedTime
+        return score, elapsedTime, sw.diagnostics()
         
     except SimError as msg:
         if not silent:
@@ -1163,7 +1163,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.deleteSimulation()
         if __name__ == '__main__':
             traceback.print_exc()
-        return -1.0, 0.0
+        return -1.0, 0.0, {}
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()

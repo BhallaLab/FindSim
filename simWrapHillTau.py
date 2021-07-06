@@ -36,6 +36,7 @@ import moose
 from simWrap import SimWrap 
 from simError import SimError
 import hillTau
+import time
 
 SIGSTR = "{:.4g}" # Used for dumping JSON files.
 
@@ -44,7 +45,7 @@ class SimWrapHillTau( SimWrap ):
         SimWrap.__init__( self, *args, **kwargs )
         self.plotPath = {}
         self.plotDt = 1.0
-        self.settleTime = 300.0
+        self.settleTime = 3000.0    # HillTau settling is indept of time.
         # Inherited from SimWrap: self.modelLookup = {}
         self.model = ""
 
@@ -233,6 +234,7 @@ class SimWrapHillTau( SimWrap ):
                             r[entity]["Amod"] = value
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
+        t0 = time.time()
         self.turnOffElec = True
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.json':
@@ -260,6 +262,7 @@ class SimWrapHillTau( SimWrap ):
                     json.dump( self.jsonDict, f, indent = 4)
         else:
             raise SimError( "HillTau models are .json. Type '{}' not known".format( fname ) )
+        self.loadtime += time.time() - t0
         return
 
 
@@ -332,7 +335,9 @@ class SimWrapHillTau( SimWrap ):
     def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         ct = self.model.currentTime
         j = len( self.model.plotvec )
+        t0 = time.time()
         self.model.advance( advanceTime, settle = doSettle )
+        self.runtime += time.time() - t0
         if doPlot:
             tempArray = np.array(self.model.plotvec[:][j:]).transpose()
             for index, plotNum in self.plotPath.values():
@@ -340,19 +345,24 @@ class SimWrapHillTau( SimWrap ):
         return
 
     def reinitSimulation( self ):
+        t0 = time.time()
         self.model.reinit()
+        self.runtime += time.time() - t0
         return
 
     def sumFields( self, entityList, field ):
+        t0 = time.time()
         tot = 0.0
         for rr in entityList:
             elms = self.modelLookup[rr]
             for e in elms:
                 mi = self.model.molInfo[e]
                 tot += self.model.conc[ mi.index ]
+        self.paramAccessTime += time.time() - t0
         return tot
 
     def setField( self, objName, field, value ):
+        t0 = time.time()
         if field in ['conc', 'concInit']:
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
@@ -386,8 +396,10 @@ class SimWrapHillTau( SimWrap ):
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
             raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
+        self.paramAccessTime += time.time() - t0
 
     def getField( self, objName, field ):
+        t0 = time.time()
         if field == 'conc':
             if objName in self.model.molInfo: 
                 return self.model.conc[ self.model.molInfo[objName].index ]
@@ -418,6 +430,7 @@ class SimWrapHillTau( SimWrap ):
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
             raise SimError( "SimWrapHillTau::getField: Unknown obj.field {}.{}".format( objName, field ) )
+        self.paramAccessTime += time.time() - t0
 
 
     def getObjParam( self, entity, field ):
@@ -429,7 +442,7 @@ class SimWrapHillTau( SimWrap ):
         return self.getField( elms[0], field )
 
 
-    def steadyStateStims(self, stimList, responseList, isSeries = False, settleTime = 300 ):
+    def steadyStateStims(self, stimList, responseList, isSeries = False, settleTime = 3000.0 ):
         '''
         Computes steady_state output for specified stimulus combinatations.
         stimList is 2-D list of 
