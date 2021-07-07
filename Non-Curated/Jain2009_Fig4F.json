@@ -1,0 +1,89 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 7999777,
+            "authors": "Parkhurst KM et al.",
+            "journal": "Biochemistry. ",
+            "year": 1994,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "",
+        "cellType": "",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "S6p",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 2400,
+        "quantityUnits": "nM",
+        "entities": [
+            "43S"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                6.8,
+                3.61,
+                0
+            ],
+            [
+                20.4,
+                15.3,
+                0
+            ],
+            [
+                68,
+                30.7,
+                0
+            ],
+            [
+                204,
+                42.4,
+                0
+            ],
+            [
+                612,
+                45.3,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "Transl_init_g",
+            "40S_g",
+            "43S_g"
+        ],
+        "parameterChange": [
+            {
+                "entity": "M_clx",
+                "field": "concInit",
+                "value": 0.0015,
+                "units": "mM"
+            },
+            {
+                "entity": "Q_clx",
+                "field": "concInit",
+                "value": 4.97e-05,
+                "units": "mM"
+            }
+        ],
+        "notes": "Jain2009_Fig4F"
+    }
+}

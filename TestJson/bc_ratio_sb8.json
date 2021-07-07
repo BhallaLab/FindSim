@@ -1,0 +1,178 @@
+{
+    "Metadata": {
+        "transcriber": "Upi Bhalla",
+        "organization": "National Centre for Biological Sciences",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 8410192,
+            "authors": "Schaechter and Benowitz",
+            "journal": "JNeurosci ",
+            "year": 1993,
+            "figure": "Figure 8"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "BarChart",
+        "species": "rats",
+        "cellType": "All cerebral cortex",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "field": "conc",
+            "entity": "Ca",
+            "value": 1.0
+        },
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "field": "conc",
+            "entity": "DAG",
+            "value": 100
+        },
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "field": "conc",
+            "entity": "AA",
+            "value": 50
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 150,
+        "quantityUnits": "ratio",
+        "entities": [
+            "aPKC"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 150,
+            "entities": [
+                "aPKC"
+            ],
+            "sampling": "start"
+        },
+        "bardata": [
+            {
+                "stimulus": [],
+                "value": 1.0,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "AA"
+                ],
+                "value": 2.5,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "DAG"
+                ],
+                "value": 12.0,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "DAG",
+                    "AA"
+                ],
+                "value": 19.5,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "Ca"
+                ],
+                "value": 9.0,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "Ca",
+                    "AA"
+                ],
+                "value": 18.0,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "Ca",
+                    "DAG"
+                ],
+                "value": 17.0,
+                "stderr": 0
+            },
+            {
+                "stimulus": [
+                    "Ca",
+                    "DAG",
+                    "AA"
+                ],
+                "value": 19.5,
+                "stderr": 0
+            }
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "Ca",
+            "AA",
+            "PKC_g",
+            "DAG"
+        ],
+        "itemsToDelete": [
+            "PKC_act_raf",
+            "PKC_inact_GAP",
+            "PKC_act_GEF",
+            "PKC_phosph_neurogranin",
+            "PKC_phosph_ng_CaM",
+            "phosph_AC2"
+        ],
+        "parameterChange": [
+            {
+                "entity": "Ca",
+                "field": "concInit",
+                "value": 0.0001,
+                "units": "mM"
+            },
+            {
+                "entity": "Ca",
+                "field": "isBuffered",
+                "value": 1,
+                "units": "none"
+            },
+            {
+                "entity": "DAG",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "DAG",
+                "field": "isBuffered",
+                "value": 1,
+                "units": "none"
+            },
+            {
+                "entity": "AA",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "AA",
+                "field": "isBuffered",
+                "value": 1,
+                "units": "none"
+            }
+        ],
+        "notes": "The molecule PDB is used in this figure as a DAG analogue, at 1 uM. Unsure how to scale it. Clearly has a larger effect than synthetic DAG from Fig 7."
+    }
+}

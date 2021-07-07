@@ -1,0 +1,64 @@
+{
+	"Metadata": {
+		"transcriber": "Upinder S. Bhalla",
+		"organization": "NCBS",
+		"email": "bhalla@ncbs.res.in",
+		"source": {
+			"sourceType": "other",
+			"authors": "None",
+			"year": 2019,
+			"PMID": 0,
+			"figure": "synthetic"
+		},
+		"testModel": "models/plastic8.py",
+		"testMap": "models/plastic8.json"
+	},
+	"Experiment": {
+		"design": "TimeSeries",
+		"species":	"rat",
+		"cellType": "hippocampal CA1 pyramidal neuron",
+		"temperature": 30,
+		"notes": "Synthetic dataset for testing purposes"
+	},
+	"Stimuli": [
+		{
+			"timeUnits": "sec",
+			"quantityUnits": "Hz",
+			"entity": "synInput",
+			"field": "rate",
+			"data": [
+					[0, 0],
+					[10, 100],
+					[11, 0]
+			]
+		},
+		{
+			"timeUnits": "sec",
+			"quantityUnits": "ratio",
+			"entity": "synapse",
+			"field": "weight",
+			"data": [
+					[0, 0.4],
+					[10, 1],
+					[11, 0.4]
+			]
+		}
+	],
+
+	"Readouts": {
+		"timeUnits": "sec",
+		"quantityUnits": "ratio",
+		"entities": ["soma"],
+		"field": "EPSP_peak",
+		"normalization": {
+			"sampling": "start",
+			"entities": ["soma"]
+		},
+		"data": [
+			[4,  1],
+			[8, 1],
+			[15, 5.5],
+			[20, 8.5]
+		]
+	}
+}

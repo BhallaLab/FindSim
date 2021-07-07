@@ -1,0 +1,118 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 8386634,
+            "authors": "Redpath et al.",
+            "journal": "Eur J Biochem. ",
+            "year": 1993,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "",
+        "cellType": "",
+        "notes": "1:400 dilution of reticulocyte lysate used as source for PP2A. Assuming 0.26uM of PP2A in the reticulocyte lysate as this works well for this experiment. 1:400 dilution gives 0.00065uM"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "mM",
+            "entity":"eEF2p",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "nM",
+        "entities": [
+            "eEF2"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                300,
+                0.24,
+                0
+            ],
+            [
+                600,
+                0.44,
+                0
+            ],
+            [
+                900,
+                0.62,
+                0
+            ],
+            [
+                1000,
+                0.7,
+                0
+            ],
+            [
+                1200,
+                0.82,
+                0
+            ],
+            [
+                1500,
+                0.92,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "PP2A",
+            "eEF2",
+            "eEF2p"
+        ],
+        "itemsToDelete": [
+           "PP2A_dephospho_I1",
+            "PP2A_dephospho_PP1_I_p",
+            "clus_S6K_deph",
+            "S6K_dephosp",
+            "S6K_deph",
+            "AKTpS473_deph",
+            "AKTpT308_deph",
+            "PP2A_4EBPpp",
+            "PP2A_4EBPp",
+            "PP2A_eIF4EBPpp",
+            "PP2A_eIF4EBPp",
+            "mGluR_deph"
+        ],
+        "parameterChange": [
+            {
+                "entity": "PP2A",
+                "field": "concInit",
+                "value": 6.5e-07,
+                "units": "mM"
+            },
+            {
+                "entity": "eEF2",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "eEF2p",
+                "field": "concInit",
+                "value": 2.2e-05,
+                "units": "mM"
+            }
+        ],
+        "notes": "Jain2009_Fig4D"
+    }
+}

@@ -1,0 +1,6 @@
+{
+	"all":["all"],
+	"soma":["elec/soma"],
+	"synInput":["elec/head0/glu/sh/synapse/synInput"],
+	"synapse":["elec/head0/glu/sh/synapse"]
+}

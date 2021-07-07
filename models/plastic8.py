@@ -19,7 +19,7 @@ def load():
         chemDt = 0.002,
         diffDt = 0.002,
         chemPlotDt = 0.02,
-        turnOffElec = False,#FindSim needs to create Vclamp and then solver.
+        turnOffElec = True,#FindSim needs to create Vclamp and then solver.
         useGssa = False,
         # cellProto syntax: ['ballAndStick', 'name', somaDia, somaLength, dendDia, dendLength, numDendSegments ]
         cellProto = [['ballAndStick', 'soma', 12e-6, 12e-6, 4e-6, 100e-6, 1 ]],

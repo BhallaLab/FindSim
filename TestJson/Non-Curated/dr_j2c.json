@@ -1,0 +1,88 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 10486198,
+            "authors": "Yuen and Mobley",
+            "journal": "Exp Neurol ",
+            "year": 1999,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "",
+        "cellType": "",
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "BDNF",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 300,
+        "quantityUnits": "nM",
+        "entities": [
+            "SHCp"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                1,
+                6.5,
+                0
+            ],
+            [
+                2,
+                12.5,
+                0
+            ],
+            [
+                3.8,
+                14,
+                0
+            ],
+            [
+                7.5,
+                18,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "BDNF_g",
+            "TrKB_g",
+            "SHC",
+            "SHCp",
+            "SHCp_deph"
+        ],
+        "itemsToDelete": [
+            "TrKB_act_PLCg"
+        ],
+        "parameterChange": [
+            {
+                "entity": "SHCp_deph",
+                "field": "Kf",
+                "value": 0.2,
+                "units": "none"
+            }
+        ],
+        "notes": "Jain2009_Fig2C"
+    }
+}

@@ -1,12 +1,50 @@
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 3, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth
+# Floor, Boston, MA 02110-1301, USA.
+# 
+
+'''
+*******************************************************************
+ * File:            simWrap.py
+ * Description:     Base class for simulator interfaces for findSim
+ * Author:          Upinder S. Bhalla
+ * E-mail:          bhalla@ncbs.res.in
+ ********************************************************************/
+ '''
+import json
+from simError import SimError
+import moose
 
 class SimWrap():
     def __init__( self, *args, **kwargs ):
         self.ignoreMissingObj = kwargs["ignoreMissingObj"]
+        self.silent = kwargs["silent"]
         self.modelLookup = {}
+        if "mapFile" in kwargs and len( kwargs["mapFile"] ) > 5:
+            with open( kwargs["mapFile"] ) as fd:
+                self.objMap = json.load( fd )
         self.modelId = ""
         self.plots = {} # Keys: Readout objects. Values: 2d numpy arrays
                 
         return
+
+    def lookup( self, key ):
+        ret = self.modelLookup.get( key )
+        if ret:
+            return ret
+        raise SimError( "SimWrap: failed modelLookup[{}]".format( key ) )
 
     def _scaleParams( self, params ):
         if len(params) == 0:
@@ -29,14 +67,14 @@ class SimWrap():
     def pruneDanglingObj( self, erSPlist ): # to be overridden
         return
 
-    def changeParams( self, parameterChange ): # to be overridden
-        return
-
-    def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname, tempModelLookup ): # to be overridden
+    def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ): # to be overridden
         self.turnOffElec = True
         return
 
-    def buildSolver( self, solver, useVclamp = False, turnOffElec = False ):
+    def changeParams( self, params ):
+        return
+
+    def buildSolver( self, solver, useVclamp = False ):
         return
 
     def buildVclamp( self, stim ):
@@ -48,8 +86,8 @@ class SimWrap():
     def makeReadoutPlots( self, readouts ):
         return
 
-    def fillPlots( self, readout): # takes plots from sim and puts the numpy arrays of the plot values from sim into the Readout::plots field.
-        return;
+    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float.
+        return [], 1.0;
     
     def deliverStim( self, qe ):
         return
@@ -89,12 +127,6 @@ class SimWrap():
         '''
         return [], []
         
-    def assignField( self, entity, field ):
-        return
-
-    def generateParamFile( self, model, fname ):
-        return
-
     def deleteSimulation( self ):
         return
 

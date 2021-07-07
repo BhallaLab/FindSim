@@ -1,0 +1,92 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 10486198,
+            "authors": "Yuen and Mobley",
+            "journal": "Exp Neurol ",
+            "year": 1999,
+            "figure": "Fig3"
+        },
+       "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "cell-line",
+        "cellType": "NIH 3T3 cells (murine fibroblasts)",
+        "temperature": 37,
+        "notes": "Deleting the rest of the model for convenience"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "BDNF",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 300,
+        "quantityUnits": "nM",
+        "entities": [
+            "PLCgp"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0,
+                3,
+                0
+            ],
+            [
+                1,
+                15,
+                0
+            ],
+            [
+                2,
+                24,
+                0
+            ],
+            [
+                3.8,
+                34,
+                0
+            ],
+            [
+                7.5,
+                41,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "BDNF_g",
+            "TrKB_g",
+            "PLCg_g"
+        ],
+        "itemsToDelete": [
+            "TrKB_act_SHC",
+            "CaPLCg",
+            "CaPLCgp",
+            "Ca_act_PLCg",
+            "Ca_act_PLCgp",
+            "dephosph_PLC_g"
+        ],
+        "parameterChange": [
+            {
+                "entity": "PLCg",
+                "field": "concInit",
+                "value": 0.0001,
+                "units": "mM"
+            }
+        ],
+        "notes": "Jain2009_Fig2D"
+    }
+}

@@ -1,0 +1,108 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 11483657,
+            "authors": "Mundell SJ et al.",
+            "journal": "Journal of Neuroschemistry. ",
+            "year": 2001,
+            "figure": "Fig3B"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "cell-line",
+        "cellType": "rat HA-mGluR1a and arrestin3-GFP transfected into HEK293 cells",
+        "temperature": 37,
+        "notes": "Deleting the rest of the model for convenience."
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "entity": "Glutamate",
+            "field": "conc",
+            "data": [
+                [
+                    0,
+                    100.0
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "ratio",
+        "entities": [
+            "tot_surface_mGluR_with_barr2"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 0,
+            "entities": [
+                "tot_surface_mGluR_with_barr2"
+            ],
+            "dose": 0,
+            "sampling": "start"
+        },
+        "data": [
+            [
+                0,
+                1,
+                0
+            ],
+            [
+                300,
+                0.43,
+                0
+            ],
+            [
+                600,
+                0.38,
+                0
+            ],
+            [
+                900,
+                0.32,
+                0
+            ],
+            [
+                1800,
+                0.34,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "mGluR_g",
+            "barr2_g",
+            "PP2A"
+        ],
+        "itemsToDelete": [
+            "mGluR_Gq",
+            "Glu_mGluR_Gq",
+            "Glu_mGluR_bind_Gq",
+            "Glu_bind_mGluR_Gq",
+            "Act_Gq",
+            "mGluR_bind_Gq",
+            "clus_S6K_deph",
+            "S6K_dephosp",
+            "S6K_deph",
+            "AKTpS473_deph",
+            "AKTpT308_deph",
+            "eEF2p_deph",
+            "PP2A_4EBPpp",
+            "PP2A_4EBPp",
+            "PP2A_eIF4EBPpp",
+            "PP2A_eIF4EBPp",
+            "PP2A_dephos_I1",
+            "PP2A_dephos_PP1_Ip"
+        ]
+    }
+}

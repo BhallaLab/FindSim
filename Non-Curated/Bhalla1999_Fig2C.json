@@ -1,0 +1,128 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 1316902,
+            "authors": "Wahl MI et al.",
+            "journal": "J Biol Chem. ",
+            "year": 1992,
+            "figure": "Fig 7A"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "in-vitro",
+        "cellType": "human A431 epidermoid carcinoma cells",
+        "temperature": 37,
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "entity": "Ca",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 300,
+        "quantityUnits": "ratio",
+        "entities": [
+            "CaPLCgp"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 300,
+            "entities": [
+                "CaPLCgp"
+            ],
+            "dose": 100,
+            "sampling": "dose"
+        },
+        "display": {
+            "useXlog": true,
+            "useYlog": false
+        },
+        "data": [
+            [
+                0,
+                0,
+                0
+            ],
+            [
+                0.032,
+                0.15,
+                0
+            ],
+            [
+                0.065,
+                0.2,
+                0
+            ],
+            [
+                0.1,
+                0.25,
+                0
+            ],
+            [
+                0.21,
+                0.35,
+                0
+            ],
+            [
+                0.43,
+                0.6,
+                0
+            ],
+            [
+                1,
+                0.9,
+                0
+            ],
+            [
+                100,
+                1,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "Ca_g",
+            "PLCg_g",
+            "EGFR_g"
+        ],
+        "itemsToDelete": [
+            "PLCgp_deph",
+            "EGFR_act_SHC",
+            "CaPLCg_PIP2hydr",
+            "CaPLCgp_PIP2hydr"
+        ],
+        "parameterChange": [
+            {
+                "entity": "EGF",
+                "field": "concInit",
+                "value": 0.0001,
+                "units": "mM"
+            },
+            {
+                "entity": "PLCg",
+                "field": "concInit",
+                "value": 0.00082,
+                "units": "mM"
+            },
+            {
+                "entity": "Ca",
+                "field": "isBuffered",
+                "value": 1,
+                "units": "none"
+            }
+        ]
+    }
+}
