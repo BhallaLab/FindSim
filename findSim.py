@@ -440,8 +440,23 @@ class Readout:
             dvals = [i["value"] for i in self.bardata]
             dat = [ [0, i["value"], i["stderr"] ] for i in self.bardata ]
         datarange = max( dvals ) - min( dvals )
+        if datarange < 1e-9:
+            if max( dvals ) > 1e-8:
+                datarange = max( dvals )
+            else:
+                datarange = 1e-9
         if self.tabulateOutput:
             print( "{:>12s}   {:>12s}  {:>12s}  {:>12s}".format( "t", "expt", "sim", "sem" ) )
+        if scoringFormula in ['nrms', 'NRMS']:
+            for i, sim in zip( dat, self.simData ):
+                t = i[0]
+                expt = i[1]
+                sem = i[2]
+                if self.tabulateOutput:
+                    print( "{:12.3f}   {:12.3f}  {:12.5g}  {:12.3f}".format( t, expt, sim, sem ) )
+                score += (expt - sim) * (expt - sim)
+            return np.sqrt(score / len(dat))/datarange
+
         for i, sim in zip( dat, self.simData ):
             #sim /= self.quantityScale
             t = i[0]

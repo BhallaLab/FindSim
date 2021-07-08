@@ -472,7 +472,7 @@ class SimWrapHillTau( SimWrap ):
                     self.setField( elm, field, value * scale )
                     if field == 'conc':
                         self.setField( elm, "concInit", value * scale )
-                self.advanceSimulation( st, doPlot = False, doSettle = True)
+                self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
                 st = settleTime
             else:
                 orig = []
