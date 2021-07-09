@@ -6,9 +6,6 @@ set -x
 # virtualenv does not require --user
 PYTHON=$(which python)
 
-$PYTHON -m pip install pymoose --pre --upgrade
-$PYTHON -m pip install pylint numpy --upgrade 
-
 find . -type f -name "*.py" | xargs -I file $PYTHON -m pylint \
     --disable=no-member \
     --exit-zero \
