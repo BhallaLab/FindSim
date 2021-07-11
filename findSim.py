@@ -741,7 +741,7 @@ def processReadouts( readouts, scoringFormula ):
 
 
 ##########################################################################
-def parseAndRun( model, stims, readouts ):
+def parseAndRun( model, stims, readouts, getPlots = False ):
     q = []
     putStimsInQ( q, stims, model.pauseHsolve )
     putReadoutsInQ( q, readouts, model.pauseHsolve )
@@ -752,7 +752,7 @@ def parseAndRun( model, stims, readouts ):
         qe = heapq.heappop( q )
         currt = sw.getCurrentTime()
         if ( qe.t > currt ):
-            sw.advanceSimulation( qe.t - currt )
+            sw.advanceSimulation( qe.t - currt, doPlot = getPlots )
         if isinstance( qe.entry, Stimulus ):
             sw.deliverStim( qe )
             #print( "DELIVER STIM {} {} {} {}".format( qe.entry.entities, qe.entry.field, qe.entry.data, qe.val ) )
@@ -790,8 +790,10 @@ def parseAndRun( model, stims, readouts ):
         if abs(norm) < eps:
             raise SimError( "runDoser: Normalization failed due to zero denominator" )
         readouts.simData = [ x/norm for x in readouts.simData ]
-    # Collect detailed time series
-    readouts.plots, readouts.plotDt = sw.fillPlots()
+    if getPlots:
+        print( "Getting Plots" )
+        # Collect detailed time series
+        readouts.plots, readouts.plotDt = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
 
     return score
@@ -1032,7 +1034,7 @@ def loadJson( fname, mapFile ):
     model = Model( findsim, mapFile ) # mods are an optional argument.
     return expt, stims, readouts, model
 
-def runit( expt, model, stims, readouts ):
+def runit( expt, model, stims, readouts, getPlots = False ):
     for i in stims:
         i.configure( model._tempModelLookup )
     readouts.configure( model._tempModelLookup )
@@ -1040,7 +1042,7 @@ def runit( expt, model, stims, readouts ):
     if "doseresponse" in expt.exptType:
         return parseAndRunDoser( model, stims, readouts )
     elif "timeseries" in expt.exptType:
-        return parseAndRun( model, stims, readouts )
+        return parseAndRun( model, stims, readouts, getPlots = getPlots )
     elif "barchart" in expt.exptType:
         return parseAndRunBarChart( model, stims, readouts )
     else:
@@ -1162,7 +1164,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         ##############################################################
 
         t0 = time.time()
-        score = runit( expt, model,stims, readouts  )
+        score = runit( expt, model,stims, readouts, not hidePlot  )
         elapsedTime = time.time() - t0
         if not hidePlot:
             plt.figure(1)
