@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+# virtualenv does not require --user
+PYTHON=$(which python)
+
+$PYTHON findSim.py ./Curated/Bhalla1999_Fig2B.json --model models/synSynth7.g --map models/synSynth7_map.json
+$PYTHON findSim.py Curated/Jain2009_Fig3F.json --model models/synSynth7.g --map models/synSynth7_map.json
+$PYTHON findSim.py ./Curated/Gu2004_fig3B.json --model models/synSynth7.g --map models/synSynth7_map.json
+$PYTHON findSim.py ./Curated/Bhalla1999_Fig4C.json --model models/synSynth7.g --map models/synSynth7_map.json
+
+'''
+#!/usr/bin/env bash
+
 set -e 
 
 # virtualenv does not require --user
@@ -38,3 +49,4 @@ $PYTHON findSim.py ./Curated/FindSim-Bhalla1999_fig2B.tsv --model models/synSynt
 #$PYTHON findSim.py ./Curated/FindSim-Gu2004_fig3B.tsv --model models/synSynth7.g
 $PYTHON findSim.py ./Curated/FindSim-Ji2010_fig1C_ERK_acute.tsv --model models/synSynth7.g
 $PYTHON findSim.py ./Curated/FindSim-Bhalla1999_fig4C.tsv --model models/synSynth7.g
+'''
