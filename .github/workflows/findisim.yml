@@ -44,4 +44,4 @@ jobs:
           python -m pip install pymoose --pre --upgrade
           python -m pip install jsonschema
       - name: Test scripts
-        run: ./regression.sh
+        run: ./test.sh
