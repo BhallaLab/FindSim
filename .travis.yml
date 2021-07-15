@@ -9,7 +9,7 @@ before_script:
     - sleep 3 # give xvfb some time to start
     - # this require latest moose.
     - sudo apt-get update 
-    - sudo apt-get install python-scipy python-networkx python-tk python-matplotlib -qq
+    - sudo apt-get install graphviz python-networkx python-tk -qq
 
 script:
     - cp ./.travis/matplotlibrc .
