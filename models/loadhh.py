@@ -2,7 +2,7 @@ import moose
 import rdesigneur as rd
 def load():
     rdes = rd.rdesigneur(
-        turnOffElec = False,
+        turnOffElec = True,
         chanProto = [['make_HH_Na()', 'Na'], ['make_HH_K()', 'K']],
         chanDistrib = [
             ['Na', 'soma', 'Gbar', '1200' ],

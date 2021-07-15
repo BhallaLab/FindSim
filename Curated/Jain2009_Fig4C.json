@@ -1,0 +1,106 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 11500364,
+            "authors": "Wang X et al.",
+            "journal": "EMBO J. ",
+            "year": 2001,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "",
+        "cellType": "",
+        "notes": "The Wang et al paper says they put in 1 ug in 40 ul, of GST-tagged eEF2K (CaMKIII). This has an estimated mol wt of 26 + 82 = 108kDa. So the concentration is about 230 nM. However, Pragati seems to have used 60 nM which is the level in her model. The concInit for S6Kthr_252 is based on the number of units of activity reported in Wang et al as 1U/ml. 1U of activity is the amount of enzyme that phopshrylates 1nmol of peptide in 1min. Dividing 1U/ml by S6K kcat of 10/s"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "mM",
+            "entity": "S6KpT229",
+            "field": "conc",
+            "data": [
+                [
+                    0,
+                    1.67e-06
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "nM",
+        "entities": [
+            "CaMKIIIp"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                60,
+                8,
+                0
+            ],
+            [
+                180,
+                12,
+                0
+            ],
+            [
+                300,
+                26,
+                0
+            ],
+            [
+                600,
+                25,
+                0
+            ],
+            [
+                900,
+                50,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "CaMKIII_g",
+            "S6K_g"
+        ],
+        "itemsToDelete": [
+            "S6_phos",
+            "S6_phospho",
+            "S6_dephosph",
+            "CaMKIII_CaM_Ca4[0]/phospho",
+            "eEF2thr56_basal"
+        ],
+        "parameterChange": [
+            {
+                "entity": "bS6K",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "CaMKIII",
+                "field": "concInit",
+                "value": 6.8e-05,
+                "units": "mM"
+            },
+            {
+                "entity": "CaMKIII_deph",
+                "field": "Kf",
+                "value": 0,
+                "units": "none"
+            }
+        ],
+        "notes": "Jain2009_Fig4C"
+    }
+}

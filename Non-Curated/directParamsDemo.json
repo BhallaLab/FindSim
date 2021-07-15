@@ -1,0 +1,61 @@
+{
+    "Metadata": {
+        "transcriber": "Upinder S. Bhalla",
+        "organization": "NCBS",
+        "email": "bhalla@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 15548210,
+            "authors": "Bhalla",
+            "journal": "Test Journal",
+            "year": 0,
+            "figure": "Figure 1 panel B"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DirectParameter",
+        "species": "rat",
+        "cellType": "hippocampal CA1 pyramidal neuron",
+        "notes": "Direct param readouts test script."
+    },
+    "Readouts": {
+        "paramdata": [
+            {
+                "entity": "MAPK_phosph_PLA2",
+                "field": "kcat",
+                "units": "1/sec",
+                "value": 20,
+                "stderr": 0
+            },
+            {
+                "entity": "MAPK_phosph_4EBP",
+                "field": "kcat",
+                "units": "1/sec",
+                "value": 0.1,
+                "stderr": 0
+            },
+            {
+                "entity": "MAPK_phosph_PLA2",
+                "field": "Km",
+                "units": "uM",
+                "value": 27,
+                "stderr": 0
+            },
+            {
+                "entity": "MAPK_phosph_4EBP",
+                "field": "Km",
+                "units": "uM",
+                "value": 20,
+                "stderr": 0
+            }
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "all"
+        ],
+        "notes": "Test for direct measure of parameters. Note that each Readouts entry can be used for a different parameter, but may apply to many objects."
+    }
+}

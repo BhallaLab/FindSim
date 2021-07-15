@@ -1,0 +1,116 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 15514998,
+            "authors": "Dijkhuizen and Ghosh",
+            "journal": "J Neurobiol. ",
+            "year": 2005,
+            "figure": ""
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "Rat",
+        "cellType": "E18 Long-Evans rat primary cortical neurons",
+        "temperature": 37,
+        "notes": "Deleting the rest of the model for convenience"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "BDNF",
+            "field": "conc",
+            "data": [
+                [
+                    900,
+                    2
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "uM",
+        "entities": [
+            "aAKT"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                900,
+                0.005,
+                0
+            ],
+            [
+                930,
+                0.01,
+                0
+            ],
+            [
+                1020,
+                0.082,
+                0
+            ],
+            [
+                1200,
+                0.078,
+                0
+            ],
+            [
+                1500,
+                0.072,
+                0
+            ],
+            [
+                2700,
+                0.069,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "Phosphatase_g",
+            "Ca_g",
+            "PLCg_g",
+            "Sos_g",
+            "BDNF_g",
+            "TrKB_g",
+            "AKT_g",
+            "PI3K_g",
+            "PIP2",
+            "PIP3",
+            "MAPK_g",
+            "Ras_g",
+            "PKC_g"
+        ],
+        "parameterChange": [
+            {
+                "entity": "AKT",
+                "field": "concInit",
+                "value": 0.00017,
+                "units": "mM"
+                  },
+            {
+                "entity": "BDNF",
+                "field": "concInit",
+                "value": 0,
+                "units": "mM"
+            },
+            {
+                "entity": "SHCp_deph",
+                "field": "Kf",
+                "value": 0.2,
+                "units": "none"
+            }
+        ],
+        "notes": "Jain2009_Fig5B"
+    }
+}

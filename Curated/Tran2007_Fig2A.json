@@ -1,0 +1,138 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 17012621,
+            "authors": "Tran_TM et al.",
+            "journal": "Mol Pharm, ",
+            "year": 2007,
+            "figure": "Fig2A"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "cell-lines",
+        "cellType": "HEK293 cells",
+        "temperature": 37,
+        "notes": "Adrenergic receptors and its agonist were used. Considering mGluR and Glutamate here. Deleting the rest of the model for convenience"
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "uM",
+            "entity": "Glutamate",
+            "field": "conc",
+            "data": [
+                [
+                    300,
+                    0.0
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "ratio",
+        "entities": [
+            "beta2ARp"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 300,
+            "entities": [
+                "beta2ARp"
+            ],
+            "dose": 0,
+            "sampling": "start"
+        },
+        "data": [
+            [
+                300,
+                1,
+                0
+            ],
+            [
+                600,
+                0.95,
+                0
+            ],
+            [
+                900,
+                0.82,
+                0
+            ],
+            [
+                1200,
+                0.65,
+                0
+            ],
+            [
+                1500,
+                0.52,
+                0
+            ],
+            [
+                2100,
+                0.32,
+                0
+            ],
+            [
+                3900,
+                0.09,
+                0
+            ],
+            [
+                5700,
+                0.01,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "mGluR_g",
+            "barr2_g",
+            "PP2A",
+            "MAPK_g"
+        ],
+        "itemsToDelete": [
+            "mGluR_Gq",
+            "Glu_mGluR_Gq",
+            "Glu_mGluR_bind_Gq",
+            "Glu_bind_mGluR_Gq",
+            "Act_Gq",
+            "mGluR_bind_Gq",
+            "clus_S6K_deph",
+            "S6K_dephosp",
+            "S6K_deph",
+            "AKTpS473_deph",
+            "AKTpT308_deph",
+            "eEF2p_deph",
+            "PP2A_4EBPpp",
+            "PP2A_4EBPp",
+            "PP2A_eIF4EBPpp",
+            "PP2A_eIF4EBPp",
+            "PP2A_dephos_I1",
+            "PP2A_dephos_PP1_Ip",
+            "clus_S6K_phospho",
+            "MAPKpp_feedback",
+            "MAPKpp_act_PLA2",
+            "Sos_phospho",
+            "MAPK_4EBPpp",
+            "MAPK_4EBP_phospho"
+        ],
+        "parameterChange": [
+            {
+                "entity": "Glutamate",
+                "field": "concInit",
+                "value": 0.1,
+                "units": "mM"
+            }
+        ]
+    }
+}

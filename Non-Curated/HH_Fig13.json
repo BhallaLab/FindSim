@@ -1,0 +1,88 @@
+{
+    "Metadata": {
+        "transcriber": "Upinder S. Bhalla",
+        "organization": "NCBS",
+        "email": "bhalla@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 10486198,
+            "authors": "Hodgkin and Huxley",
+            "journal": "Journal of Physiology ",
+            "year": 117,
+            "figure": "Figure 13"
+        },
+        "testModel": "models/loadhh.py",
+        "testMap": "models/loadhh.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "loligo pelagi",
+        "cellType": "giant axon",
+        "notes": "Classic HH data, "
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "msec",
+            "quantityUnits": "nA",
+            "entity": "soma",
+            "field": "inject",
+            "data": [
+                [
+                    0,
+                    2000
+                ],
+                [
+                    0.1,
+                    0
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "msec",
+        "quantityUnits": "mV",
+        "entities": [
+            "soma"
+        ],
+        "field": "Vm",
+        "data": [
+            [
+                0,
+                -45.0
+            ],
+            [
+                1,
+                25
+            ],
+            [
+                2,
+                -20.0
+            ],
+            [
+                3,
+                -75.0
+            ],
+            [
+                4,
+                -74.0
+            ],
+            [
+                5,
+                -73.0
+            ],
+            [
+                10,
+                -66.0
+            ],
+            [
+                15,
+                -65.0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "all"
+        ]
+    }
+}

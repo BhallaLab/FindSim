@@ -183,14 +183,14 @@ def dumpTweakedModelFile( args, params, results ):
     filename, file_extension = os.path.splitext( args.model )
     resfname, res_ext = os.path.splitext( args.file )
     if file_extension == ".xml":
-        modelId, errormsg = moose.mooseReadSBML( args.model, 'model', 'ee' )
+        modelId, errormsg = moose.readSBML( args.model, 'model', 'ee' )
         tweakParams( params, results.x )
-        moose.mooseWriteSBML( modelId.path, resfname + "_tweaked.xml" )
+        moose.writeSBML( modelId.path, resfname + "_tweaked.xml" )
         moose.delete( modelId )
     elif file_extension == ".g":
         modelId = moose.loadModel( args.model, 'model', 'ee' )
         tweakParams( params, results.x )
-        moose.mooseWriteKkit( modelId.path, resfname + "_tweaked.g" )
+        moose.writeKkit( modelId.path, resfname + "_tweaked.g" )
         moose.delete( modelId )
     else:
         print( "Warning: dumpTweakedModelFile: Don't know file type for {}".format( args.model ) )

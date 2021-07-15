@@ -1,0 +1,230 @@
+{
+	"title" : "FindSim schema",
+	"description" : "This is a schema for descriptors of experiments used by the FindSim package.",
+	"type": "object",
+	"properties": {
+		"Metadata": {
+		"type": "object",
+			"properties": {
+				"transcriber": {"type": "string"},
+				"organization": {"type": "string"},
+				"email": {"type": "string"},
+				"source": {
+					"type": "object",
+					"properties": {
+						"sourceType": {
+							"type": "string",
+							"enum": ["paper", "inhouse", "database", "other"]
+						},
+						"PMID": {"type": "number"},
+						"doi": {"type": "string"},
+						"authors": {"type": "string"},
+						"journal": {"type": "string"},
+						"journalDetail": {"type": "string"},
+						"year": {"type": "number"},
+						"figure": {"type": "string"},
+						"table": {"type": "string"}
+					},
+					"anyOf": [
+						{"required": ["sourceType", "PMID", "year"]},
+						{"required": ["sourceType", "doi", "year"]}
+					],
+					"additionalProperties": false
+				},
+				"notes": { "type": "string" },
+				"testModel": { "type": "string", 
+					"description": "This is a reference model against which the findSim expt file should work, typically provided along with it." },
+				"testMap": { "type": "string",
+			   "description": "Map file to go along with expt file and reference model"	
+				}
+			},
+			"required": ["transcriber", "organization", "source"],
+			"additionalProperties": false
+		},
+
+		"Experiment": {
+			"type": "object",
+			"properties": {
+				"design": { "type": "string",
+					"enum": ["TimeSeries", "DoseResponse", "BarChart", "DirectParameter" ]
+			   	},
+				"species": { "type": "string" },
+				"cellType": { "type": "string" },
+				"temperature": { "type": "number" },
+				"notes": { "type": "string" }
+			},
+			"required": ["design"],
+			"additionalProperties": false
+		},
+
+		"Stimuli":{ "type": "array", 
+			"items": {
+				"type": "object",
+				"properties": {
+					"timeUnits": {"type": "string",
+						"enum": ["s", "sec", "min", "hr", "day", "ms", "msec", "us", "usec"]
+			   		},
+					"quantityUnits": {"type": "string",
+						"enum": ["nM", "uM", "mM", "M", "#", "uV", "mV", "V", "pA", "nA", "uA", "Hz", "ratio"],
+						"description": "Hz is used for synaptic input at a given freq. Ratio comes up for neuromodulation of synaptic weight and channels"
+			   		},
+					"entity": {"type": "string" },
+					"label": {
+						"type": "string",
+						"description" : "label is used only by BarCharts. It uniquely identifies stimulus blocks. By default the BarChart uses the _entity_ name, but in case there are multiple stimuli involving the same entity the _label_ lets one give each a unique identifier."
+					},
+					"field": {"type": "string",
+						"enum": ["conc", "inject", "Vm", "Vclamp", "rate", "weight","EPSP_peak","synInput"],
+						"description": "rate and weight are used for synaptic input"
+			   		},
+					"data": {"type": "array",
+						"items": { "type": "array", 
+							"items": {"type": "number" },
+							"minItems": 2, "maxItems": 2
+						}
+			   		},
+					"value": {"type": "number"}
+				},
+				"required": ["quantityUnits", "entity", "field"],
+				"additionalProperties": false
+			}
+		},
+
+		"Readouts":{
+			"type": "object",
+			"properties": {
+				"timeUnits": {"type": "string",
+					"enum": ["s", "sec", "min", "hr", "day", "ms", "msec", "us", "usec"]
+			   	},
+				"quantityUnits": {"type": "string",
+					"enum": ["nM", "uM", "mM", "M", "#", "uV", "mV", "V", "pA", "nA", "uA", "ratio"]
+			   	},
+				"entities": {"type": "array",
+						"items": {"type": "string"}
+				},
+				"field": {"type": "string" },
+				"settleTime": {"type": "number", 
+			   		"minimum": 0.0, 
+					"maximum": 5000	
+				},
+				"normalization": {"type": "object",
+					"properties": {
+						"sampling": {"type": "string",
+							"enum": ["none", "start", "end", "min", "max", "each", "presetTime", "dose"]
+						},
+						"time": {"type": "number"},
+						"dose": {"type": "number"},
+						"entities": {"type": "array",
+							"items": {"type": "string"},
+							"minitems":1,
+							"description": "If the entities here are different from the primary readout entities, it is a ratio calculation. If they are the same, it is a normalization."
+						}
+					},
+					"required": ["sampling", "entities"],
+					"additionalProperties": false
+				},
+				"display": {"type": "object",
+					"properties": {
+						"useXlog": {"type": "boolean"},
+						"useYlog": {"type": "boolean"},
+						"plotDt": {"type": "number", "minimum": 1e-6}
+					},
+					"additionalProperties": false
+				},
+				"epsp": {"type": "object",
+					"description": "Params to define field recordings",
+					"properties": {
+						"epspFreq": {"type": "number", "minumum": 0},
+						"epspWindow": {"type": "number", 
+							"minimum": 1e-6,
+							"description": "Time window to search for peak."
+						},
+						"electrodePosition": {"type": "array",
+							"items": {"type": "number" },
+							"minItems": 2, "maxItems": 3,
+							"description": "position of recording electrode"
+						},
+						"epspDepthIntegMin": {"type": "number" },
+						"epspDepthIntegMax": {"type": "number" }
+					},
+					"additionalProperties": false
+				},
+				"data": {"type": "array",
+					"items": { "type": "array", 
+						"items": {"type": "number" },
+						"minItems": 2, "maxItems": 3
+					}
+			   	},
+				"bardata": {"type": "array",
+					"items": { "type": "object", 
+						"properties": {
+							"stimulus": {"type": "array",
+								"items": {"type": "string"}
+							},
+							"value": {"type": "number" },
+							"stderr": {"type": "number" }
+						},
+						"required": ["stimulus", "value", "stderr"]
+					},
+					"minItems": 1
+				},
+				"paramdata": {"type": "array",
+					"items": { "type": "object", 
+						"properties": {
+							"entity": {"type": "string"},
+							"field": {"type": "string"},
+							"units": {"type": "string",
+								"enum": ["nM", "uM", "mM", "M", "#", "s", "sec", "1/s", "1/sec", "uV", "mV", "V", "pA", "nA", "uA"]
+							},
+							"value": {"type": "number" },
+							"stderr": {"type": "number" }
+						},
+						"required": ["entity", "field", "units", "value"],
+						"additionalProperties": false
+					},
+					"minItems": 1
+				}
+		   	},
+			"oneOf": [
+				{ "required": ["timeUnits", "quantityUnits", "entities", "field", "data"]}, 
+				{ "required": ["timeUnits", "quantityUnits", "entities", "field", "bardata"]},
+				{ "required": ["paramdata"]} 
+			],
+			"additionalProperties": false
+		},
+
+		"Modifications":{
+			"type": "object",
+			"properties": {
+				"subset": {"type": "array",
+					"items": {"type": "string"}
+				},
+				"itemsToDelete": {"type": "array",
+					"items": {"type": "string"}
+				},
+				"parameterChange": {"type": "array",
+					"items": {"type": "object",
+						"properties": {
+							"enitity": {"type": "string" },
+							"field": {"type": "string" },
+							"value": {"type": "number" },
+							"units": {"type": "string",
+								"enum": ["nM", "uM", "mM", "M", "#", "s", "sec", "1/s", "1/sec", "uV", "mV", "V", "pA", "nA", "uA", "none"]
+						   	}
+						},
+						"required": ["entity", "field", "value", "units"]
+					}
+				},
+				"notes": {"type": "string" }
+			},
+			"anyOf": [
+				{ "required": ["subset"] },
+				{ "required": ["itemsToDelete"] },
+				{ "required": ["parameterChange"] }
+			],
+			"additionalProperties": false
+		}
+	},
+	"required": ["Metadata", "Experiment", "Readouts"],
+	"additionalProperties": false
+}

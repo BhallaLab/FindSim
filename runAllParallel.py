@@ -38,7 +38,6 @@ It can do this in parallel using Python's multiprocessing library.
 
 from __future__ import print_function
 import numpy
-import argparse
 import os
 import sys
 import argparse
@@ -59,7 +58,7 @@ def enumerateFindSimFiles( location ):
     if os.path.isdir( location ):
         if location[-1] != '/':
             location += '/'
-        fnames = [ (location + i) for i in os.listdir( location ) if i.endswith( ".tsv" )]
+        fnames = [ (location + i) for i in os.listdir( location ) if i.endswith( ".json" )]
         return fnames, [1.0] * len( fnames )
     elif os.path.isfile( location ):
         fnames = []
@@ -82,10 +81,12 @@ def main():
     t0 = time.time()
     parser = argparse.ArgumentParser( description = 'Wrapper script to run a lot of FindSim evaluations in parallel.' )
 
-    parser.add_argument( 'location', type = str, help='Required: Directory in which the scripts (in tsv format) are all located.')
+    parser.add_argument( 'location', type = str, help='Required: Files to run. Can be a directory or a filename. If directory then run all the files (in tsv format) in it. If filename, then each line is pair of "<fname>.tsv weight". Preceding # says to ignore line.')
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn', default = 2 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "" )
+    parser.add_argument( '-map', '--map', type = str, help='Model entity mapping file. This is a JSON file.', default = "" )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
+    parser.add_argument( '-v', '--verbose', action="store_true", help="Flag: default False. When set, prints all sorts of warnings and diagnostics.")
     args = parser.parse_args()
     location = args.location
     if location[-1] != '/':
@@ -99,24 +100,23 @@ def main():
         quit()
 
     fnames, weights = enumerateFindSimFiles( args.location )
-    #fnames = [ (location + i) for i in os.listdir( args.location ) if i.endswith( ".tsv" )]
     pool = Pool( processes = args.numProcesses )
     #ret = findSim.innerMain(fnames[0], hidePlot=True)
 
-    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=True, scaleParam=args.scale_param, optimizeElec = False ), callback=reportReturn ) for i in fnames ]
+    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=not args.verbose, scaleParam=args.scale_param, optimizeElec = False, mapFile = args.map ), callback=reportReturn ) for i in fnames ]
     results = [ i.get() for i in ret ]
     numGood = 0
     sumScore = 0.0
     sumWts = 0.0
-    print( "\n---------Completed---------\nScores = " )
+    print( "\n---------Completed---------" )
+    print( "{:40s}  {:6s}  {:6s}".format( "Expt Name", "score", "runtime" ))
     for i, j, w in zip( fnames, results, weights ):
-        print( "{}  {:.3f}  {}".format( i, j, w ) )
-        if j >= 0:
+        print( "{:40s}  {:.4f}  {:.4f}".format( i, j[0], j[1] ) )
+        if j[0] >= 0:
             numGood += 1
-            sumScore += j * w
+            sumScore += j[0] * w
             sumWts += w
-    print( "Weighted Score out of {:.0f} good runs = {:.3f}. Runtime = {:.3f} sec".format( numGood, sumScore / sumWts, time.time() - t0 ) )
-        #print( "{0} : {1:.2f}".format( i, j ) )
+    print( "Weighted Score of {:.0f} good of {:.0f} runs = {:.3f}. Runtime = {:.3f} sec".format( numGood, len( fnames ), sumScore / sumWts, time.time() - t0 ) )
 
         
 # Run the 'main' if this script is executed standalone.

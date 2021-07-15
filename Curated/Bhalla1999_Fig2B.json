@@ -1,0 +1,183 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "National Centre for Biological Sciences",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 7657647,
+            "authors": "Teng KK et al.",
+            "journal": "J Biol Chem. ",
+            "year": 1995,
+            "figure": "Fig 9A"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "TimeSeries",
+        "species": "Cell-line",
+        "cellType": "rat Pheochromocytoma cell line (PC12)",
+        "temperature": 25,
+        "notes": "Simulation MAPK activity using calicum."
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "mM",
+            "entity": "EGF",
+            "field": "conc",
+            "data": [
+                [
+                    2100,
+                    0.0001
+                ]
+            ]
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "quantityUnits": "ratio",
+        "entities": [
+            "aMAPK"
+        ],
+        "field": "conc",
+        "normalization": {
+            "time": 2400,
+            "entities": [
+                "aMAPK"
+            ],
+            "dose": 0,
+            "sampling": "presetTime"
+        },
+        "data": [
+            [
+                2100,
+                0.02,
+                0.06
+            ],
+            [
+                2400,
+                1,
+                0
+            ],
+            [
+                3900,
+                0.12,
+                0.17
+            ],
+            [
+                5700,
+                0.1,
+                0.1
+            ],
+            [
+                9300,
+                0.08,
+                0.08
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "EGFR_g",
+            "Sos_g",
+            "Ras_g",
+            "MAPK_g",
+            "Ca_g",
+            "PKC_g",
+            "Phosphatase_g",
+            "PLCg_g",
+            "PLCb_g",
+            "PLA2_g",
+            "PC",
+            "IP3",
+            "PIP2"
+        ],
+        "itemsToDelete": [
+            "PP2A",
+            "phospho_AC2",
+            "GEF_Gprot_bg",
+            "bg_act_GEF",
+            "MEK_phospho",
+            "MEKp_phospho",
+            "mGluR_barr2_Raf",
+            "clus_S6K_phospho",
+            "MAPK_4EBPpp",
+            "MAPK_4EBP_phospho",
+            "Act_PLC_by_Gq",
+            "Inact_PLC_Gq",
+            "PLC_bind_Gq",
+            "PKC_phospho_ng",
+            "PKC_phospho_ng_CaM",
+            "PIP2_PLA2_act",
+            "PIP2_Ca_PLA2_act",
+            "CaM_bind_GEF",
+            "PI3K_bind_RasGTP",
+            "PIP2_phospho_Ras_GTP"
+        ],
+         "parameterChange" :
+        [{"entity": "bPKCp",
+           "field": "concInit",
+           "value" :2.00E-05,
+           "units" :"mM"},
+           {"entity": "GAP",
+           "field": "concInit",
+           "value" :2.0E-5,
+           "units" :"mM"},
+           {"entity": "PIP2",
+           "field": "concInit",
+           "value" :0.007,
+           "units" :"mM"},
+           {"entity": "RasGDP",
+           "field": "concInit",
+           "value" :0.0005,
+           "units" :"mM"},
+           {"entity": "SHCp_deph",
+           "field": "Kf",
+           "value" :0.2,
+           "units" :"none"},
+           {"entity": "Ras_act_craf",
+           "field": "Kf",
+           "value" :9999.2668,
+           "units" :"none"},
+           {"entity": "PKC_act_raf",
+           "field": "Km",
+           "value" :0.02098,
+           "units" :"none"},
+           {"entity": "MKP1pY421_deph",
+           "field": "Km",
+           "value" :0.00734,
+           "units" :"none"},
+           {"entity": "MKP1pT424_deph",
+           "field": "Km",
+           "value" :0.00734,
+           "units" :"none"},
+           {"entity": "MKP1pT424_deph",
+           "field": "kcat",
+           "value" :4,
+           "units" :"none"},
+           {"entity": "MKP1pY421_deph",
+           "field": "kcat",
+           "value" :4,
+           "units" :"none"},
+           {"entity": "Rafp_RasGTP1",
+           "field": "kcat",
+           "value" :0.3,
+           "units" :"none"},
+           {"entity": "Rafp_RasGTP2",
+           "field": "kcat",
+           "value" :0.3,
+           "units" :"none"},
+           {"entity": "CaMGEF_actRas",
+           "field": "kcat",
+           "value" :0.02,
+           "units" :"none"},
+           {"entity": "Sos_Ras_GEF",
+           "field": "kcat",
+           "value" :0.2,
+           "units" :"none"}
+        ],
+        "notes": "Bhalla1999_Fig2B"
+    }
+}

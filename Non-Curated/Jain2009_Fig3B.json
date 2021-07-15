@@ -1,0 +1,96 @@
+{
+    "Metadata": {
+        "transcriber": "Nisha Ann Viswan",
+        "organization": "NCBS",
+        "email": "nishaav@ncbs.res.in",
+        "source": {
+            "sourceType": "paper",
+            "PMID": 15896331,
+            "authors": "Toral-Barza L et al.",
+            "journal": "Biochem Biophys Res Commun. ",
+            "year": 2005,
+            "figure": "Jain2009_fig3B"
+        },
+        "testModel": "models/synSynth7.g",
+        "testMap": "models/synSynth7_map.json"
+    },
+    "Experiment": {
+        "design": "DoseResponse",
+        "species": "in-vitro",
+        "cellType": "human mTOR cDNA was sequenced and expressed, human S6K was used",
+        "temperature": 30,
+        "notes": ""
+    },
+    "Stimuli": [
+        {
+            "timeUnits": "sec",
+            "quantityUnits": "nM",
+            "entity": "mTOR",
+            "field": "conc"
+        }
+    ],
+    "Readouts": {
+        "timeUnits": "sec",
+        "settleTime": 3600,
+        "quantityUnits": "uM",
+        "entities": [
+            "S6KpT412"
+        ],
+        "field": "conc",
+        "data": [
+            [
+                0.45,
+                0.01,
+                0
+            ],
+            [
+                0.66935,
+                0.05,
+                0
+            ],
+            [
+                0.8925,
+                0.08,
+                0
+            ],
+            [
+                1.785,
+                0.15,
+                0
+            ],
+            [
+                3.57,
+                0.21,
+                0
+            ],
+            [
+                7.14,
+                0.53,
+                0
+            ]
+        ]
+    },
+    "Modifications": {
+        "subset": [
+            "S6K_g",
+            "mTORC1_g"
+        ],
+        "itemsToDelete": [
+            "S6_phos",
+            "S6_phospho",
+            "S6Kp_act_CaMKIII",
+            "bS6K",
+            "TOR_4EBPp",
+            "TOR_4EBP_phospho",
+            "S6_dephosph"
+        ],
+        "parameterChange": [
+            {
+                "entity": "S6K",
+                "field": "concInit",
+                "value": 0.0009,
+                "units": "mM"
+            }
+        ]
+    }
+}

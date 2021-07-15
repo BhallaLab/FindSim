@@ -29,62 +29,52 @@
 ** This program is part of 'MOOSE', the
 ** Messaging Object Oriented Simulation Environment,
 ** also known as GENESIS 3 base code.
-**           copyright (C) 2003-2018 Upinder S. Bhalla. and NCBS
+**           copyright (C) 2003-2021 Upinder S. Bhalla. and NCBS
 **********************************************************************/
 
 '''
 from __future__ import print_function
 import heapq
-#import pylab
+import matplotlib.pyplot as plt
 import numpy as np
 import sys
+import json
+import jsonschema
 import traceback
 import argparse
 import os
 import re
 import time
-import imp      # This is apparently deprecated in Python 3.4 and up
 
-import matplotlib.pyplot as pyplot,mpld3
-
-#mpld3 hack
-# suggested: https://github.com/mpld3/mpld3/issues/434
-import json
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        import numpy as np
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
-from mpld3 import _display
-_display.NumpyEncoder = NumpyEncoder
+if sys.version_info < (3, 4):
+    import imp               # This is apparently deprecated in Python 3.4 and up
+else:
+    import importlib      
 
 from simError import SimError
 import simWrap
 import simWrapMoose
+import simWrapHillTau
 
+convertTimeUnits = {'sec': 1.0,'s': 1.0, 
+        'ms': 1e-3, 'millisec': 1e-3, 'msec' : 1e-3, 
+        'us': 1e-6, 'usec': 1e-6, 'microsec' : 1e-6, 
+        'ns': 1e-6, 'nanosec' : 1e-9, 
+        'min': 60.0 ,'m' : 60.0, 
+        'hours': 3600.0, 'hrs' : 3600.0,
+        "days": 86400.0}
 
-convertTimeUnits = {('sec','s') : 1.0, 
-    ('ms','millisec', 'msec') : 1e-3,('us','microsec') : 1e-6, 
-    ('ns','nanosec') : 1e-9, ('min','m') : 60.0, 
-    ('hours','hrs') : 3600.0, "days": 86400.0}
-#convertConcUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0 }
-#convertVoltageUnits = { 'V': 1, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9 }
-#convertCurrentUnits = { 'A': 1, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12 }
 convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
         'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
         'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
-        'Hz': 1.0, '1/sec':1.0, 'sec':1.0, 's':1.0, 'min':60.0, 
-        'mV/ms':1.0, '%':100.0, 'Fold change':1.0 }
+        'Hz': 1.0, '1/sec':1.0, 'sec':1.0, '1/s': 1.0, 's':1.0, 'min':60.0,
+        'mV/ms':1.0, '%':100.0, 'Fold change':1.0, 'none': 1 }
 
-# Shifted to Readout class as static fields.
-#epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
-#epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
-#fepspFields = [ 'fEPSP_peak', 'fEPSP_slope', 'fIPSP_peak', 'fIPSP_slope' ]
-#elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
+defaultScoreFunc = "(expt-sim)*(expt-sim)/(datarange*datarange + 1e-9)"
 
 sw = ""         #default dummy value for SimWrap
+fschema = "FindSim-Schema.json" # Name of JSON schema file
 
 def keywordMatches( k, m ):
     return k.lower() == m.lower()
@@ -104,47 +94,21 @@ class Experiment:
     information. It isn't really useful in running the model but is needed
     in the experiement specification file so that we know where the
     data came from, and to look up details."""
-    def __init__( self, 
-            exptType = 'timeSeries',
-            exptSource = 'paper', # Options are paper, inHouse, database
-            citationId = '',  # Journal name/ in-house project name/ database
-            authors = '',   # Who did the work
-            journal = '',     # journal
-            temperature = 22    # Degrees Celsius
-        ):
-        self.exptSource = exptSource
-
-        """This defines what kind of data is in the experiment. 
-        timeSeries is the most elementary experiment: Monitor a model
-        value at a succesion of points in time. Other options are
-        doseResponse, barchart, and more.
-        """
-        self.exptType = exptType.lower()
-        self.citationId = citationId
-        self.authors = authors
-        self.journal = journal
-        self.temperature = temperature
-
-    def load( fd ):
-        doneContext = False
-        arg = {}
-        for line in fd:
-            cols = line.split('\t')
-            c0 = cols[0].strip()
-            if doneContext and (len( cols ) == 0 or c0 == '' or c0.isspace()):
-                break
-            if c0 == "Experiment context":
-                doneContext = True
-                continue
-            for i in Experiment.argNames:
-                if keywordMatches( c0, i ):
-                    arg[i] = str.strip( nonBlank( cols ) )
-                    continue
-        return Experiment( **arg )
-
-    load = staticmethod( load )
-
-Experiment.argNames = ['exptType', 'exptSource', 'citationId', 'authors', 'journal', 'temperature' ]
+    def __init__( self, metadata, expt ):
+        self.exptType = expt["design"].lower()
+        source = metadata["source"]
+        self.exptSource = source.get( "type" )
+        self.authors = source.get("authors")
+        self.year = source.get( "year" )
+        self.citationId = source.get( "PMID" )
+        if not self.citationId:
+            self.citationId = source.get( "doi" )
+        self.journal = source.get( "journal" )
+        self.temperature = expt.get( "temperature" )
+        self.species = expt.get( "species" )
+        self.cellType = expt.get( "cellType" )
+        self.testModel = metadata.get( "testModel" )
+        self.testMap = metadata.get( "testMap" )
 
 ##########################################################################
 class Stimulus:
@@ -158,173 +122,185 @@ class Stimulus:
     the molecule involved. The actual concentrations used are specified in
     the Readout, which contains the dose-response table.
     """
-    def __init__( self,
-            timeUnits = 's',
-            quantityType = 'chem', # Could be chem, elec, mech, or spikes
-            quantityUnits = 'mM',
-            quantityScale = 1.0,    # Go from quantity units to SI.
-            entities = '',
-            field = '',
-            data = []
-        ):
-        if timeUnits != " ":
-            self.timeUnits = timeUnits
-        """timeUnits may be us, ms, s, min, hours, days"""
-        #self.timeScale = convertTimeUnits[ timeUnits ]
-        self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
-        """timeScale is timeUnits scaled to seconds"""
-        self.quantityUnits = quantityUnits.strip()
-        if self.quantityUnits in convertQuantityUnits:
-            self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
+    def __init__( self, s ):
+        #self.quantityUnits = s["quantityUnits"].encode( "ascii" ) # Schema ensures it is OK
+        self.quantityUnits = s["quantityUnits"] # Schema ensures it is OK
+        self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
+        self.entities = [s["entity"],]
+        self.field = str( s["field"] )
+        #self.timeUnits = s.get( "timeUnits" ).encode( "ascii" )
+        self.timeUnits = s.get( "timeUnits" )
+        if not self.timeUnits:
+            self.timeUnits = "s"
+        self.timeScale = convertTimeUnits[ self.timeUnits ]
+        self.data = s.get( "data" )
+        if "label" in s:
+            self.label = s["label"]
         else:
-            raise SimError(" Stimulus::__init__: quantity units not known: " + self.quantityUnits )
-        temp = entities.split( ',' )
-        self.entities = [ i for i in temp if len(i) > 0 ]
-        """Name of the model entity to modify for the stimulus. 
-        Typically a molecule name, or a compartment in a neuron."""
-        self.field = field
-        """Name of the field associated with the entity. For example,
-        conc for a molecule, or currentInjection for compartment"""
-        self.data = data
-        """List of pairs of numbers for stimulus, Each row is [time or dose, quantity]"""
+            self.label = self.entities[0]
 
+        if not self.data:
+            if "value" in s:
+                self.data = [[0, s["value"]],]
+            else:
+                self.data = []
 
-        
-    def load( fd ):
-        arg, data, param, struct, modelLookup = innerLoad( fd, Stimulus.argNames, dataWidth = 2 )
-        stim = Stimulus( **arg )
-        stim.data = data
-        return stim
+    def load( findsim ):
+        ret = []
+        fstims = findsim.get( "Stimuli" )
+        if fstims:
+            for i in fstims:
+                ret.append( Stimulus( i ) )
+        return ret
     load = staticmethod( load )
+
 
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
         named in experiment have counterparts in the model definition"""
         for i in self.entities:
+            #if not i.encode( 'ascii' ) in modelLookup:
             if not i in modelLookup:
                 raise SimError( "Stim::configure: Error: object {} not defined in model lookup.".format( i ) )
 
-Stimulus.argNames = ['timeUnits', 'quantityUnits', 'entities', 'field' ]
-
 ##########################################################################
-
+# Shifted to Readout class as static fields.
+#elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
 class Readout:
     """Specifies readouts to be obtained from a specific component of 
     the model in the course of the simulated experiment. Almost always
     molecule quantity, but later might be electrical things like membrane 
     potential.
-    There can be multiple readouts during an experiment.
+    Currently only a single readout is supported.
     """
-    ## Here are some static fields.
     epspFields = [ 'EPSP_peak', 'EPSP_slope', 'IPSP_peak', 'IPSP_slope' ]
     epscFields = [ 'EPSC_peak', 'EPSC_slope', 'IPSC_peak', 'IPSC_slope' ]
     fepspFields = [ 'fEPSP_peak','fEPSP_slope','fIPSP_peak','fIPSP_slope' ]
-    elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
     postSynFields = fepspFields + epspFields + epscFields
-    def __init__( self,
-            timeUnits = 's',
-            quantityUnits = 'mM',
-            useRatio = False,
-            useNormalization=False,
-            tabulateOutput = False,
-            settleTime = 300.0,
-            ratioReferenceEntities = '',
-            ratioReferenceTime = 0.0,
-            ratioReferenceDose = 0.0,
-            ratioReferenceValue = 1.0,
-            entities = '',
-            field = '',     # Special fields EPSP_peak, EPSP_slope etc
-            quantityScale = 1.0,    # Scaling from quantity units to SI
-            useXlog = False,
-            useYlog = False,
-            scoringFormula = 'abs(1-(sim+1e-9)/(expt+1e-9))',
-            data = []      # Data from experiment. rows of [t,val,stder]
-            ):
-        self.timeUnits = timeUnits
-        """timeUnits may be us, ms, s, min, hours, days"""
-        self.timeScale = next(v for k, v in convertTimeUnits.items() if timeUnits in k)
-        """timeScale is timeUnits scaled to seconds"""
-        self.quantityUnits = quantityUnits.strip()
-        """Quantity Units may be: M, mM, uM, nM, pM, number, ratio, etc"""
-        if self.quantityUnits in convertQuantityUnits:
-            self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
-        else:
-            raise SimError( "Readout::__init__: unknown quantity units '{}'".format( self.quantityUnits ) )
+    elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
+    def __init__( self, ro ):
+        self.directParamData = ro.get( "paramdata" )
+        if not self.directParamData:
+            self.timeUnits = ro["timeUnits"]
+            self.timeScale = convertTimeUnits[self.timeUnits]
+            self.quantityUnits = ro["quantityUnits"]
+            self.quantityScale = convertQuantityUnits[self.quantityUnits]
+            self.entities = ro["entities"]
+            self.field = ro["field"]
+            self.settleTime = ro.get("settleTime")
+            if not self.settleTime:
+                self.settleTime = 300.0
+            self.data = ro.get("data") # For most kinds of data
+            if self.data:
+                for i in self.data: # force it to have [t, v, sem] in each row
+                    if len( i ) == 2:
+                        i.append( 0 )
+                    assert( len( i ) == 3 )
 
-        if useXlog != "":    
-            self.useXlog = str2bool(useXlog)
-        else:
-            self.useXlog = str2bool(useXlog)
-        if useYlog != "":    
-            self.useYlog = str2bool(useYlog)
-        else:
-            self.useYlog = str2bool(useYlog)
-        self.useNormalization = str2bool(useNormalization)
-        
-        temp = entities.split( ',' )
-        self.entities = [ i for i in temp if len(i) > 0 ]
-        """Name of the model entity to read. Typically a molecule name,
-        or the name of a compartment in an electrical model."""
-        self.field = field
-        """Name of the field/quantity associated with the entity. For
-        example, conc for molecules, or Vm for a compartment."""
-        self.settleTime = float( settleTime )
-        """For dose response, we can specify how long to settle at 
-        each level. A value of 0 or less means to automatically go 
-        on till steady-state."""
-        temp = ratioReferenceEntities.split( ',' )
-        self.ratioReferenceEntities = [ i for i in temp if len(i) > 0 ]
-        self.useRatio = (len( self.ratioReferenceEntities ) > 0)
-        """Objects to use as reference for computing the readout ratio."""
-        # ratioReferenceTime should really be a flag: ratioEachDose vs
-        # ratioAtSpedifiedConc. We always run for settleTime.
-        self.ratioReferenceTime = float( ratioReferenceTime )
-        """Timepoint at which to sample the quantity to use as a reference for calculating the ratio. -1 means to sample reference each time we sample the readout, and to use the instantaneous ratio."""
-        self.ratioReferenceDose = float( ratioReferenceDose )
-        """Dose at which to sample the quantity to use as a reference for
-        ratio calculations."""
-        self.ratioReferenceValue = float( ratioReferenceValue )
-        """The obtained reference value for scaling all simulation outputs. Defaults to 1."""
-        self.data = data
-        """Array of experimentally defined readout data. Each row has triplets of numbers, [time or dose, quantity, stderr]"""
-        self.simData = [] 
-        """Array of simulation results. One per data entry."""
-        self.ratioData = [] 
-        """Array of ratio results. One per data entry."""
-        self.plots = []
-        """List of continuous, fine-timeseries plots as numpy arrays, for readouts, only activated in single-run mode"""
-        self.plotDt = 0.1   #Default dt for plots. Updated in sw::fillPlots
-        self.epspFreq = 100.0 # Used to generate a single synaptic event
-        self.epspWindow = 0.02 # Time of epspPlot to scan for peak/slope
-        self.ex = 0.0005   # Electrode position for field recordings.
-        self.ey = 0.0
-        self.ez = 0.0
-        self.fepspMin = -0.002 # 2 mm to the left of trode
-        self.fepspMax = 0.001 # 1 mm to the right of trode
+            self.bardata = ro.get( "bardata" )  # only for barcharts
+            self.tabulateOutput = False
+            self.normMode = "none"
+            norm = ro.get( "normalization" )
+            self.useNormalization = False
+            self.ratioReferenceEntities = []
+            self.ratioReferenceTime = 0
+            self.ratioReferenceDose = 0
+            self.ratioReferenceValue = 1.0
+            if norm:
+                self.useNormalization = True
+                self.ratioReferenceEntities = norm["entities"]
+                #if len( self.ratioReferenceEntities ) > 0 and not self.entities[0] in self.ratioReferenceEntities:
+                self.normMode = norm["sampling"]
+                if self.normMode == "none":
+                    self.useNormalization = False
+                elif self.normMode == "start":
+                    self.ratioReferenceTime = 0
+                elif self.normMode == "presetTime":
+                    self.ratioReferenceTime = norm["time"]
+                elif self.normMode == "each":
+                    self.ratioReferenceTime = -1
+                elif self.normMode == "dose":
+                    self.ratioReferenceDose = norm["dose"]
+                    self.settleTime = ro.get("settleTime")
+                    self.ratioReferenceTime = norm.get("time")
+                    if not self.ratioReferenceTime:
+                        self.ratioReferenceTime = self.settleTime
+            # Set up lists to use in the analysis
+            self.simData = []
+            self.ratioData = []
+            self.plots = []
+            # Set up Display parameters
+            self.useXlog = False
+            self.useYlog = False
+            self.plotDt = 0.1,
+            disp = ro.get( "display" )
+            if disp:
+                if "useXlog" in disp:
+                    self.useXlog = disp["useXlog"]
+                if "useYlog" in disp:
+                    self.useYlog = disp["useYlog"]
+                if "plotDt" in disp:
+                    self.plotDt = disp["plotDt"]
+            # Set up EPSP parameters.
+            self.epspFreq = 100.0 # Used to generate single synaptic event
+            self.epspWindow = 0.02 # Time of epspPlot to scan for pk/slope
+            self.ex = 0.0005   # Electrode position for field recordings.
+            self.ey = 0.0
+            self.ez = 0.0
+            self.fepspMin = -0.002 # 2 mm to the left of trode
+            self.fepspMax = 0.001 # 1 mm to the right of trode
+            epsp = ro.get( "epsp" )
+            if epsp:
+                if "epspFreq" in epsp:
+                    self.epspFreq = epsp["epspFreq"]
+                if "epspWindow" in epsp:
+                    self.epspWindow = epsp["epspWindow"]
+                if "electrodePosition" in epsp:
+                    self.ex, self.ey, self.ez = epsp["electrodePosition"]
+                if "epspDepthIntegMin" in epsp:
+                    self.fepspMin = epsp["DepthIntegMin"]
+                if "epspDepthIntegMax" in epsp:
+                    self.fepspMax = epsp["DepthIntegMax"]
+                        
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
         named in experiment have counterparts in the model definition"""
         for i in self.entities:
+            #if not i.encode("ascii") in modelLookup:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: object {} not defined in model lookup.".format( i ) )
         for i in self.ratioReferenceEntities:
+            #if not i.encode("ascii") in modelLookup:
             if not i in modelLookup:
                 raise SimError( "Readout::configure: Error: ratioReferenceEntity '{}' not defined in model lookup.".format( i ) )
 
     def digestSteadyStateRun( self, ref, ret ):
-        if len( self.ratioReferenceEntities ) > 0 and self.ratioReferenceTime >= 0.0: # Global reference readout
-            assert( len( ret ) > 0 and len( ref ) > 0 )
-            globalReference = ret.pop()
-            ref = [globalReference] * len( ret )
-        elif len( self.ratioReferenceEntities ) == 0:
-            ref = [ self.quantityScale ] * len( ret )
-        # The third case is that ratioReferenceTime < 0, in which case we
-        # compute the ref for each stimulus value. That goes through 
-        # unchanged.
-
-        if self.useNormalization: # Another global reference; first pt
-            ref = [ret[0]] * len( ret )
+        if self.useNormalization:
+            if self.normMode == "dose":
+                # Here we have specified a distinct dose against which to
+                # normalize. This is run as an extra data point, and has 
+                #to be popped.
+                assert( len( ret ) > 1 and len( ref ) == len( ret ) )
+                referenceAtExtraDose = ref.pop()
+                ref = [referenceAtExtraDose] * len( ref )
+                tempret = ret.pop() # Pop the readout mol here too.
+            elif self.normMode == "start": 
+                ref = [ret[0]] * len( ret )
+            elif self.normMode == "end": 
+                ref = [ret[-1]] * len( ret )
+            elif self.normMode == "min": 
+                ref = [min(ret)] * len( ret )
+            elif self.normMode == "max": 
+                ref = [max(ret)] * len( ret )
+            elif self.normMode == "presetTime": 
+                print( "Probably you want sampling mode to be one of: start, end, min, max, dose. Defaulting to 'start'")
+                ref = [ret[0]] * len( ret )
+        else:
+            ref = [self.quantityScale * 1.0] * len( ret )
+        # The remaining case is that normMode == 'each', in which case we
+        # compute the ref for each stimulus value. Ref goes through 
+        # unchanged in this case.
 
         # Check for zeroes in the denominator
         eps = 1e-16
@@ -333,112 +309,108 @@ class Readout:
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
-
-    def displayPlots( self, fname, modelLookup, stim, hideSubplots, exptType ):
+    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False ):
         if "doseresponse" in exptType:
-            for i in stim.entities:
-                elms = modelLookup[i]
+            for i in stims[0].entities:
+                #elms = modelLookup[i.encode("ascii")]
+                #elms = modelLookup.get( i.encode("ascii") )
+                elms = modelLookup.get( i )
+                if not elms:
+                    raise SimError( "displayPlots 1: could not find entity '{}'".format( i ) )
                 for j in elms:
-                    pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    #pp.plotme( fname, pp.ylabel, joinSimPoints = True )
-                    try:
-                        pp.plotme( fname, pp.ylabel, joinSimPoints = True )
-                    except Exception as e:
-                        print('Warning: displayPlot: Failed to plot '
-                                '%s due to "%s"' % (fname,e))
+                    pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
+                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
         elif "barchart" in exptType:
             for i in self.entities:
-                elms = modelLookup[i]
+                #elms = modelLookup[i.encode("ascii")]
+                #elms = modelLookup.get( i.encode("ascii") )
+                elms = modelLookup.get( i )
+                if not elms:
+                    raise SimError( "displayPlots 2: could not find entity '{}'".format(i) )
                 for j in elms:
-                    pp = PlotPanel( self, exptType, xlabel = j.name +'('+stim.quantityUnits+')' )
-                    pp.plotbar( self, stim, fname )
+                    pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
+                    pp.plotbar( self, stims, fname )
         elif "timeseries" in exptType:
             tsUnits = self.quantityUnits
+            '''
             if self.field in Readout.epspFields:
                 tsUnits = 'mV'
             elif self.field in Readout.epscFields:
                 tsUnits = 'pA'
             elif self.field in Readout.fepspFields:
                 if not hideSubplots:
-                    self.plotFepsps( fname )
+                    self.plotFepsps( fname, useBigFont = bigFont )
                     return
             elif self.useNormalization:
                 tsUnits = 'Fold change'
+            '''
             tsScale = convertQuantityUnits[tsUnits]
+            if self.field in Readout.fepspFields:
+                if not hideSubplots:
+                    self.plotFepsps( fname, useBigFont = bigFont )
+                    return
 
             ######################################
-            pp = PlotPanel( self, exptType )
+            pp = PlotPanel( self, exptType, useBigFont = bigFont )
             assert( len( self.plots ) > 0)
             numPts = len( self.plots[0] )
             assert( numPts > 0 )
             sumvec = np.zeros( numPts )
+            scale = self.quantityScale
+            if self.useNormalization:
+                if self.normMode == "presetTime":
+                    scale = tsScale * self.ratioReferenceValue
+                elif len( self.ratioData ) > 0:
+                    if self.normMode == "start" and self.ratioData[0] > 0.0:
+                        scale = tsScale * self.ratioData[0]
+                    elif self.normMode == "end" and self.ratioData[-1] > 0.0:
+                        scale = tsScale * self.ratioData[-1]
+                    elif self.normMode == "min" and min(self.ratioData) > 0.0:
+                        scale = tsScale * min( self.ratioData )
+                    elif self.normMode == "max" and max(self.ratioData) > 0.0:
+                        scale = tsScale * max( self.ratioData )
+                    elif self.normMode == "each" and max(self.ratioData) > 0.0:
+                        scale = tsScale * max( self.ratioData )
+                        # For 'each' we don't realy have a good way to do
+                        # timeseries. So just use the biggest.
+
+            '''
             if len( self.ratioData ) > 0:
                 scale = tsScale * self.ratioData[0]
+                print( "Scale 1: {} {} {}".format( scale, tsScale, self.ratioData ) )
             else:
                 scale = tsScale * self.ratioReferenceValue
+                print( "Scale 2: {} {} {}".format( scale, tsScale, self.ratioReferenceValue ) )
+            print( "Scale 0: {} {} {}".format( scale, tsScale, self.normMode ) )
+            '''
 
             for ypts in self.plots:
-                tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
+                tconv = convertTimeUnits[ self.timeUnits ]
                 xpts = np.array( range( numPts)  ) * self.plotDt / tconv
                 ypts /= scale
                 sumvec += ypts
                 if not hideSubplots:
                     # Plot summed components. Need to access name.
-                    #pylab.plot( xpts, ypts, 'r:', label = j.name )
-                    pyplot.plot( xpts, ypts, 'r:' )
-            pyplot.plot( xpts, sumvec, 'r--' )
+                    #plt.plot( xpts, ypts, 'r:', label = j.name )
+                    plt.plot( xpts, ypts, 'r:' )
+            plt.plot( xpts, sumvec, 'r--' )
             ylabel = pp.ylabel
             if self.field in ( Readout.epspFields + Readout.epscFields ):
                 if self.field in Readout.epspFields:
-                    pyplot.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
+                    plt.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
                 else:
-                    pyplot.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
+                    plt.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
 
-                pyplot.figure(2)
+                plt.figure(2)
                 if self.useNormalization:
                     ylabel = '{} Fold change'.format( self.field )
             pp.plotme( fname, ylabel )
 
             ######################################
-            '''
-            for i in self.entities:
-                elms = modelLookup[i]
-                ypts = self.plots[elms[0].name].vector
-                numPts = len( ypts )
-                if numPts > 0:
-                    tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
-                    xpts = np.array( range( numPts)  ) * self.plots[elms[0].name].dt / tconv
-                sumvec = np.zeros(len(xpts))
-                for j in elms:
-                    pp = PlotPanel( self, exptType )
-                # Here we plot the fine timeseries for the sim.
-                # Not yet working for all options of ratio.
-                    if len( self.ratioData ) > 0:
-                        scale = tsScale * self.ratioData[0]
-                    else:
-                        scale = tsScale
-                    ypts = self.plots[j.name].vector / scale
-                    sumvec += ypts
-                    if (not hideSubplots) and (len( elms ) > 1): 
-                        # Plot summed components
-                        pyplot.plot( xpts, ypts, 'r:', label = j.name )
 
-                pyplot.plot( xpts, sumvec, 'r--' )
-                ylabel = pp.ylabel
-                if self.field in ( Readout.epspFields + Readout.epscFields ):
-                    if self.field in Readout.epspFields:
-                        pyplot.ylabel( '{} Vm ({})'.format( self.entities[0], tsUnits ) )
-                    else:
-                        pyplot.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
-
-                    pyplot.figure(2)
-                    if self.useNormalization:
-                        ylabel = '{} Fold change'.format( self.field )
-                pp.plotme( fname, ylabel )
-            '''
-
-    def plotFepsps( self, fname ):
-        tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
+    def plotFepsps( self, fname, useBigFont = False ):
+        #tconv = next( v for k, v in convertTimeUnits.items() if self.timeUnits in k )
+        tconv = convertTimeUnits[ self.timeUnits ]
         assert( len( self.plots ) > 0 )
         numPts = len( self.plots[0] )
         xpts = np.array( range( numPts)  ) * self.plotDt / tconv
@@ -447,24 +419,30 @@ class Readout:
             # I'm going to plot the original currents rather than the
             # variously scaled contributions leading up to the fEPSP
             ypts = i * 1e12   # Hack, hard code currents in pA
-            pyplot.plot( xpts, ypts, 'r:' )
+            plt.plot( xpts, ypts, 'r:' )
             sumvec += ypts
-        pyplot.plot( xpts, sumvec, 'r--' )
-        pyplot.xlabel( "time ({})".format( self.timeUnits) )
-        pyplot.ylabel( "Compartment currents Im (pA)" )
-        pyplot.figure(2)
-        pp = PlotPanel( self, "timeseries" )
+        plt.plot( xpts, sumvec, 'r--' )
+        plt.xlabel( "time ({})".format( self.timeUnits) )
+        plt.ylabel( "Compartment currents Im (pA)" )
+        plt.figure(2)
+        pp = PlotPanel( self, "timeseries", useBigFont = useBigFont )
         pp.plotme( fname, "fEPSP (mV)" )
 
     def doScore( self, scoringFormula ):
         #assert( len(self.data) == len( self.simData ) )
         score = 0.0
         numScore = 0.0
-        dvals = [i[1] for i in self.data]
+        dat = []
+        if self.data:
+            dvals = [i[1] for i in self.data]
+            dat = self.data
+        elif self.bardata:
+            dvals = [i["value"] for i in self.bardata]
+            dat = [ [0, i["value"], i["stderr"] ] for i in self.bardata ]
         datarange = max( dvals ) - min( dvals )
         if self.tabulateOutput:
             print( "{:>12s}   {:>12s}  {:>12s}  {:>12s}".format( "t", "expt", "sim", "sem" ) )
-        for i,sim in zip( self.data, self.simData ):
+        for i, sim in zip( dat, self.simData ):
             #sim /= self.quantityScale
             t = i[0]
             expt = i[1]
@@ -479,37 +457,36 @@ class Readout:
             return -1
         return score/numScore
 
-    def directParamScore( readouts, modelLookup, scoringFormula ):
+    def directParamScore( readouts, scoringFormula ):
         score = 0.0
         numScore = 0.0
+        for d in readouts.directParamData:
+            entity = d["entity"]
+            qs = convertQuantityUnits[ d["units"] ]
+            expt = d["value"] * qs
+            sem = d["stderr"] * qs
+            sim = sw.getObjParam( entity, str( d["field"] ) )
+            datarange = max( expt, sim, 1e-9 )
+            score += eval( scoringFormula )
+            numScore += 1.0
+
+        '''
         for rd in readouts:
+            dvals = [i[1]*rd.quantityScale for i in rd.data]
             for d in rd.data:
                 entity = d[0]
                 expt = d[1]*rd.quantityScale
                 sem = d[2]*rd.quantityScale
                 sim = sw.getObjParam( entity, rd.field )
-                #sim = elmList[0].getField( rd.field )
+                datarange = max( expt, sim, 1e-9 )
                 score += eval( scoringFormula )
                 numScore += 1.0
-                #print( entity, rd.field, sim, expt, sem, score, numScore, "\n" )
+        '''
         #print( "direct score of {}".format( score / numScore ) )
         if numScore == 0:
             return -1
         return score/numScore
     directParamScore = staticmethod( directParamScore )
-
-    def load( fd ):
-        arg, data, param, struct, modelLookup = innerLoad( fd, Readout.argNames, dataWidth = 3 )
-        # Data is either time, value, stderr or entity, value, stderr
-        readout = Readout( **arg )
-        readout.data = data
-        return readout
-    load = staticmethod( load )
-
-Readout.argNames = ['timeUnits', 'quantityUnits', 
-        'useXlog', 'useYlog', 'useNormalization', 
-        'entities', 'field', 'settleTime', 'ratioReferenceTime', 
-        'ratioReferenceDose','ratioReferenceEntities']
 
 ##########################################################################
 
@@ -529,87 +506,39 @@ class Model:
     - parameter changes, in which fields get set. \n
     - structural changes, in which the model itself is altered. \n
     """
-    def __init__( self,
-            modelSource = 'paper',  # Options are paper, inHouse, database
-            citation = '',  # Journal name/ in-house project name/ database
-            citationId = '',    # PMID/Lab note reference/accession number
-            authors = '',   # Who did the work
-            detail = '',    # Figure number etc. to pin it down.
-            modelSubset = 'all',    # Define a model subset to use.
-            fileName = '',  # Specify model file name
-            solver = 'gsl', # What solver to use for calculations
-            notes = '',     # Curator notes.
-            ignoreMissingObj = False,   # Flag for cases where we may have 
-                                        # lookups for items not in model,
-                                        # such as a reduced model.
-            itemstodelete = [], # topology change
-            stimulusMolecules = [], # stimulusMolecules with in model mapped to stumuli's molecules
-            readoutMolecules = [],  # readoutsMolecules with in model mapped to readouts's molecules
-            referenceMolecule = [], # reference molecules with in model mapped to readout's referenceMolecules
-            scoringFormula = 'abs(1-(sim+1e-9)/(expt+1e-9))',
-            parameterChange = [] # Param of model to change at run start.
-
-    ):
-        self.modelSource = modelSource
-        self.citation = citation
-        self.citationId = citationId
-        self.authors = authors
-        self.detail = detail
-        self.modelSubset = modelSubset
-        self.fileName = fileName
-        self.solver = solver
-        self.notes = notes
+    def __init__( self, findsim, mapFile ):
+        self.modelSubset = []
         self.parameterChange = []
-        self.itemstodelete = []
-        self.scoringFormula = scoringFormula
-        #self.fieldLookup = {'nInit':'nInit','n':'n','conc':'conc','concInit':'concInit','Iclamp':'inject','Vclamp':'inject','Vm':'Vm','Im':'Im'
-
-    def load( fd ):
-        '''
-        Model::load builds a model instance from a file and returns it.
-        '''
-        arg, data, param, struct, modelLookup = innerLoad( fd, Model.argNames )
-        
-        model = Model( **arg )
-        for i in param:
-            model.addParameterChange( i[0], i[1], i[2] )
-        for j in struct[:]:
-            model.addStructuralChange(j.lstrip(),"delete")
-        model._tempModelLookup = modelLookup
-        #model.fieldLookup = fieldLookup
-        return model
-
-    load = staticmethod( load )
+        self.itemsToDelete = []
+        mod = findsim.get( "Modifications" )
+        if mod:
+            if "subset" in mod:
+                self.modelSubset = mod[ "subset" ]
+            if "itemsToDelete" in mod:
+                self.itemsToDelete = mod[ "itemsToDelete" ]
+            if "parameterChange" in mod:
+                self.parameterChange = mod[ "parameterChange" ]
 
 
-    def addParameterChange( self, entity, field, data ):
-        '''
-        Model::addParameterChange adds a modification of parameter values
-        to be applied to the model.
-        At present the system assumes that this can only be done before the
-        simulation starts.
-        '''
-        self.parameterChange.append( ( entity, field, data ) )
+        if mapFile == "":
+            mapFile = findsim["Metadata"].get( "testMap" )
+            if not mapFile:
+                raise SimError( "Map file not specified" )
+        if mapFile.split('.')[-1] != 'json':
+            raise SimError( "Map file '{}' not in JSON format".format( mapFile ) )
 
-
-    def addStructuralChange( self, entity, change ):
-        '''
-        Model::addStructuralChange causes a topology change to the model,
-        typically deleting model entities. 
-        Later possibly something clever like adding a tracer.
-        At present the system assumes that this can only be done before the
-        simulation starts.
-        '''
-        if entity:
-            entity = entity.replace('\'',"")
-            entity = entity.replace('\"',"")
-            entity = entity.replace('\n',"")
-            entity = entity.replace('',"")
-
-        self.itemstodelete.append((entity,change))
-
-    # Exported to simWrap: _scaleParams, deleteItems, subsetItems
-    # Exported to simWrapMoose: findObj, scaleOneParam
+        self._tempModelLookup = {}
+        try: 
+            with open( mapFile ) as json_file:
+                m1 = json.load( json_file )
+                m2 = {}
+                for key, val in m1.items():
+                    #m2[ key.encode( "ascii" ) ] = [ i.encode( "ascii" ) for i in val ]
+                    m2[ str(key) ] = [ str(i) for i in val ]
+            self._tempModelLookup = m2
+        except:
+            raise SimError( "Map file name {} not found".format(mapFile) )
+        #print( "LOADED MAPFILE {}".format( mapFile ) )
 
     def modify( self, erSPlist, modelWarning):
         '''
@@ -638,18 +567,15 @@ class Model:
                 deleted, it is deleted. Otherwise we would end up with
                 dangling reactions.
         '''
-        sw.deleteItems( self.itemstodelete )
-        if not( self.modelSubset.lower() == 'all' or self.modelSubset.lower() == 'any' ):
+        sw.deleteItems( [ ( i, "delete") for i in self.itemsToDelete] )
+        if len( self.modelSubset ) > 0 and not "all" in self.modelSubset:
             sw.subsetItems( self.modelSubset )
-
         #Function call for checking dangling Reaction/Enzyme/Function's
         sw.pruneDanglingObj( erSPlist)
-        sw.changeParams( self.parameterChange )
+        #print( "{}".format( self.parameterChange ) )
+        sw.changeParams( [ [i["entity"], i["field"], i["value"] * convertQuantityUnits[ i["units"] ] ] for i in self.parameterChange] )
 
             
-Model.argNames = ['modelSource', 'citation', 'citationId', 'authors',
-            'modelSubset', 'fileName', 'solver', 'notes' ,'scoringFormula','itemstodelete','parameterChange']
-
 ##########################################################################
 # Utility functions needed by Model class.
 
@@ -665,105 +591,6 @@ class PauseHsolve:
         sw.setHsolveState( state, self )
 
 #######################################################################
-def list_to_dict(rlist):
-    return dict(map(lambda s : s.split(':'), rlist))
-
-def innerLoad( fd, argNames, dataWidth = 2):
-    data = []
-    param = []  # list of tuples of objname, field, value.
-    arg = {}
-    struct = []
-    modelLookup = {}
-    #fieldLookup = {}
-    for line in fd:
-        cols = line.split( "\t" )
-        if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
-            return arg, data, param, struct, modelLookup
-
-        c0 = cols[0].strip()
-        if keywordMatches( c0, 'modelLookup' ):
-            # Lines of the form exptName1:simName1,exptName2:simName2,...
-            if cols[1] != "":
-                temp = cols[1].split( ',' )
-                modelLookup = { i.split(':')[0]:i.split(':')[1].strip() for i in temp }
-
-        if keywordMatches( c0, 'Data' ):
-            readData( fd, data, dataWidth )
-            return arg, data, param, struct, modelLookup
-
-        for i in argNames:
-            if keywordMatches( c0, i ):
-                arg[i] = str.strip( nonBlank( cols) )
-                continue
-        if keywordMatches(c0,"parameterChange"):
-            readParameter(fd,param,dataWidth)
-
-        if keywordMatches( c0, 'itemstodelete' ):
-            struct= cols[1].split(',')
-
-    return arg, data, param, struct, modelLookup
-
-def nonBlank( cols ):
-    for i in cols[1:]:
-        if i != '':
-            return i
-    return ''
-
-def readData( fd, data, width ):
-    entityNameInFirstCol = False
-    for line in fd:
-        if line[0] == '#':
-            continue
-        cols = line.split("\t" )
-        if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
-            break
-        cl = cols[0].strip().lower()
-        if cl == "time" or cl == "dose" or cl == "settletime" or cl == 'entity':
-            if cl == 'entity':
-                entityNameInFirstCol = True
-            continue
-        row = []
-        for i in range( len( cols ) ):
-            if cols[i] != '':
-                if i == 0 and entityNameInFirstCol:
-                    row.append( cols[i] )
-                else:
-                    row.append( float( cols[i] ) )
-                if len( row ) >= width:
-                    break;
-        if len( row ) > 0 and len( row ) < width:
-            row.append( 0.0 )
-        data.append( row )
-
-def readParameter(fd, para, width):
-    for line in fd:
-        cols = line.split("\t")
-        if len( cols ) == 0 or cols[0] == '' or cols[0].isspace():
-            break
-        if cols[0].strip().lower() == "object":
-            continue
-        row = []
-        lcols = 0
-        for c in cols:
-            c = c.replace('\n',"")
-            if c != '':
-                if lcols > 1 :
-                    row.append(float(c))
-                else:
-                    row.append(c)
-                if len( row ) > width:
-                    break;
-                lcols = lcols+1
-        para.append( row )
-
-def str2bool( arg ):
-    if arg == False or arg == 0:
-        return False
-    if arg.lower() == 'false' or arg == '0':
-        return False
-    return True
-
-##########################################################################
 class Qentry():
     def __init__( self, t, entry, val ):
         self.t = t
@@ -795,28 +622,26 @@ def putStimsInQ( q, stims, pauseHsolve ):
 def putReadoutsInQ( q, readouts, pauseHsolve ):
     stdError  = []
     plotLookup = {}
-    for i in readouts:
-        if i.field in Readout.postSynFields:
-            for j in range( len( i.data ) ):
-                t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
-                heapq.heappush( q, Qentry(t, i.stim, i.epspFreq) )
-                heapq.heappush( q, Qentry(t+1.0/i.epspFreq, i.stim, 0) )
-                heapq.heappush( q, Qentry(t+i.epspWindow, i, j) )# Measure after EPSP
-                heapq.heappush( q, Qentry(t+i.epspWindow+pauseHsolve.epspSettle, pauseHsolve, 0) )
+    if readouts.field in Readout.postSynFields:
+        for j in range( len( readouts.data ) ):
+            t = float( readouts.data[j][0] ) * readouts.timeScale
+            heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
+            heapq.heappush( q, Qentry(t, readouts.stim, readouts.epspFreq) )
+            heapq.heappush( q, Qentry(t+1.0/readouts.epspFreq, readouts.stim, 0) )
+            heapq.heappush( q, Qentry(t+readouts.epspWindow, readouts, j) )# Measure after EPSP
+            heapq.heappush( q, Qentry(t+readouts.epspWindow+pauseHsolve.epspSettle, pauseHsolve, 0) )
 
-        else:
-            # We push in the index of the data entry so the readout can
-            # process it when it is run. It will grab both the readout and
-            # ratio reference if needed.
-            for j in range( len( i.data ) ):
-                t = float( i.data[j][0] ) * i.timeScale
-                heapq.heappush( q, Qentry(t, i, j) )
+    else:
+        # We push in the index of the data entry so the readout can
+        # process it when it is run. It will grab both the readout and
+        # ratio reference if needed.
+        for j in range( len( readouts.data ) ):
+            t = float( readouts.data[j][0] ) * readouts.timeScale
+            heapq.heappush( q, Qentry(t, readouts, j) )
 
-        if i.useRatio and i.ratioReferenceTime >= 0.0:
-            # We push in -1 to signify that this is to get ratio reference
-            heapq.heappush( q, Qentry(float(i.ratioReferenceTime)*i.timeScale, i, -1) )
-
+    if readouts.useNormalization and readouts.normMode == "presetTime":
+        # We push in -1 to signify that this is to get ratio reference
+        heapq.heappush( q, Qentry(float(readouts.ratioReferenceTime)*readouts.timeScale, readouts, -1) )
 
 def doReadout( qe, model ):
     ''' 
@@ -833,7 +658,6 @@ def doReadout( qe, model ):
     '''
     readout = qe.entry
     val = int(round( ( qe.val ) ) )
-    #print( "########## val = {}".format( val ) )
     if readout.field in (Readout.epspFields + Readout.epscFields):
         readout.plots, readout.plotDt = sw.fillPlots()
         doEpspReadout( readout )
@@ -842,11 +666,6 @@ def doReadout( qe, model ):
         doFepspReadout( readout )
     elif val == -1: # This is a special event to get RatioReferenceValue
         readout.ratioReferenceValue = sw.sumFields( readout.ratioReferenceEntities, readout.field )
-        #print(">>>>>>>>>>>> {}, {}.{}, qtime = {}".format( readout.ratioReferenceValue, readout.ratioReferenceEntities, readout.field, qe.t ) )
-        #readout.simData = [ s/ratioReference for s in readout.simData ] 
-        #readout.ratioData.append( ratioReference )
-        #print("SIMDATA: {}".format( readout.simData ))
-        #print("RatioDATA {}".format( readout.ratioData ))
     else:
         doEntityAndRatioReadout(readout, readout.field)
 
@@ -856,25 +675,21 @@ def doFepspReadout( readout ):
     assert( n > 5 )
     assert( len( readout.plots ) == len( readout.wts ) )
     pts = np.zeros( n )
-    #numPlots = len( readout.epspPlot.vec )
-    #assert( numPlots == len( readout.wts ) )
-    #for i, wt in zip( readout.epspPlot.vec, readout.wts ):
-    #    pts += np.array( i.vector[-n:] ) * wt
     for i, wt in zip( readout.plots, readout.wts ):
         pts += i[-n:] * wt
-    #pts = np.array( readout.epspPlot.vector[-n:] )
-    #pts /= len( readout.epspPlot.vec )
     pts /= len( readout.wts )
     #print( "DOING EPSP READOUT WITH " +  readout.field )
     #print( ["{:.3g} ".format( x ) for x in pts] )
     if "slope" in readout.field:
         dpts = pts[1:] - pts[:-1]
         slope = max( abs( dpts ) )/readout.plotDt
-        readout.simData.append( slope / readout.quantityScale )
+        v = slope / readout.quantityScale
     elif "peak" in readout.field:
         pts -= pts[0]
         pk = max( abs(pts) )
-        readout.simData.append( pk / readout.quantityScale )
+        v = pk / readout.quantityScale
+    readout.simData.append( v )
+    readout.ratioData.append( v )
 
 def doEpspReadout( readout ):
     n = int( round( readout.epspWindow / readout.plotDt ) )
@@ -882,37 +697,31 @@ def doEpspReadout( readout ):
     assert( len( readout.plots ) > 0 )
     assert( len( readout.plots[0] ) > 5 )
     pts = readout.plots[0][-n:]
-    #pts = np.array( readout.epspPlot.vector[-n:] )
-    #print( "DOING EPSP READOUT WITH " +  readout.field )
-    #print( ["{:.3g} ".format( x ) for x in pts] )
+    ratioReference = 1.0
     if "slope" in readout.field:
         dpts = pts[1:] - pts[:-1]
         slope = max( abs( dpts ) )/readout.plotDt
-        readout.simData.append( slope / readout.quantityScale )
+        v = slope / readout.quantityScale
     elif "peak" in readout.field:
         pts -= pts[0]
         pk = max( abs(pts) )
-        readout.simData.append( pk / readout.quantityScale )
-    if readout.useNormalization and len( readout.simData) == 1:
-         readout.ratioReferenceValue = readout.simData[0]
+        v = pk / readout.quantityScale
+    readout.simData.append( v )
+    readout.ratioData.append( v )
 
 def doEntityAndRatioReadout( readout, field ):
     sim = sw.sumFields( readout.entities, field )
     readout.simData.append( sim/readout.quantityScale )
-    ratioReference = 0.0
-    if readout.ratioReferenceTime < 0.0 :
+    ratioReference = 1.0
+    if readout.useNormalization:
         ratioReference = sw.sumFields( readout.ratioReferenceEntities, field )
-        readout.ratioData.append( ratioReference )
-
-def doSynInputReadout( readout, modelLookup, field ):
-    readout.simData.append( 0 )
+    readout.ratioData.append( ratioReference )
 
 def processReadouts( readouts, scoringFormula ):
     numScore  = 0
     score = 0.0
-    for i in readouts:
-        score += i.doScore( scoringFormula )
-        numScore += 1
+    score += readouts.doScore( scoringFormula )
+    numScore += 1
     return score/numScore
 
 
@@ -931,18 +740,43 @@ def parseAndRun( model, stims, readouts ):
             sw.advanceSimulation( qe.t - currt )
         if isinstance( qe.entry, Stimulus ):
             sw.deliverStim( qe )
+            #print( "DELIVER STIM {} {} {} {}".format( qe.entry.entities, qe.entry.field, qe.entry.data, qe.val ) )
         elif isinstance( qe.entry, Readout ):
             doReadout( qe, model )
         elif isinstance( qe.entry, PauseHsolve ):
             qe.entry.setHsolveState( int(qe.val) )
 
-    for i in readouts:
-        # Normalize. Applies to cases where we do a special run for a 
-        # single normalization value that scales all points. Since it
-        # defaults to 1, we can simply apply always.
-        i.simData = [ x/i.ratioReferenceValue for x in i.simData ]
-        # Collect detailed time series
-        i.plots, i.plotDt = sw.fillPlots()
+    # Normalize. Applies to cases where we do a special run for a 
+    # single normalization value that scales all points. Since it
+    # defaults to 1, we can simply apply always.
+    norm = 1.0
+    if readouts.useNormalization:
+        if readouts.normMode == "start":
+            norm = readouts.ratioData[0]
+        elif readouts.normMode == "end":
+            norm = readouts.ratioData[-1]
+        elif readouts.normMode == "min":
+            norm = min( readouts.ratioData )
+        elif readouts.normMode == "max":
+            norm = max( readouts.ratioData )
+        elif readouts.normMode == "presetTime":
+            # The event Q has caused this special value to be recorded.
+            norm = readouts.ratioReferenceValue
+        elif readouts.normMode == "dose":
+            print( "Warning: trying to normalize time-series to a dose. Probably you want to use start or a preset time. Using start." )
+            norm = readouts.ratioData[0]
+
+    eps = 1e-16
+    if readouts.useNormalization and readouts.normMode == "each":
+        if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
+            raise SimError( "runDoser: Normalization failed due to zero denominator" )
+        readouts.simData = [ x/y for x, y in zip(readouts.simData, readouts.ratioData) ]
+    else:
+        if abs(norm) < eps:
+            raise SimError( "runDoser: Normalization failed due to zero denominator" )
+        readouts.simData = [ x/norm for x in readouts.simData ]
+    # Collect detailed time series
+    readouts.plots, readouts.plotDt = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
 
     return score
@@ -953,95 +787,89 @@ def parseAndRunDoser( model, stims, readouts ):
     if len( stims ) != 1:
         raise SimError( "parseAndRunDoser: Dose response run needs \
             exactly one stimulus block, {} defined".format( len(stims)) )
-    if len( readouts ) != 1:
-        raise SimError( "parseAndRunDoser: Dose response run needs \
-            exactly one readout block, {} defined".format( len(readout) ) )
-    numLevels = len( readouts[0].data )
+    numLevels = len( readouts.data )
     
     if numLevels == 0:
         raise SimError( "parseAndRunDoser: no dose (stimulus) levels defined for run" )
     
-    runTime = readouts[0].settleTime
+    runTime = readouts.settleTime
     
     if runTime <= 0.0:
-        print( "Currently unable to handle automatic settling to stead-state in doseResponse, using default 300 s." )
-        runTime = 300
+        print( "Currently unable to handle automatic settling to steady-state in doseResponse, using default 1000 s." )
+        runTime = 1000
     
     doseMol = ""
     #Stimulus Molecules
     #Assuming one stimulus block, one molecule allowed
-    runDoser( model, stims[0], readouts[0] )
+    runDoser( model, stims[0], readouts )
     score = processReadouts( readouts, model.scoringFormula )
     return score
 
 def runDoser( model, stim, readout ):
     stimList = []
     responseList = []
+    EPS = 1e-9
     for dose, response, sem in readout.data:
         stimList.append( [ (stim.entities[0], stim.field, dose, stim.quantityScale), ] )
-    if len( readout.ratioReferenceEntities ) > 0 and readout.ratioReferenceTime >= 0.0:
+    if len( readout.ratioReferenceEntities ) > 0 and readout.ratioReferenceTime > EPS:
         # Add another entry for the global reference readout.
         stimList.append( [ (stim.entities[0], stim.field, readout.ratioReferenceDose, stim.quantityScale), ] )
+        #print( ">>>>>>>>> {} {} {} {}".format( stim.entities[0], stim.field, readout.ratioReferenceDose, stim.quantityScale ) )
     responseList = [ readout.entities, readout.field, readout.ratioReferenceEntities, readout.field ]
     ret, ref = sw.steadyStateStims( stimList, responseList, isSeries = True, settleTime = readout.settleTime )
+    if len( readout.ratioReferenceEntities ) > 0 and readout.ratioReferenceTime < EPS:
+        # Special case where the extra entry is the value at reset time.
+        refLast = sw.getObjParam(readout.ratioReferenceEntities[0], "concInit" )
+        ret.append( ret[-1] )
+        ref.append( refLast )
 
     readout.digestSteadyStateRun( ref, ret )
     # and here we go about extracting the values from ret and ref.
 
 ##########################################################################
 
-def runBarChart( model, stim, readout ):
-    ''' The bar chart is set up by having a series of stim values as
-    entity,value pairs in stim.data
-    Then the Readouts data has a series of values of the form
-    flags   value   stderr
-    where the flags are strings of the form "101" or "+-+"
-    to indicate which of the stim-value pairs should be applied.
+def runBarChart( model, stims, readout ):
+    ''' The possible stimuli in the bar chart are each defined in a
+    separate stim.
+    The Readouts bardata is an array with each entry a dict:
+    {"stimulus": ["stim1","stim2"...], "value": val, "stderr": ser}
+    Stim1, stim2 are the names/labels for the stims to be applied
     '''
 
     stimSource = []
     stimList = []
-    responseList = []
-    for entity, value in stim.data:
-        stimEntry = ( entity, stim.field, value, stim.quantityScale )
-        stimSource.append( stimEntry ) 
-    for flags, response, sem in readout.data:
-        stimLine = []
-        for i in range( len( flags ) ):
-            if flags[i] == '1' or flags[i] == '+':
-                stimLine.append( stimSource[i] )
+
+    stimSource = {}
+    for s in stims:
+        #print ("SSSSSSSSSSSSS= {}".format( s.data ) )
+        stimEntry = ( s.entities[0], s.field, s.data[0][1], s.quantityScale )
+        stimSource[ s.label ] = stimEntry
+    for i in readout.bardata:
+        stimLine = [ stimSource[ j ] for j in i["stimulus"] ]
         stimList.append( stimLine )
-    # Add a normalizing reference. This is a bit patchy. Here we assume
-    # that the reference is for the case where there are no stims.
-    if readout.useRatio and readout.ratioReferenceTime >= 0.0:
-        #stimList.append( [(readout.ratioReferenceEntities[0], stim.field, readout.ratioReferenceDose, stim.quantityScale), ] )
-        stimList.append( [] )
 
     responseList = [ readout.entities, readout.field, readout.ratioReferenceEntities, readout.field ]
+    # Some fuzzy normalization stuff
+    if readout.useNormalization and readout.normMode == "presetTime":
+        stimList.append( [] )
     # And here we go:
     ret, ref = sw.steadyStateStims( stimList, responseList, isSeries = False, settleTime = readout.settleTime )
     # Extract values.
     readout.digestSteadyStateRun( ref, ret )
 
 def parseAndRunBarChart( model, stims, readouts ):
-    if len( stims ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
-            one stimulus block, {} defined".format( len( stims ) ) )
-    if len( readouts ) != 1:
-        raise SimError( "parseAndRunBarChart: BarChart run needs exactly \
-            one readout block, {} defined".format( len( readout ) ) )
-    numLevels = len( readouts[0].data )
+    numLevels = len( readouts.bardata )
     
     if numLevels == 0:
         raise SimError( "parseAndRunBarChart: no stimulus levels defined for run" )
     
-    runTime = readouts[0].settleTime
+    runTime = readouts.settleTime
     
     if runTime <= 0.0:
         print( "Currently unable to handle automatic settling to steady-state in Bar Charts, using default 300 s." )
         runTime = 300
 
-    runBarChart( model, stims[0], readouts[0] )
+    runBarChart( model, stims, readouts )
 
     score = processReadouts( readouts, model.scoringFormula )
     return score
@@ -1049,7 +877,7 @@ def parseAndRunBarChart( model, stims, readouts ):
 ##########################################################################
 
 class PlotPanel:
-    def __init__( self, readout, exptType, xlabel = '' ):
+    def __init__( self, readout, exptType, xlabel = '', useBigFont=False ):
         self.name=[]
         for i in readout.entities:
             self.name.append( i )
@@ -1060,97 +888,139 @@ class PlotPanel:
             self.xlabel = xlabel
         else:
             self.xlabel = 'Time ({})'.format( readout.timeUnits )
+        self.labelFontSize = 'xx-large' if useBigFont else 'large'
+        self.tickFontSize = 'x-large' if useBigFont else 'medium'
 
-        self.xpts = [ i[0] for i in readout.data]
+        if readout.data:
+            self.xpts = [ i[0] for i in readout.data]
+            self.expt = [ i[1] for i in readout.data]
+            self.yerror = [ i[2] for i in readout.data]
+        elif readout.bardata:
+            self.xpts = [ i["value"] for i in readout.bardata]
+            self.expt = [ i["value"] for i in readout.bardata]
+            self.yerror = [ i["stderr"] for i in readout.bardata]
         self.sim = readout.simData # Ratios already handled at this stage
-        self.expt = [ i[1] for i in readout.data]
-        self.yerror = [ i[2] for i in readout.data]
+        #print( "xplts = {}, sim = {}, expt = {}, yerror = {}".format( len( self.xpts), len( self.sim ), len( self.expt), len( self.yerror )) )
         self.sumName=""
         for i in self.name:
             self.sumName += i
             self.sumName += " "
             self.ylabel = '{} {} ({})'.format(i, readout.field, readout.quantityUnits ) #problem here.check so that y-axis are for diff plts not in one plot
 
-    def convertBarChartLabels( self, readout, stim ):
+    def convertBarChartLabels( self, readout, stims ):
         ret = []
-        doseMol = [ i[0] for i in stim.data ]
-        for i in readout.data:
+        #doseMol = [ i[0] for i in stim.data ]
+        doseMol = [ i.label for i in stims ]
+        for i in readout.bardata:
             ticklabel = ""
+            for j in doseMol:
+                if j in i["stimulus"]:
+                    ticklabel += j + '\n'
+                else:
+                    ticklabel += '-\n'
+
+            '''
             for j in range( len( i[0] ) ):
                 if i[0][j] == '1' or i[0][j] == '+':
                     ticklabel += doseMol[j] + '\n'
                 else:
                     ticklabel += '-\n'
+            '''
             ret.append( ticklabel )
         return ret
 
 
-    def plotbar( self, readout, stim, scriptName ):
+    def plotbar( self, readout, stims, scriptName ):
         barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
-        exptBar = pyplot.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
-        simBar = pyplot.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
-        pyplot.xlabel( "Stimulus combinations" )
-        pyplot.ylabel( self.ylabel )
-        pyplot.title(scriptName)
-        pyplot.legend(fontsize="small",loc="upper left")
-        ticklabels = [ i[0] + '\n' for i in readout.data ] 
-        assert len( ticklabels ) == len( barpos )
-        ticklabels = self.convertBarChartLabels( readout, stim )
-        pyplot.xticks(barpos, ticklabels )
+        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
+        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        plt.xlabel( "Stimulus combinations", fontsize=self.labelFontSize)
+        plt.ylabel( self.ylabel, fontsize = self.labelFontSize )
+        plt.title( scriptName, fontsize = self.labelFontSize )
+        plt.legend( loc="upper left", fontsize = self.tickFontSize )
+        #ticklabels = [ i["stimulus"] for i in readout.bardata ] 
+        #assert len( ticklabels ) == len( barpos )
+        ticklabels = self.convertBarChartLabels( readout, stims )
+        plt.xticks( barpos, ticklabels, fontsize = self.tickFontSize  )
+        plt.tick_params( labelsize=self.tickFontSize )
 
     def plotme( self, scriptName, ylabel, joinSimPoints = False ):
         sp = 'ro-' if joinSimPoints else 'ro'
+        nx = len( self.xpts )
+        ss = self.sim[:nx]
         if self.useXlog:
             if self.useYlog:
-                pyplot.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pyplot.loglog( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.loglog( self.xpts, ss, sp, label = 'sim', linewidth='2' )
             else:
-                pyplot.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pyplot.semilogx( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.semilogx( self.xpts, ss, sp, label = 'sim', linewidth='2' )
         else:
             if self.useYlog:
-                pyplot.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                pyplot.semilogy( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
+                plt.semilogy( self.xpts, ss, sp, label = 'sim', linewidth='2' )
             else:
-                pyplot.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
-                pyplot.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                pyplot.plot( self.xpts, self.sim, sp, label = 'sim', linewidth='2' )
+                plt.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
+                plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
+                plt.plot( self.xpts, ss, sp, label = 'sim', linewidth='2' )
 
-        pyplot.xlabel( self.xlabel )
-        pyplot.ylabel( ylabel )
-        pyplot.title(scriptName)
-        pyplot.legend(fontsize="small",loc="lower right")
+        plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
+        plt.ylabel( ylabel, fontsize = self.labelFontSize )
+        plt.title( scriptName, fontsize = self.labelFontSize)
+        plt.legend( fontsize=self.tickFontSize, loc="upper right")
+        plt.tick_params( labelsize=self.tickFontSize )
 
 ########################################################################
-def loadTsv( fname ):
+
+def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
+    # scaleParam is [(entity, field, scale), ...]
+    # Design this function to be completely independent of any tsvs, which
+    # may introduce their own changes into the reference model. So it
+    # does a fresh load, tweaks the params, and saves.
+    fname, extn = os.path.splitext( dumpFname )
+    if extn == '.g' or extn == '.xml':
+        localSW = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+    elif extn == '.json':
+        localSW = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+    else:
+        print( "Warning: dumpTweakedModel: File format '{}' not known".format( extn ) )
+        return
+    sp = []
+    for i in scaleParam:
+        sp.extend( i )
+    localSW.deleteSimulation()
+    localSW.loadModelFile( origFname, dummyModify, sp, dumpFname, "" )
+
+def dummyModify( erSPlist, modelWarning ):
+    #raise SimError( "dummyModify: should never be called\n")
+    print( ".", end = "" )
+
+def loadJson( fname, mapFile ):
     stims = []
     readouts = []
-    fs = fname.split('.')
-    if len(fs) < 2:
-        if fs[-1] != 'tsv':
-            raise SimError( " file '" + fname + "' should end in .tsv" )
     with open( fname ) as fd:
-        for line in fd:
-            if len( line ) > 1 and line[0] != '#':
-                cols = line.split('\t')
-                if len( cols ) > 0:
-                    c0 = cols[0].strip()
-                    if c0 == 'Experiment metadata':
-                        expt = Experiment.load(fd )
-                    if c0 == 'Stimuli':
-                        stims.append( Stimulus.load(fd ) )
-                    if c0 == 'Readouts':
-                        readouts.append( Readout.load(fd) )
-                    if c0 == 'Model mapping':
-                        model = Model.load(fd )
+        findsim = json.load( fd )
+    relpath = os.path.dirname( __file__ )
+    if relpath != '': # outside local directory
+        #relpath = relpath + '/'
+        fs = relpath + '/' + fschema
+    else:
+        fs = fschema
+
+    with open( fs ) as _schema:
+        schema = json.load( _schema )
+    jsonschema.validate( findsim, schema )
+    expt = Experiment( findsim["Metadata"], findsim["Experiment"] )
+    stims = Stimulus.load( findsim ) # Stimuli are an optional argument
+    readouts = Readout( findsim["Readouts"] )
+    model = Model( findsim, mapFile ) # mods are an optional argument.
     return expt, stims, readouts, model
 
 def runit( expt, model, stims, readouts ):
     for i in stims:
         i.configure( model._tempModelLookup )
-    for i in readouts:
-        i.configure( model._tempModelLookup )
+    readouts.configure( model._tempModelLookup )
 
     if "doseresponse" in expt.exptType:
         return parseAndRunDoser( model, stims, readouts )
@@ -1171,22 +1041,29 @@ def main():
     'specified in the same file, to generate a model score.\n'
     )
 
-    parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in tsv format.')
-    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
+    parser.add_argument( 'script', type = str, help='Required: filename of experiment spec, in json format.')
+    parser.add_argument( '-map', '--map', type = str, help='Optional: mapping file from tsv names to sim-specific strings. JSON format.', default = "" )
+    #parser.add_argument( '-schema', '--schema', type = str, help='Optional: Schema for json version of the findSim experiment definition. JSON format.', default = "findSimSchema.json" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
+    parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
+    parser.add_argument( '-score', '--score_func', type = str, help='Optional: specify scoring function for comparing expt and sim.', default = defaultScoreFunc )
     parser.add_argument( '-t', '--tabulate_output', action="store_true", help='Flag: Print table of plot values. Default is NOT to print table' )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
+    parser.add_argument( '-bf', '--big_font', action="store_true", help='Use larger font size in plots, useful for generating figures for presentation. Default is small font.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     parser.add_argument( '-settle_time', '--settle_time', type=float, default=0,  help='Run model for specified settle time and return dict of {path,conc}.' )
     parser.add_argument( '-imo', '--ignore_missing_obj', action="store_true", help='Flag, default False. When set the code ignores references to missing objects. Normally it would throw an error.' )
+    parser.add_argument( '-v', '--verbose', action="store_true", help='Flag, default False. When set, prints out diagnostics such as references not found, or automatically deleted entities after various checks for dangling reactions.' )
     args = parser.parse_args()
-    innerMain( args.script, modelFile = args.model, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, optimizeElec = args.optimize_elec, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj )
+    simWrap = ""
+    if args.model.split( '.' )[-1] == "json":
+        simWrap = "HillTau"
+    innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap )
 
-
-def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFname = "", hidePlot = True, hideSubplots = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1196,54 +1073,75 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
 
     global pause
     global sw
-    if simWrap == "":
-        sw = simWrapMoose.SimWrapMoose( ignoreMissingObj = ignoreMissingObj )
-    else:
-        sw = simWrap.SimWrap( ignoreMissingObj = ignoreMissingObj )
     solver = "gsl"  # Pick any of gsl, gssa, ee..
     modelWarning = ""
-    expt, stims, readouts, model = loadTsv( script )
-    #model.ignoreMissingObj = ignoreMissingObj
-    for r in readouts:
-        r.tabulateOutput = tabulateOutput
+    expt, stims, readouts, model = loadJson( exptFile, mapFile )
+    model.scoringFormula = scoreFunc # Override the earlier version.
+    readouts.tabulateOutput = tabulateOutput
 
+    if mapFile == "" and modelFile == "":
+        model.fileName = expt.testModel
+        mapFile = expt.testMap
     if modelFile != "":
         model.fileName = modelFile
+    else:
+        model.fileName = expt.testModel
+    if model.fileName.split('.')[-1] == "json":
+        simWrap = "HillTau"
+    if simWrap == "":
+        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+    elif simWrap == "HillTau":
+        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+    else:
+        sw = simWrap.SimWrap( ignoreMissingObj = ignoreMissingObj )
     model.pauseHsolve = PauseHsolve( optimizeElec )
     # First we load in the model using EE so it is easier to tweak
     try:
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
         fileName, file_extension = os.path.splitext(model.fileName)
-        sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname, model._tempModelLookup )
+        sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
 
         if expt.exptType == 'directparameter':
-            score = Readout.directParamScore( readouts, model._tempModelLookup, model.scoringFormula )
+            t0 = time.time()
+            score = Readout.directParamScore( readouts, model.scoringFormula )
+            elapsedTime = time.time() - t0
+
             if not hidePlot:
-                print( "Score = {:.3f} for\t{}\tElapsed Time = 0.0 s".format( score, os.path.basename(script) ) )
+                print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
+                #plt.figure(1)
+                #readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+                #plt.show()
+            #print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
             sw.deleteSimulation()
-            return score
+            return score, elapsedTime
 
         hasVclamp = False
-        readoutStim = stims[0]
+        if len( stims ) > 0:
+            readoutStim = stims[0]
+        else:
+            redoutStim = ""
         for i in stims:
             if i.field.lower() == 'vclamp':
                 hasVclamp = True
                 vpath = sw.buildVclamp( i )
-                model._tempModelLookup['vclamp'] = vpath
+                model._tempModelLookup['vclamp'] = [vpath,]
             elif i.field.lower() == 'inject':
                 readoutStim = i
             if len(i.entities) > 0 and i.entities[0].lower() == 'syninput':
                 readoutStim = i
-        if readouts[0].field in Readout.postSynFields:
-            readouts[0].stim = readoutStim 
-        sw.makeReadoutPlots( readouts )
-        sw.buildSolver( model.solver, useVclamp = hasVclamp )
+            if expt.exptType in ['barchart', 'doseresponse']:
+                sw.changeParams( [( i.entities[0], "isBuffered", 1 ),] )
+        if readouts.field in Readout.postSynFields:
+            readouts.stim = readoutStim 
+        sw.makeReadoutPlots( [ readouts ] )
+
+        sw.buildSolver( "gsl", useVclamp = hasVclamp )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
         if settleTime > 0:
-            return sw.presettle( settleTime )
+            return sw.presettle( settleTime ), 0.0
 
         sw.assignPresettle( settleDict )
         ##############################################################
@@ -1252,22 +1150,21 @@ def innerMain( script, modelFile = "model/synSynth7.g", dumpFname = "", paramFna
         score = runit( expt, model,stims, readouts  )
         elapsedTime = time.time() - t0
         if not hidePlot:
-            print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(script), elapsedTime ) )
-            for i in readouts:
-                pyplot.figure(1)
-                i.displayPlots( script, sw.modelLookup, stims[0], hideSubplots, expt.exptType )
-                
-            pyplot.show()
+            plt.figure(1)
+            readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+            plt.show()
+            print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
         sw.deleteSimulation()
-        return score
+        return score, elapsedTime
         
     except SimError as msg:
         if not silent:
-            print( "Error: findSim failed for script {}: {}".format(script, msg ))
-        sw.deleteSimulation
+            print( "Error: findSim failed for exptDefn {}: {}".format(exptFile, msg ))
+        sw.deleteSimulation()
         if __name__ == '__main__':
             traceback.print_exc()
-        return -1.0
+        return -1.0, 0.0
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()
+
