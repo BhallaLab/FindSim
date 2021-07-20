@@ -1080,7 +1080,7 @@ def main():
         simWrap = "HillTau"
     innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1117,7 +1117,14 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
         fileName, file_extension = os.path.splitext(model.fileName)
-        sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
+        if getInitParamVal:
+            sw.loadModelFile( model.fileName, model.modify, [], dumpFname, paramFname )
+            pv = []
+            for i in range( 0, len( scaleParam ), 3 ):
+                pv.append( scaleParam[i] + "." + scaleParam[i+1] )
+            return sw.getParamVec( pv )
+        else:
+            sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
 
         if expt.exptType == 'directparameter':
             t0 = time.time()
@@ -1181,6 +1188,8 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if __name__ == '__main__':
             traceback.print_exc()
         return -1.0, 0.0, {}
+
+
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()

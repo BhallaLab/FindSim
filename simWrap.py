@@ -40,6 +40,8 @@ class SimWrap():
                 self.objMap = json.load( fd )
         self.modelId = ""
         self.plots = {} # Keys: Readout objects. Values: 2d numpy arrays
+        self.upperLimit = {} # Key: field name . Value: upper limit
+        self.lowerLimit = {} # Key: field name. Values: lower limit
                 
         return
 
@@ -60,6 +62,15 @@ class SimWrap():
         for i in range( 0, len(params), 3):
             self._scaleOneParam( params[i:i+3] )
             # _scaleOneParam is a derived function
+
+    def getParamVec( self, params ):
+        # Params is a list of strings of form obj.field
+        ret = []
+        for p in params:
+            [ obj, field ] = p.split( '.' )
+            ret.append( self.getObjParam( obj, field ) )
+            #print( "getParamVec entry...........", obj, field, ret[-1] )
+        return ret
 
     def _scaleOneParam( self, params ): # place holder, to be overridden
         return
@@ -141,3 +152,4 @@ class SimWrap():
 
     def assignPresettle( settledict ):
         return
+

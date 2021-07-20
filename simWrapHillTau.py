@@ -48,6 +48,8 @@ class SimWrapHillTau( SimWrap ):
         self.settleTime = 3000.0    # HillTau settling is indept of time.
         # Inherited from SimWrap: self.modelLookup = {}
         self.model = ""
+        self.saveList = []
+        self.deleteList = []
 
     def _scaleOneParam( self, params ):
         if len(params) != 3:
@@ -61,48 +63,47 @@ class SimWrapHillTau( SimWrap ):
         entity = self.modelLookup[ params[0] ][0]
         field = params[1]
         scale = float( params[2] )
-        if not ( scale >= 0.0 and scale <= 100.0 ):
-            raise SimError( "scaleOneParam: {} out of range 0 to 100".format( scale ) )
+        if not ( scale >= 0.0 ):
+            raise SimError( "scaleOneParam: {} below 0".format( scale ) )
         if field in ["conc", "concInit"]:
             mol = self.model.molInfo[ entity ]
-            c = self.model.concInit[ mol.index ] * scale 
-            self.model.conc[ mol.index ]= self.model.concInit[mol.index]= c
-            self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = c
+            self.model.conc[ mol.index ]= self.model.concInit[mol.index]= scale
+            self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = scale
         elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]:
             reac = self.model.reacInfo[ entity ]
             dictReac = self.jsonDict["Groups"][reac.grp]["Reacs"][reac.name]
             if field == "KA":
-                reac.KA *= scale
+                reac.KA = scale
                 reac.kh = reac.KA ** reac.HillCoeff
                 dictReac["KA"] = reac.KA
                 #print( "rescale {}.KA: new = {}, scale = {}".format( reac.name, reac.KA, scale ) )
             elif field == "tau":
                 # There is an implicit linkage of tau and tau2 when equal.
+                tau = scale
                 if np.isclose( reac.tau, reac.tau2 ):
-                    reac.tau2 = reac.tau * scale
-                reac.tau *= scale
+                    reac.tau2 = tau
+                reac.tau = tau
                 dictReac["tau"] = reac.tau
             elif field == "tau2":
-                reac.tau2 *= scale
+                reac.tau2 = scale
                 dictReac["tau2"] = reac.tau2
             elif field == "baseline":
-                reac.baseline *= scale
+                reac.baseline = scale
                 #print( "BASELINE = {};     SCALE = {}".format(reac.baseline, scale) )
                 dictReac["baseline"] = reac.baseline
             elif field == "gain":
-                reac.gain *= scale
+                reac.gain = scale
                 dictReac["gain"] = reac.gain
             elif field == "Kmod":
-                reac.Kmod *= scale
+                reac.Kmod = scale
                 dictReac["Kmod"] = reac.Kmod
             elif field == "Amod":
-                reac.Amod *= scale
+                reac.Amod = scale
                 dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
         # This operates at the level of the JSON dict. We then have to
         # rebuild the model.
-        jd = self.jsonDict
         for ( _entity, change ) in itemsToDelete:
             if change != 'delete':
                 continue
@@ -112,92 +113,29 @@ class SimWrapHillTau( SimWrap ):
             objList = self.modelLookup.get( _entity )
             if objList:
                 for obj in objList:
-                    deleteObj( obj, jd['Groups'] )
+                    self.deleteList.append( obj )
             elif self.ignoreMissingObj:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::deleteItems: entity '{}' not found".format( _entity ) )
             else:
                 raise SimError( "SimWrapHillTau::deleteItems: Entity '{}' not found".format( _entity ) )
 
-    def deleteObj( self, obj, grps ):
-            grps = jd['Groups']
-            if obj in grps:
-                del grps[ obj ]
-            else: # Scan through all the groups
-                for i in grps:
-                    found = False
-                    if obj in i["Reacs"]:
-                        del i["Reacs"][ obj ]
-                        found = True
-                    if obj in i["Species"]:
-                        # Here we have the tricky situation that there may
-                        # be reacs that depend on this species. Fortunately
-                        # in the HillTau form, all substrates are created
-                        # as species with a conc of zero. So this would
-                        # not contribute to any downstream activity
-                        del i["Species"][ obj ]
-                        found = True
-                    if obj in i["Eqns"]:
-                        del i["Eqns"][ obj ]
-                        found = True
-                    if not found:
-                        raise SimError( "deleteObj: Obj '{}' not found".format( obj ) )
-
     def subsetItems( self, _modelSubset ):
-        # This saves only those entries specified in the subset.
-        # In order to do so, it must save anything closer to the root.
-        # For the purposes of HillTau models, it saves the groups above
-        # each entry.
-        # Also has to save all substrates of each reaction entry.
-        # But normally the subset only refers to molecules.
-        modelSubset = {}
+        # This builds up a 'saveList' of items to be preserved for
+        # calculation.
+        # If a subset entry is a group, save all its reactions and eqns.
+        # If a subset entry is a reaction or eqn, save it.
+        # Don't need to delete anything, just disable unused reacs.
         for i in _modelSubset:
-            if i in self.objMap:
-                modelSubset[i] = self.objMap[i]
-            elif not self.silent:
-                print( "Warning: in subsetItems(): item {} not found".format( i ) )
-        '''
-        try:
-            modelSubset = [ self.modelLookup[i][0] for i in _modelSubset]
-        except KeyError as ve:
-            raise SimError( "subsetItems: Obj '{}' not known".format( i ) )
-        '''
-
-        jd = self.jsonDict
-        notSavedGrps = [ i for i in jd["Groups"] if not i in modelSubset ]
-        rescue = {}
-        #assert( len( savedGrps ) + len( notSavedGrps ) == len( jd["Groups"])
-        for g in notSavedGrps: 
-            # make copies of objs that should be saved, including their
-            # parent groups that have to be rescued.
-            # Kill groups that have no saved items
-            jg = jd["Groups"][g]
-            rescue[ g ] = { "Species": {}, "Reacs": {}, "Eqns" : {} }
-            doRescue = False
-            if "Species" in jg:
-                for mol, val in jg["Species"].items():
-                    if mol in modelSubset:
-                        rescue[g]["Species"][mol] = val
-                        doRescue = True
-            if "Reacs" in jg:
-                for reac, val in jg["Reacs"].items():
-                    if reac in modelSubset:
-                        rescue[g]["Reacs"][reac] = val
-                        doRescue = True
-            if "Eqns" in jg:
-                for eqn, val in jg["Eqns"].items():
-                    if eqn in modelSubset:
-                        rescue[g]["Eqns"][eqn] = val
-                        doRescue = True
-            #print( "************   Deleting jg: {}".format( g ) )
-            del jd["Groups"][g]
-            if not doRescue:
-                #print( "************   Not rescuing jg: {}".format( g ) )
-                del rescue[g]
-
-        # Merge the saved groups with the rescued groups.
-        #print( "************   jd[Groups]: {}".format( jd["Groups"] ) )
-        jd["Groups"].update( rescue )
+            objList = self.modelLookup.get(i )
+            if objList:
+                for obj in objList:
+                    saveList.append( obj )
+            elif self.ignoreMissingObj:
+                if not self.silent:
+                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( _entity ) )
+            else:
+                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( _entity ) )
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -234,7 +172,7 @@ class SimWrapHillTau( SimWrap ):
                             r[entity]["Amod"] = value
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
-        t0 = time.time()
+        #t0 = time.time()
         self.turnOffElec = True
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.json':
@@ -242,11 +180,13 @@ class SimWrapHillTau( SimWrap ):
             qs = hillTau.getQuantityScale( self.jsonDict )
             hillTau.scaleDict( self.jsonDict, qs )
             self.extendObjMap() # Extends objects from jsonDict into objMap
-            # It comes back as deleteItems, subsetItems, prune, changeParams
+            # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
             modifyFunc( {}, "" ) # Callback.
+            t0 = time.time()
             self.model = hillTau.parseModel( self.jsonDict )
             self.buildModelLookup( self.objMap ) 
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
+            self.model.modifySched( self.saveList, self.deleteList )
             self._scaleParams( scaleParam )
             '''
             for i in range( len( scaleParam ) / 6 ):
