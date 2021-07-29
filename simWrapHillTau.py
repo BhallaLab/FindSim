@@ -28,11 +28,9 @@
 from __future__ import print_function
 import re
 import os
-#import ntpath
 import json
 import numpy as np
 import moose
-#import imp  ## May be deprecated from Python 3.4
 from simWrap import SimWrap 
 from simError import SimError
 import hillTau
@@ -133,9 +131,9 @@ class SimWrapHillTau( SimWrap ):
                     saveList.append( obj )
             elif self.ignoreMissingObj:
                 if not self.silent:
-                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( _entity ) )
+                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
             else:
-                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( _entity ) )
+                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( i ) )
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -229,10 +227,6 @@ class SimWrapHillTau( SimWrap ):
             v = val[0]
             if v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo:
                 self.modelLookup[key] = val
-        '''
-        for key, val in self.modelLookup.items():
-            print( "modelLookup[{}] = {}".format( key, val ) )
-        '''
 
     def buildSolver( self, solver, useVclamp = False ):
         return
@@ -250,7 +244,6 @@ class SimWrapHillTau( SimWrap ):
                 if not j in self.modelLookup:
                     continue
                 objList = self.modelLookup[ j ]
-                #print( "##########{}".format( objList ) )
                 for objName in objList:
                     index = self.model.molInfo[objName].index
                     self.plotPath[objName] = [ index, numPlots ]
@@ -417,7 +410,6 @@ class SimWrapHillTau( SimWrap ):
             else:
                 orig = []
                 for (stimEntity, field, value, scale) in pt:
-                    #print( "BBBBBBBBBBBBBBB {}".format( stimEntity ) )
                     elm = self.modelLookup[ stimEntity ][0]
                     orig.append( ( elm, field, self.getField(elm, field) ) )
                     self.setField( elm, field, value * scale )

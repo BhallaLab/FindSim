@@ -3,6 +3,8 @@
 	"description" : "This is a schema for descriptors of experiments used by the FindSim package.",
 	"type": "object",
 	"properties": {
+		"FileType": {"type": "string"},
+		"Version": {"type": "string"},
 		"Metadata": {
 		"type": "object",
 			"properties": {

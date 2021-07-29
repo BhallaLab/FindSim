@@ -791,7 +791,6 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
             raise SimError( "runDoser: Normalization failed due to zero denominator" )
         readouts.simData = [ x/norm for x in readouts.simData ]
     if getPlots:
-        print( "Getting Plots" )
         # Collect detailed time series
         readouts.plots, readouts.plotDt = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
@@ -1176,7 +1175,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if not hidePlot:
             plt.figure(1)
             readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
-            print( "Score = {:.4f} for\t{}\tElapsed Time = {:.1f}s, evalTime = {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
+            print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
         sw.deleteSimulation()
         return score, elapsedTime, sw.diagnostics()
