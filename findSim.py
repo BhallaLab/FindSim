@@ -1164,6 +1164,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
         if settleTime > 0:
+            print( "Pressetttling --------------------------------" )
             return sw.presettle( settleTime ), 0.0, {}
 
         sw.assignPresettle( settleDict )
@@ -1178,6 +1179,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
         sw.deleteSimulation()
+        #print( "DIAGNOSTICS ------------------------------" )
         return score, elapsedTime, sw.diagnostics()
         
     except SimError as msg:
@@ -1186,6 +1188,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.deleteSimulation()
         if __name__ == '__main__':
             traceback.print_exc()
+        print( "Failed for expt defn---------------: findSim failed for exptDefn {}: {}".format(exptFile, msg ))
         return -1.0, 0.0, {}
 
 

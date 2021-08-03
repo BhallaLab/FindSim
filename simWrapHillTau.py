@@ -52,6 +52,13 @@ class SimWrapHillTau( SimWrap ):
     def _scaleOneParam( self, params ):
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], g    ot: '{}'".format( params ) )
+        if params[0] in self.model.namedConsts:
+            print( "ERROR: should not be seeing a namedConst in scaleOneParam: ", parms[0] )
+            assert( 0 )
+            self.model.namedConsts[ params[0] ] = float( params[2] )
+            self.jsonDict["Consts"][params[0]] = float( params[2] )
+            return
+
         if not params[0] in self.modelLookup:
             if self.silent:
                 return
@@ -169,12 +176,33 @@ class SimWrapHillTau( SimWrap ):
                         elif field == "Amod":
                             r[entity]["Amod"] = value
 
+    def scaleNamedConsts( self, scaleParam ):
+        constDict = self.jsonDict.get( "Constants" )
+        if constDict:
+            newScaleParam = []
+            for i in range( 0, len( scaleParam ), 3 ):
+                key = scaleParam[i]
+                val = scaleParam[i+2]
+                if key in constDict:
+                    constDict[key] = val
+                    #print( "scaling const ", key, " to ", val )
+                else:
+                    newScaleParam.append( key )
+                    newScaleParam.append( scaleParam[i+1] )
+                    newScaleParam.append( val )
+            # Reassign scaleParam with the found consts removed.
+            return newScaleParam
+        else:
+            return scaleParam
+
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
         #t0 = time.time()
+        #print( "Loading model file ", fname, " with numScale = ", len(scaleParam)  )
         self.turnOffElec = True
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.json':
             self.jsonDict = hillTau.loadHillTau( fname )
+            scaleParam = self.scaleNamedConsts( scaleParam )
             qs = hillTau.getQuantityScale( self.jsonDict )
             hillTau.scaleDict( self.jsonDict, qs )
             self.extendObjMap() # Extends objects from jsonDict into objMap
@@ -367,7 +395,11 @@ class SimWrapHillTau( SimWrap ):
 
 
     def getObjParam( self, entity, field ):
+        if entity in self.model.namedConsts:
+            return self.model.namedConsts[entity]
         if not entity in self.modelLookup:
+            if self.ignoreMissingObj:
+                return 1.0
             raise SimError( "SimWrapHillTau::getObjParam: Entity {} not found".format( entity ) )
         elms = self.modelLookup[entity]
         if len( elms ) != 1:
