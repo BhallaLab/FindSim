@@ -1010,7 +1010,7 @@ def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
 
 def dummyModify( erSPlist, modelWarning ):
     #raise SimError( "dummyModify: should never be called\n")
-    print( ".", end = "" )
+    print( "dummyModify", end = "" )
 
 def loadJson( fname, mapFile ):
     stims = []

@@ -182,7 +182,6 @@ class SimWrapMoose( SimWrap ):
             elist = self.lookup( i )
             for elm in elist:
                 if self.ignoreMissingObj and elm.name == 'root':
-                    #print( 'ignored' )
                     continue
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
@@ -216,6 +215,13 @@ class SimWrapMoose( SimWrap ):
                 moose.delete( i )
             else:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
+        # Remove all enzymes which have zero substrates or zero products.
+        for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
+            if len( e.neighbors['sub'] ) == 0:
+                moose.delete( e )
+            elif len( e.neighbors['prd'] ) == 0:
+                moose.delete( e )
+
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
@@ -233,7 +239,6 @@ class SimWrapMoose( SimWrap ):
             foundObj = [ j for j in foundObj if j.name != 'root' ]
             if len( foundObj ) > 0:
                 self.modelLookup[key] = foundObj
-                #print( "modelLookup[{}] = {}".format( key, foundObj[0].path ) )
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ): # modify arg is a func
 	#This list holds the entire models Reac/Enz sub/prd list for reference
