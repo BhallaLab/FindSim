@@ -334,11 +334,9 @@ class SimWrapHillTau( SimWrap ):
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
                 if field == 'conc':
-                    self.model.setConc( objName, value )
-                    #self.model.conc[ self.model.molInfo[objName].index ]= value
+                    self.model.conc[ self.model.molInfo[objName].index ]= value
                 elif field == 'concInit':
-                    self.model.setConc( objName, value )
-                    #self.model.concInit[ self.model.molInfo[objName].index ]= value
+                    self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
         elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
