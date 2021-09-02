@@ -131,11 +131,17 @@ class SimWrapHillTau( SimWrap ):
         # If a subset entry is a group, save all its reactions and eqns.
         # If a subset entry is a reaction or eqn, save it.
         # Don't need to delete anything, just disable unused reacs.
+        self.saveList = []
         for i in _modelSubset:
-            objList = self.modelLookup.get(i )
+            objList = self.modelLookup.get(i)
             if objList:
                 for obj in objList:
-                    saveList.append( obj )
+                    self.saveList.append( obj )
+            elif i in self.jsonDict["Groups"]:
+                # The modifySched func recognizes if i is the parent grp
+                self.saveList.append( i ) 
+                # Could do recursive stuff here if need groups in groups.
+
             elif self.ignoreMissingObj:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
@@ -212,7 +218,7 @@ class SimWrapHillTau( SimWrap ):
             self.model = hillTau.parseModel( self.jsonDict )
             self.buildModelLookup( self.objMap ) 
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
-            self.model.modifySched( self.saveList, self.deleteList )
+            self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
             self._scaleParams( scaleParam )
             '''
             for i in range( len( scaleParam ) / 6 ):
@@ -328,9 +334,11 @@ class SimWrapHillTau( SimWrap ):
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
                 if field == 'conc':
-                    self.model.conc[ self.model.molInfo[objName].index ]= value
+                    self.model.setConc( objName, value )
+                    #self.model.conc[ self.model.molInfo[objName].index ]= value
                 elif field == 'concInit':
-                    self.model.concInit[ self.model.molInfo[objName].index ]= value
+                    self.model.setConc( objName, value )
+                    #self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
         elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
@@ -436,6 +444,7 @@ class SimWrapHillTau( SimWrap ):
                     #print( "SF: {}\t{}\t{}\t{}".format( elm, field, value, scale) )
                     self.setField( elm, field, value * scale )
                     if field == 'conc':
+                        self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
                 self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
                 st = settleTime
@@ -446,12 +455,14 @@ class SimWrapHillTau( SimWrap ):
                     orig.append( ( elm, field, self.getField(elm, field) ) )
                     self.setField( elm, field, value * scale )
                     if field == 'conc':
+                        self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
                 self.reinitSimulation()
                 self.advanceSimulation( settleTime, doPlot = False )
                 for elm, field, oldval in orig:
                     self.setField( elm, field, oldval )
                     if field == 'conc':
+                        self.setField( elm, "conc", oldval )
                         self.setField( elm, "concInit", oldval )
 
             ret.append( self.sumFields( responseList[0], responseList[1] ) )
