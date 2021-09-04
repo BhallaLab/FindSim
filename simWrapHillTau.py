@@ -164,6 +164,17 @@ class SimWrapHillTau( SimWrap ):
                     if s and entity in s:
                         s[entity] = value
                         #print("Changing {} of '{}' to {}".format( field, entity, value ) )
+                elif field == "isBuffered" and value == 1:
+                    r = jg.get( "Reacs" )
+                    if r and entity in r:
+                        self.deleteList.append( entity )
+                    else:
+                        e = jg.get( "Eqns" )
+                        if e and entity in e:
+                            self.deleteList.append( entity )
+                    #if len( self.deleteList ) > 0:
+                    #    self.model.modifySched( saveList = [], deleteList = self.deleteList )
+
                 elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]: 
                     r = jg.get( "Reacs" )
                     if r and entity in r:
@@ -213,10 +224,10 @@ class SimWrapHillTau( SimWrap ):
             hillTau.scaleDict( self.jsonDict, qs )
             self.extendObjMap() # Extends objects from jsonDict into objMap
             # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
+            self.buildModelLookup( self.objMap ) 
             modifyFunc( {}, "" ) # Callback.
             t0 = time.time()
             self.model = hillTau.parseModel( self.jsonDict )
-            self.buildModelLookup( self.objMap ) 
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
             self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
             self._scaleParams( scaleParam )
@@ -253,14 +264,24 @@ class SimWrapHillTau( SimWrap ):
                     if not i in om:
                         om[i] = [i]
 
-
     def buildModelLookup( self, objMap ):
         # All Mols are keys in modelLookup, plus whatever objMap sets.
         # We ensure that only valid objects are keys.
         for key, val in objMap.items():
             v = val[0]
+            self.modelLookup[key] = val
+
+    '''
+    def buildModelLookup( self, objMap ):
+        # All Mols are keys in modelLookup, plus whatever objMap sets.
+        # We ensure that only valid objects are keys.
+        for key, val in objMap.items():
+            print( "Setting modelLookup: ", key, "  ", val )
+            v = val[0]
             if v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo:
                 self.modelLookup[key] = val
+                print( "Setting modelLookup: ", key, "  ", val )
+    '''
 
     def buildSolver( self, solver, useVclamp = False ):
         return
@@ -444,6 +465,8 @@ class SimWrapHillTau( SimWrap ):
                     if field == 'conc':
                         self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
+                        #self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
+                        #print( elm, " conc = ", self.getField( elm, "conc" ) )
                 self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
                 st = settleTime
             else:
