@@ -742,6 +742,7 @@ def processReadouts( readouts, scoringFormula ):
 
 ##########################################################################
 def parseAndRun( model, stims, readouts, getPlots = False ):
+    eps = 1e-16
     q = []
     putStimsInQ( q, stims, model.pauseHsolve )
     putReadoutsInQ( q, readouts, model.pauseHsolve )
@@ -777,11 +778,12 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
         elif readouts.normMode == "presetTime":
             # The event Q has caused this special value to be recorded.
             norm = readouts.ratioReferenceValue
+            if norm < eps:
+                raise SimError( "parseAndRun: normalizing to ratioReferenceValue which is zero" )
         elif readouts.normMode == "dose":
             print( "Warning: trying to normalize time-series to a dose. Probably you want to use start or a preset time. Using start." )
             norm = readouts.ratioData[0]
 
-    eps = 1e-16
     if readouts.useNormalization and readouts.normMode == "each":
         if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
             raise SimError( "runDoser: Normalization failed due to zero denominator" )

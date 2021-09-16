@@ -111,7 +111,7 @@ class SimWrap():
     def getCurrentTime( self ):
         return 0.0
 
-    def advanceSimulation( self, advanceTime ):
+    def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         return
 
     def reinitSimulation( self ):

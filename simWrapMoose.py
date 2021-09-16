@@ -537,7 +537,7 @@ class SimWrapMoose( SimWrap ):
     def getCurrentTime( self ):
         return moose.element( '/clock' ).currentTime
 
-    def advanceSimulation( self, advanceTime ):
+    def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         moose.start( advanceTime )
 
     def reinitSimulation( self ):
