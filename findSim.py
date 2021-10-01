@@ -128,6 +128,9 @@ class Stimulus:
         self.quantityScale = convertQuantityUnits[ self.quantityUnits ]
         self.entities = [s["entity"],]
         self.field = str( s["field"] )
+        self.isBuffered = s.get( "isBuffered" )
+        if self.isBuffered == None:
+            self.isBuffered = 1
         #self.timeUnits = s.get( "timeUnits" ).encode( "ascii" )
         self.timeUnits = s.get( "timeUnits" )
         if not self.timeUnits:
@@ -1155,7 +1158,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 readoutStim = i
             if len(i.entities) > 0 and i.entities[0].lower() == 'syninput':
                 readoutStim = i
-            if expt.exptType in ['barchart', 'doseresponse']:
+            if expt.exptType in ['barchart', 'doseresponse'] and i.isBuffered:
                 sw.changeParams( [( i.entities[0], "isBuffered", 1 ),] )
         if readouts.field in Readout.postSynFields:
             readouts.stim = readoutStim 

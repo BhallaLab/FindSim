@@ -173,10 +173,13 @@ class SimWrapMoose( SimWrap ):
 
 
     def subsetItems( self, modelSubset ):
+        origNumSubs = {} # Key is path of obj, val is [nsub, nprd]
         nonContainers, directContainers = [],[]
         indirectContainers = [self.modelId]
 
         kinpath = self.modelId.path
+        for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
+            origNumSubs[e.path] = [len( e.neighbors['sub'] ), len( e.neighbors['prd'] ) ]
 
         for i in modelSubset: 
             elist = self.lookup( i )
@@ -215,13 +218,10 @@ class SimWrapMoose( SimWrap ):
                 moose.delete( i )
             else:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
-        # Remove all enzymes which have zero substrates or zero products.
+        # Remove all enzymes which have changed substrates or products.
         for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
-            if len( e.neighbors['sub'] ) == 0:
+            if origNumSubs[ e.path ] != [len(e.neighbors['sub']), len( e.neighbors['prd'] ) ]:
                 moose.delete( e )
-            elif len( e.neighbors['prd'] ) == 0:
-                moose.delete( e )
-
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:

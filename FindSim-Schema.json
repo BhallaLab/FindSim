@@ -79,6 +79,7 @@
 						"enum": ["conc", "inject", "Vm", "Vclamp", "rate", "weight","EPSP_peak","synInput"],
 						"description": "rate and weight are used for synaptic input"
 			   		},
+					"isBuffered": {"type": "number" },
 					"data": {"type": "array",
 						"items": { "type": "array", 
 							"items": {"type": "number" },
