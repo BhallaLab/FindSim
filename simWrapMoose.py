@@ -106,7 +106,7 @@ class SimWrapMoose( SimWrap ):
 
         if not params[0] in self.modelLookup:
             foundObj = self.findObj( params[0] )
-            if foundObj.name == 'root':
+            if foundObj.name == '/':
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ) not found".format( params[0], params[1] ) )
             else:
@@ -159,7 +159,7 @@ class SimWrapMoose( SimWrap ):
             if entity in self.modelLookup:
                 objList = self.modelLookup[entity]
                 for obj in objList:
-                    if (self.ignoreMissingObj and obj.name == 'root') :
+                    if (self.ignoreMissingObj and obj.name == '/') :
                         if self.silent == False:
                             print( "Alert: simWrapMoose::deleteItems: Object in entity list but not in model '{}'".format( entity ) )
                         continue
@@ -184,7 +184,7 @@ class SimWrapMoose( SimWrap ):
         for i in modelSubset: 
             elist = self.lookup( i )
             for elm in elist:
-                if self.ignoreMissingObj and elm.name == 'root':
+                if self.ignoreMissingObj and elm.name == '/':
                     continue
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
@@ -226,7 +226,7 @@ class SimWrapMoose( SimWrap ):
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
             obj = self.lookup( entity )[0]
-            if obj.name == 'root':
+            if obj.name == '/':
                 continue
             if field == "concInit (uM)":
                 field = "concInit"
@@ -236,7 +236,7 @@ class SimWrapMoose( SimWrap ):
     def buildModelLookup( self, tempModelLookup ):
         for key, paths in tempModelLookup.items():
             foundObj = [ self.findObj( p, noRaise = True ) for p in paths ]
-            foundObj = [ j for j in foundObj if j.name != 'root' ]
+            foundObj = [ j for j in foundObj if j.name != '/' ]
             if len( foundObj ) > 0:
                 self.modelLookup[key] = foundObj
 
@@ -623,7 +623,7 @@ class SimWrapMoose( SimWrap ):
         if not entity in self.modelLookup:
             # Try to use the entity name directly, without lookup
             foundObj = self.findObj( entity )
-            if foundObj.name == 'root':
+            if foundObj.name == '/':
                 raise SimError( "SimWrapMoose::getObjParam: Entity {} not found, check Object map".format( entity ) )
             else:
                 self.modelLookup[ entity ] = [ foundObj ]
