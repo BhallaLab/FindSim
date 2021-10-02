@@ -110,19 +110,16 @@ class SimWrapMoose( SimWrap ):
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ) not found".format( params[0], params[1] ) )
             else:
-                self.modelLookup[ params[0] ] = [ foundObj ]
+                self.modelLookup[ params[0] ] = [ foundObj.path ]
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ): added to map ".format( params[0], params[1] ) )
-        obj = self.lookup( params[0] )[0]
-        field = params[1]
-        if obj.path == '/':  # No object found
+        objPath = self.lookup( params[0] )[0]
+        if objPath[0] == '/':  # No object found
             return
-        '''
-        if (sys.version_info > (3, 0)):
-            field = params[1].decode()
-        else:
-            field = params[1].encode( 'ascii' )
-        '''
+        obj =  moose.element( objPath )
+        if obj.path == '/': # No object found on path
+            return
+        field = params[1]
         scale = float( params[2] )
         if not isinstance(field,str):
             field = field.decode()
@@ -153,21 +150,22 @@ class SimWrapMoose( SimWrap ):
             obj.setField( field, val * scale)
             #print("ScaledParam {}.{} from {} to {}".format( params[0], field, val, obj.getField( field ) ) )
         return
+
     def deleteItems( self, itemsToDelete ):
         for ( entity, change ) in itemsToDelete[:]:
             entity = entity.strip(' \n\t\r')
             if entity in self.modelLookup:
-                objList = self.modelLookup[entity]
-                for obj in objList:
-                    if (self.ignoreMissingObj and obj.name == '/') :
+                objPathList = self.modelLookup[entity]
+                for objPath in objPathList:
+                    if (self.ignoreMissingObj and objPath == '/') :
                         if self.silent == False:
                             print( "Alert: simWrapMoose::deleteItems: Object in entity list but not in model '{}'".format( entity ) )
                         continue
                     if change == 'delete':
-                        if obj.path != self.modelId.path:
-                            moose.delete( obj )
+                        if objPath != self.modelId.path and moose.exists( objPath ):
+                            moose.delete( objPath )
                         else:
-                            raise SimError("Cannot delete modelId or rootPath: '{}'".format( obj) )
+                            raise SimError("Cannot delete modelId or rootPath: '{}'".format( objPath) )
             elif self.silent == False:
                 print( "Alert: simWrapMoose::deleteItems: '{}' not found".format( entity ) )
 
@@ -183,8 +181,11 @@ class SimWrapMoose( SimWrap ):
 
         for i in modelSubset: 
             elist = self.lookup( i )
-            for elm in elist:
-                if self.ignoreMissingObj and elm.name == '/':
+            for elmPath in elist:
+                if self.ignoreMissingObj and elmPath == '/':
+                    continue
+                elm = moose.element( elmPath )
+                if elm.path == '/':
                     continue
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
@@ -225,18 +226,21 @@ class SimWrapMoose( SimWrap ):
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
-            obj = self.lookup( entity )[0]
-            if obj.name == '/':
+            objPath = self.lookup( entity )[0]
+            if objPath == '/':
                 continue
             if field == "concInit (uM)":
                 field = "concInit"
+            obj = moose.element( objPath )
+            if obj.path == '/':
+                continue
             obj.setField( str( field ), value )
             #print( "PARAM {}.{} = {}, buf = {}".format( obj.name, field, value, obj.isBuffered ) )
 
     def buildModelLookup( self, tempModelLookup ):
         for key, paths in tempModelLookup.items():
             foundObj = [ self.findObj( p, noRaise = True ) for p in paths ]
-            foundObj = [ j for j in foundObj if j.name != '/' ]
+            foundObj = [ j.path for j in foundObj if j.name != '/' ]
             if len( foundObj ) > 0:
                 self.modelLookup[key] = foundObj
 
@@ -346,10 +350,9 @@ class SimWrapMoose( SimWrap ):
 
     def buildVclamp( self, stim ):
         # Stim.entities should be the compartment name here.
-        compt = self.lookup( stim.entities[0] )[0]
-        path = compt.path
-        vclamp = moose.VClamp( path + '/vclamp' )
-        self.modelLookup['vclamp'] = [vclamp,]
+        comptPath = self.lookup( stim.entities[0] )[0]
+        vclamp = moose.VClamp( comptPath + '/vclamp' )
+        self.modelLookup['vclamp'] = [vclamp.path,]
         vclamp.mode = 0     # Default. could try 1, 2 as well
         vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
         vclamp.ti = 20e-6   # Integral time
@@ -437,11 +440,14 @@ class SimWrapMoose( SimWrap ):
     def makeReadoutPlots( self, readouts ):
         moose.Neutral('/model/plots')
         for i in readouts:
-            readoutElms = []
+            readoutElmPaths = []
             for j in i.entities:
-                readoutElms.extend( self.lookup(j) )
-            for elm in readoutElms:
+                readoutElmPaths.extend( self.lookup(j) )
+            for elmPath in readoutElmPaths:
                 ######Creating tables for plotting for full run #############
+                if elmPath == '/' or not moose.exists( elmPath ):
+                    continue
+                elm = moose.element( elmPath )
                 plotpath = '/model/plots/' + ntpath.basename(elm.name)
                 if i.field in i.elecFields:
                     plot = moose.Table(plotpath)
@@ -516,14 +522,18 @@ class SimWrapMoose( SimWrap ):
         for name in qe.entry.entities:
             if not name in self.modelLookup:
                 raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( name ) )
-            elms = self.modelLookup[name]
+            elmPaths = self.modelLookup[name]
             #print( "deliverStim {}.{}  {}@{}".format( elms[0].path, field, qe.val, moose.element( '/clock' ).currentTime ) )
-            for e in elms:
+            for ePath in elmPaths:
+                if ePath == '/' or not moose.exists( ePath ):
+                    continue
+
                 if field == 'Vclamp':
-                    path = e.path + '/vclamp'
+                    path = ePath + '/vclamp'
                     moose.element( path ).setField( 'command', qe.val )
                     #print(" Setting Vclamp {} to {}".format( path, qe.val ))
                 else:
+                    e = moose.element( ePath )
                     e.setField( str(field), qe.val )
                     if qe.t == 0:
                         ## At time zero we initial the value concInit or nInit
@@ -576,7 +586,10 @@ class SimWrapMoose( SimWrap ):
                     #print ("setField {}.{} = {}".format( stimEntity, field, value*scale ) )
                     if not stimEntity in self.modelLookup:
                         raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( stimEntity ) )
-                    elm = self.modelLookup[stimEntity][0]
+                    elmPath = self.modelLookup[stimEntity][0]
+                    if not moose.exists( elmPath ):
+                        continue
+                    elm = moose.element( elmPath )
                     if 'conc' in field:
                         elm.setField( "concInit", value * scale )
                         elm.setField( "conc", value * scale )
@@ -591,7 +604,11 @@ class SimWrapMoose( SimWrap ):
                     # here we assign the stimulus.
                     if not stimEntity in self.modelLookup:
                         raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( stimEntity ) )
-                    elm = self.modelLookup[stimEntity][0]
+                    elmPath = self.modelLookup[stimEntity][0]
+                    if elmPath == '/' or not moose.exists( elmPath ):
+                        raise SimError( "simWrapMoose::deliverStim: Obj for entity '{}' = '{}' not found, check if it has been deleted".format( stimEntity[0], elmPath ) )
+                    elm = moose.element( elmPath )
+
                     orig.append( (elm, field, elm.getField( field ) ) )
                     elm.setField( field, value * scale )
                 moose.reinit()
@@ -613,10 +630,12 @@ class SimWrapMoose( SimWrap ):
     def sumFields( self, entityList, field ):
         tot = 0.0
         for rr in entityList:
-            elms = self.lookup( rr )
-            for e in elms:
-                #print (" sumFields rr = {}, val = {}".format( e.name, e.conc ) )
-                tot += e.getField( str( field ) )
+            elmPaths = self.lookup( rr )
+            for ePath in elmPaths:
+                if ePath != '/' and moose.exists( ePath ):
+                    e = moose.element( ePath )
+                    tot += e.getField( str( field ) )
+                    #print (" sumFields rr = {}, val = {}".format( e.name, e.conc ) )
         return tot
 
     def getObjParam( self, entity, field ):
@@ -626,11 +645,14 @@ class SimWrapMoose( SimWrap ):
             if foundObj.name == '/':
                 raise SimError( "SimWrapMoose::getObjParam: Entity {} not found, check Object map".format( entity ) )
             else:
-                self.modelLookup[ entity ] = [ foundObj ]
-        elmList = self.lookup(entity)
-        if len( elmList ) != 1:
-            raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmList ) ) )
-        elm = elmList[0]
+                self.modelLookup[ entity ] = [ foundObj.path ]
+        elmPathList = self.lookup(entity)
+        if len( elmPathList ) != 1:
+            raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmPathList ) ) )
+        if elmPathList[0] == '/' or not moose.exists( elmPathList[0] ):
+            raise SimError( "SimWrapMoose::getObjParam: elm {} not found, check".format( elmPathList[0] ) )
+
+        elm = moose.element( elmPathList[0] )
         if field == 'Kd':
             if not elm.isA['Reac']:
                 raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
