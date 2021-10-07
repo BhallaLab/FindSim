@@ -1100,9 +1100,11 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     model.scoringFormula = scoreFunc # Override the earlier version.
     readouts.tabulateOutput = tabulateOutput
 
-    if mapFile == "" and modelFile == "":
-        model.fileName = expt.testModel
+    if mapFile != "":
+    	mapFile = mapFile
+    else:
         mapFile = expt.testMap
+        
     if modelFile != "":
         model.fileName = modelFile
     else:
