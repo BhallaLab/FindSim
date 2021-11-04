@@ -353,6 +353,7 @@ class SimWrapMoose( SimWrap ):
         comptPath = self.lookup( stim.entities[0] )[0]
         vclamp = moose.VClamp( comptPath + '/vclamp' )
         self.modelLookup['vclamp'] = [vclamp.path,]
+        compt = moose.element(comptPath)
         vclamp.mode = 0     # Default. could try 1, 2 as well
         vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
         vclamp.ti = 20e-6   # Integral time
