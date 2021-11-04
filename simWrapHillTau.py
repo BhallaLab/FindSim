@@ -294,6 +294,7 @@ class SimWrapHillTau( SimWrap ):
 
     def makeReadoutPlots( self, readouts ):
         numPlots = 0
+        self.numMainPlots = 0
         for i in readouts:
             for j in i.entities:
                 if not j in self.modelLookup:
@@ -303,10 +304,12 @@ class SimWrapHillTau( SimWrap ):
                     index = self.model.molInfo[objName].index
                     self.plotPath[objName] = [ index, numPlots ]
                     numPlots += 1
+            if not i.isPlotOnly:
+                self.numMainPlots = numPlots
         self.plots = [[]]*numPlots
 
-    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float.
-        return [ np.array( i ) for i in self.plots], self.plotDt
+    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns main plot dt as a float, and the number of main plots.
+        return [ np.array( i ) for i in self.plots], [self.plotDt] * len( self.plots ), self.numMainPlots
     
     def deliverStim( self, qe ):
         field = qe.entry.field

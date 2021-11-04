@@ -42,6 +42,7 @@ import json
 import jsonschema
 import traceback
 import argparse
+import copy
 import os
 import re
 import time
@@ -181,8 +182,9 @@ class Readout:
     fepspFields = [ 'fEPSP_peak','fEPSP_slope','fIPSP_peak','fIPSP_slope' ]
     postSynFields = fepspFields + epspFields + epscFields
     elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
-    def __init__( self, ro ):
+    def __init__( self, ro, isPlotOnly = False ):
         self.directParamData = ro.get( "paramdata" )
+        self.isPlotOnly = isPlotOnly
         if not self.directParamData:
             self.timeUnits = ro["timeUnits"]
             self.timeScale = convertTimeUnits[self.timeUnits]
@@ -235,7 +237,8 @@ class Readout:
             # Set up Display parameters
             self.useXlog = False
             self.useYlog = False
-            self.plotDt = 0.1,
+            self.plotDt = [0.1],
+            self.numMainPlots = 0,
             disp = ro.get( "display" )
             if disp:
                 if "useXlog" in disp:
@@ -264,7 +267,23 @@ class Readout:
                     self.fepspMin = epsp["DepthIntegMin"]
                 if "epspDepthIntegMax" in epsp:
                     self.fepspMax = epsp["DepthIntegMax"]
-                        
+
+
+    def plotCopy( self, entity, field):
+        ret = copy.copy( self )
+        ret.entities = [ entity ]
+        ret.field = field
+        if field == 'conc' or field == 'concInit':
+            ret.quantityUnits = "uM"
+        if field == 'n' or field == 'nInit':
+            ret.quantityUnits = "#"
+        if field == 'Vm' or field == 'Em':
+            ret.quantityUnits = "mV"
+        if field == 'current' or field == 'Im' or field == 'Ik':
+            ret.quantityUnits = "pA"
+        self.quantityScale = convertQuantityUnits[self.quantityUnits]
+        ret.isPlotOnly = True
+        return ret
         
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
@@ -313,6 +332,11 @@ class Readout:
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
     def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False ):
+        if self.isPlotOnly:
+            separator = ":"
+        else:
+            separator = "."
+        plt.figure( self.entities[0] + "." + self.field )
         if "doseresponse" in exptType:
             for i in stims[0].entities:
                 #elms = modelLookup[i.encode("ascii")]
@@ -387,16 +411,21 @@ class Readout:
             print( "Scale 0: {} {} {}".format( scale, tsScale, self.normMode ) )
             '''
 
-            for ypts in self.plots:
+            for idx, ypts in enumerate( self.plots ):
                 tconv = convertTimeUnits[ self.timeUnits ]
-                xpts = np.array( range( numPts)  ) * self.plotDt / tconv
+                xpts = np.array( range( len( ypts ) ) ) * self.plotDt[idx] / tconv
                 ypts /= scale
-                sumvec += ypts
-                if not hideSubplots:
-                    # Plot summed components. Need to access name.
-                    #plt.plot( xpts, ypts, 'r:', label = j.name )
-                    plt.plot( xpts, ypts, 'r:' )
-            plt.plot( xpts, sumvec, 'r--' )
+                if not self.isPlotOnly :
+                    sumvec += ypts
+                    if not hideSubplots:
+                        # Plot summed components. Need to access name.
+                        #plt.plot( xpts, ypts, 'r:', label = j.name )
+                        plt.plot( xpts, ypts, 'r:' )
+                else:
+                    plt.plot( xpts, ypts )
+            #plt.figure( "Main FindSim Plots" ) # Go back to original plot.
+            if not self.isPlotOnly :
+                plt.plot( xpts, sumvec, 'r--' )
             ylabel = pp.ylabel
             if self.field in ( Readout.epspFields + Readout.epscFields ):
                 if self.field in Readout.epspFields:
@@ -404,10 +433,10 @@ class Readout:
                 else:
                     plt.ylabel( '{} holding current ({})'.format( self.entities[0], tsUnits ) )
 
-                plt.figure(2)
+                plt.figure( self.field ) # Do the EPSP in a new figure
                 if self.useNormalization:
                     ylabel = '{} Fold change'.format( self.field )
-            pp.plotme( fname, ylabel )
+            pp.plotme( fname, ylabel, isPlotOnly = self.isPlotOnly )
 
             ######################################
 
@@ -427,7 +456,7 @@ class Readout:
         plt.plot( xpts, sumvec, 'r--' )
         plt.xlabel( "time ({})".format( self.timeUnits) )
         plt.ylabel( "Compartment currents Im (pA)" )
-        plt.figure(2)
+        plt.figure( self.entities[0] + "." + self.field + "_fEPSP")
         pp = PlotPanel( self, "timeseries", useBigFont = useBigFont )
         pp.plotme( fname, "fEPSP (mV)" )
 
@@ -677,10 +706,10 @@ def doReadout( qe, model ):
     readout = qe.entry
     val = int(round( ( qe.val ) ) )
     if readout.field in (Readout.epspFields + Readout.epscFields):
-        readout.plots, readout.plotDt = sw.fillPlots()
+        readout.plots, readout.plotDt, readout.numMainPlots = sw.fillPlots()
         doEpspReadout( readout )
     elif readout.field in Readout.fepspFields:
-        readout.plots, readout.plotDt = sw.fillPlots()
+        readout.plots, readout.plotDt, readout.numMainPlots = sw.fillPlots()
         doFepspReadout( readout )
     elif val == -1: # This is a special event to get RatioReferenceValue
         readout.ratioReferenceValue = sw.sumFields( readout.ratioReferenceEntities, readout.field )
@@ -797,7 +826,7 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
         readouts.simData = [ x/norm for x in readouts.simData ]
     if getPlots:
         # Collect detailed time series
-        readouts.plots, readouts.plotDt = sw.fillPlots()
+        readouts.plots, readouts.plotDt, readouts.numMainPlots = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
 
     return score
@@ -966,7 +995,20 @@ class PlotPanel:
         plt.xticks( barpos, ticklabels, fontsize = self.tickFontSize  )
         plt.tick_params( labelsize=self.tickFontSize )
 
-    def plotme( self, scriptName, ylabel, joinSimPoints = False ):
+    def plotme( self, scriptName, ylabel, joinSimPoints = False, isPlotOnly = False ):
+        plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
+        plt.ylabel( ylabel, fontsize = self.labelFontSize )
+        #plt.title( scriptName, fontsize = self.labelFontSize)
+        if isPlotOnly:
+            title = "Plotting: "
+        else:
+            title = "FindSim comparison for: "
+        for i in self.name:
+            title += ylabel.split('(')[0]
+        plt.title( title, fontsize = self.labelFontSize)
+        plt.tick_params( labelsize=self.tickFontSize )
+        if isPlotOnly:
+            return
         sp = 'ro-' if joinSimPoints else 'ro'
         nx = len( self.xpts )
         ss = self.sim[:nx]
@@ -986,11 +1028,13 @@ class PlotPanel:
                 plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
                 plt.plot( self.xpts, ss, sp, label = 'sim', linewidth='2' )
 
+        '''
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
         plt.ylabel( ylabel, fontsize = self.labelFontSize )
         plt.title( scriptName, fontsize = self.labelFontSize)
-        plt.legend( fontsize=self.tickFontSize, loc="upper right")
         plt.tick_params( labelsize=self.tickFontSize )
+        '''
+        plt.legend( fontsize=self.tickFontSize, loc="upper right")
 
 ########################################################################
 
@@ -1067,7 +1111,8 @@ def main():
     #parser.add_argument( '-schema', '--schema', type = str, help='Optional: Schema for json version of the findSim experiment definition. JSON format.', default = "findSimSchema.json" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
-    parser.add_argument( '-p', '--param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
+    parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
+    parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
     parser.add_argument( '-score', '--score_func', type = str, help='Optional: specify scoring function for comparing expt and sim.', default = defaultScoreFunc )
     parser.add_argument( '-t', '--tabulate_output', action="store_true", help='Flag: Print table of plot values. Default is NOT to print table' )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
@@ -1082,9 +1127,9 @@ def main():
     simWrap = ""
     if args.model.split( '.' )[-1] == "json":
         simWrap = "HillTau"
-    innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap )
+    innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False, plots = None ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1148,7 +1193,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if len( stims ) > 0:
             readoutStim = stims[0]
         else:
-            redoutStim = ""
+            readoutStim = ""
         for i in stims:
             if i.field.lower() == 'vclamp':
                 hasVclamp = True
@@ -1162,14 +1207,32 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 sw.changeParams( [( i.entities[0], "isBuffered", 1 ),] )
         if readouts.field in Readout.postSynFields:
             readouts.stim = readoutStim 
-        sw.makeReadoutPlots( [ readouts ] )
+        readoutVec = [readouts]
+        if plots:
+            if expt.exptType == "timeseries":
+                for i in plots:
+                    sp = i.split( "." ) # entity.field
+                    entity = model._tempModelLookup.get( sp[0] )
+                    print( "entity = ", entity )
+                    if not entity:
+                        print("Warning: plot entity '", sp[0], "' not found.")
+                        continue
+                    if len(sp) != 2:
+                        print("Field missing. Specify plot item as entity.field:", sp)
+                        continue
+                    #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
+                    readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
+            else:
+                print("Warning: Experiment design is '{}'. Only 'TimeSeries' supports extra plots. Skipping".format( experiment.exptType ) )
+
+        sw.makeReadoutPlots( readoutVec )
 
         sw.buildSolver( "gsl", useVclamp = hasVclamp )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
         if settleTime > 0:
-            print( "Pressetttling --------------------------------" )
+            print( "Presettling --------------------------------" )
             return sw.presettle( settleTime ), 0.0, {}
 
         sw.assignPresettle( settleDict )
@@ -1177,12 +1240,26 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
 
         t0 = time.time()
         score = runit( expt, model,stims, readouts, not hidePlot  )
+        # If we have extra plots, we separate out from first readout
+        numExtra = min( len( readoutVec ) - 1, len( readouts.plots ) - readouts.numMainPlots )
+        if numExtra > 0:
+            for idx in range( numExtra ):
+                rmi = idx + readouts.numMainPlots
+                readoutVec[idx+1].plots = [readouts.plots[rmi]]
+                readoutVec[idx+1].plotDt = [readouts.plotDt[rmi]]
+            readouts.plots = readouts.plots[:readouts.numMainPlots]
+            readouts.plotdt = readouts.plotDt[:readouts.numMainPlots]
         elapsedTime = time.time() - t0
         if not hidePlot:
-            plt.figure(1)
-            readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+            for rd in readoutVec:
+                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
+
+        '''
+            plt.figure( "Main FindSim Plots" )
+            readouts.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+        '''
         sw.deleteSimulation()
         #print( "DIAGNOSTICS ------------------------------" )
         return score, elapsedTime, sw.diagnostics()

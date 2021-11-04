@@ -439,6 +439,7 @@ class SimWrapMoose( SimWrap ):
 
     def makeReadoutPlots( self, readouts ):
         moose.Neutral('/model/plots')
+        self.numMainPlots = 0
         for i in readouts:
             readoutElmPaths = []
             for j in i.entities:
@@ -447,6 +448,7 @@ class SimWrapMoose( SimWrap ):
                 ######Creating tables for plotting for full run #############
                 if elmPath == '/' or not moose.exists( elmPath ):
                     continue
+                self.numMainPlots += not( i.isPlotOnly )
                 elm = moose.element( elmPath )
                 plotpath = '/model/plots/' + ntpath.basename(elm.name)
                 if i.field in i.elecFields:
@@ -507,14 +509,14 @@ class SimWrapMoose( SimWrap ):
 
     def fillPlots( self ):
         plots = []
-        dt = 0.1
+        dt = []
         for i in self.plotPath.values():
             plotvec = moose.vec( i )
-            dt = plotvec[0].dt
             for j in plotvec:
                 plots.append( j.vector ) # should be a numpy array
+                dt.append( j.dt )
                 #print( "FillPlots: dt = {}, n = {}, dataIndex = {} ".format( dt, len(j.vector), j.index ) )
-        return plots, dt
+        return plots, dt,  self.numMainPlots
     
     def deliverStim( self, qe ):
         field = qe.entry.field
