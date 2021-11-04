@@ -103,7 +103,7 @@ class SimWrap():
         return
 
     def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float and numMainPlots
-        return [], [1.0], 0;
+        return [], [1.0], 0
     
     def deliverStim( self, qe ):
         return

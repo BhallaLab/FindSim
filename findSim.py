@@ -237,8 +237,8 @@ class Readout:
             # Set up Display parameters
             self.useXlog = False
             self.useYlog = False
-            self.plotDt = [0.1],
-            self.numMainPlots = 0,
+            self.plotDt = [0.1]
+            self.numMainPlots = 0
             disp = ro.get( "display" )
             if disp:
                 if "useXlog" in disp:
@@ -1173,8 +1173,11 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             pv = []
             for i in range( 0, len( scaleParam ), 3 ):
                 pv.append( scaleParam[i] + "." + scaleParam[i+1] )
-            return sw.getParamVec( pv )
+            ret = sw.getParamVec ( pv )
+            sw.deleteSimulation()
+            return ret
         else:
+            sys.stdout.flush()
             sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
 
         if expt.exptType == 'directparameter':
