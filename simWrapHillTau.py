@@ -283,7 +283,9 @@ class SimWrapHillTau( SimWrap ):
                 print( "Setting modelLookup: ", key, "  ", val )
     '''
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
+        self.plotDt = minInterval * 0.1
+        self.model.dt = minInterval * 0.1
         return
 
     def buildVclamp( self, stim ):

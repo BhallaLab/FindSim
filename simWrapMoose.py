@@ -101,6 +101,7 @@ class SimWrapMoose( SimWrap ):
 
 
     def _scaleOneParam( self, params ):
+        #print( "scaleOneParam: ", params )
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
@@ -114,41 +115,52 @@ class SimWrapMoose( SimWrap ):
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ): added to map ".format( params[0], params[1] ) )
         objPath = self.lookup( params[0] )[0]
-        if objPath[0] == '/':  # No object found
+        if objPath == '/':  # No object found
             return
         obj =  moose.element( objPath )
         if obj.path == '/': # No object found on path
             return
         field = params[1]
-        scale = float( params[2] )
+        scale = float( params[2] ) # This is now the assignment value.
         if not isinstance(field,str):
             field = field.decode()
         else:
             field = field
-        if not ( scale >= 0.0 and scale <= 100.0 ):
+        if not ( scale >= 0.0):
             raise SimError( "Error: Scale {} out of range".format( scale ) )
-        if scale <= 0.0 and field in ['Kd', 'tau']:
-            print( "simWrapMoose::_scaleOneParam: Error, scale = {} is <= 0".format( scale ) )
-            raise SimError( "simWrapMoose::_scaleOneParam: terminated" )
 
         if field == 'Kd':
             if not obj.isA[ "Reac" ]:
                 #break 
                 raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
-            sf = np.sqrt( scale )
-            obj.Kb *= sf
-            obj.Kf /= sf
-            #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
+            tau = 1.0 / (obj.Kf + obj.Kb)
+            Kd = scale
+            #print("PreScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
+            obj.Kb = 1.0 / ( tau * (1.0 + 1.0/ Kd ) )
+            obj.Kf = 1.0 / ( tau * (Kd + 1.0 ) )
+            #print("ScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
         elif field == 'tau':
             if not obj.isA[ "Reac" ]:
                 raise SimError( "scaleParam: can only assign tau to a Reac, was: '{}'".format( obj.className ) )
-            obj.Kb /= scale
-            obj.Kf /= scale
+            tau = scale
+            if obj.Kf > 0:
+                if obj.Kb > 0:
+                    Kd = obj.Kb/obj.Kf
+                    obj.Kb = 1.0/(tau * ( 1 + 1/Kd ) )
+                    obj.Kf = obj.Kb / Kd
+                else:
+                    obj.Kf = 1.0/tau  # 1/tau
+                    obj.Kb = 0.0        # Retain unidirectionality
+            elif obj.Kb > 0:
+                obj.Kb = 1.0/tau      # 1/tau
+                obj.Kf = 0.0            # Retain unidirectionality
+            else:       # Both are zero, leave them there.
+                obj.Kb = obj.Kf = 0.0
             #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
         else: 
             val = obj.getField( field )
-            obj.setField( field, val * scale)
-            #print("ScaledParam {}.{} from {} to {}".format( params[0], field, val, obj.getField( field ) ) )
+            obj.setField( field, scale)
+            #print("ScaledParam {} {}.{} from {} to {} with scale {}".format( obj.path, params[0], field, val, obj.getField( field ), scale ) )
         return
 
     def deleteItems( self, itemsToDelete ):
@@ -290,7 +302,9 @@ class SimWrapMoose( SimWrap ):
             # Deprecated. Here we override the rdes to NOT make a solver.
             #self.turnOffElec = rdes.turnOffElec
             #rdes.turnOffElec = False
+            #print( "LIB: ", moose.element( '/library/chem/kinetics/glu/vesicle_release' ).Kf )
             mscript.build( rdes )
+            #print( "MODEL: ", moose.element( '/model/chem/dend/glu/vesicle_release' ).Kf )
             self.modelId = moose.element( '/model' )
             self.buildModelLookup( self.objMap )
             #rdes.turnOffElec = self.turnOffElec
@@ -311,7 +325,7 @@ class SimWrapMoose( SimWrap ):
         self.modelId = moose.element( '/model' )
 
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1.0 ):
         # Here we remove and rebuild the HSolver because we have to add vclamp
         # after loading the model.
         if useVclamp: 
@@ -335,7 +349,7 @@ class SimWrapMoose( SimWrap ):
             if solver.lower() in ['none','ee','exponential euler method (ee)']:
                 return
             if len( moose.wildcardFind( compt.path + "/##[ISA=Stoich]" ) ) > 0:
-                print( "findSim::buildSolver: Warning: Chem solvers already defined. Use 'none' or 'ee' in solver specifier to avoid this message. Model should work anyway." )
+                #print( "findSim::buildSolver: Warning: Chem solvers already defined. Use 'none' or 'ee' in solver specifier to avoid this message. Model should work anyway." )
                 return
             if solver.lower() in ['gssa','stochastic simulation (gssa)']:
                 ksolve = moose.Gsolve ( compt.path + '/gsolve' )
@@ -346,7 +360,7 @@ class SimWrapMoose( SimWrap ):
             stoich.ksolve = ksolve
             stoich.reacSystemPath = compt.path + '/##'
             for i in range( 10, 20 ):
-                moose.setClock( i, 0.1 )
+                moose.setClock( i, 0.2 * minInterval )
 
     def buildVclamp( self, stim ):
         # Stim.entities should be the compartment name here.

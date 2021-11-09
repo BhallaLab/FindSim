@@ -504,6 +504,17 @@ class Readout:
             return -1
         return score/numScore
 
+    def getMinInterval( self ):
+        ret = self.data[-1][0]
+        lastt = 0.0
+        for sample in self.data:
+            dt = sample[0] - lastt
+            if dt > 0.0:
+                ret = min( ret, dt )
+                lastt = sample[0]
+        return ret
+
+
     def directParamScore( readouts, scoringFormula ):
         score = 0.0
         numScore = 0.0
@@ -717,7 +728,7 @@ def doReadout( qe, model ):
         doEntityAndRatioReadout(readout, readout.field)
 
 def doFepspReadout( readout ):
-    n = int( round( readout.epspWindow / readout.plotDt ) )
+    n = int( round( readout.epspWindow / readout.plotDt[0] ) )
     #n = int( round( readout.epspWindow / readout.epspPlot.dt ) )
     assert( n > 5 )
     assert( len( readout.plots ) == len( readout.wts ) )
@@ -739,7 +750,7 @@ def doFepspReadout( readout ):
     readout.ratioData.append( v )
 
 def doEpspReadout( readout ):
-    n = int( round( readout.epspWindow / readout.plotDt ) )
+    n = int( round( readout.epspWindow / readout.plotDt[0] ) )
     assert( n > 5 )
     assert( len( readout.plots ) > 0 )
     assert( len( readout.plots[0] ) > 5 )
@@ -824,7 +835,7 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
         if abs(norm) < eps:
             raise SimError( "runDoser: Normalization failed due to zero denominator" )
         readouts.simData = [ x/norm for x in readouts.simData ]
-    if getPlots:
+    if getPlots or True:
         # Collect detailed time series
         readouts.plots, readouts.plotDt, readouts.numMainPlots = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
@@ -1177,7 +1188,8 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             sw.deleteSimulation()
             return ret
         else:
-            sys.stdout.flush()
+            #print( "SCALE PARAM = ", [p for p in scaleParam] )
+            #sys.stdout.flush()
             sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
 
         if expt.exptType == 'directparameter':
@@ -1218,7 +1230,6 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 for i in plots:
                     sp = i.split( "." ) # entity.field
                     entity = model._tempModelLookup.get( sp[0] )
-                    print( "entity = ", entity )
                     if not entity:
                         print("Warning: plot entity '", sp[0], "' not found.")
                         continue
@@ -1231,8 +1242,12 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 print("Warning: Experiment design is '{}'. Only 'TimeSeries' supports extra plots. Skipping".format( experiment.exptType ) )
 
         sw.makeReadoutPlots( readoutVec )
+        if 'timeseries' in expt.exptType:
+            minInterval = readouts.getMinInterval()
+        else:
+            minInterval = readouts.settleTime
 
-        sw.buildSolver( "gsl", useVclamp = hasVclamp )
+        sw.buildSolver( "gsl", useVclamp = hasVclamp, minInterval = minInterval )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
         # the dict of settled values.
@@ -1267,6 +1282,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         '''
         sw.deleteSimulation()
         #print( "DIAGNOSTICS ------------------------------" )
+        #print( "SCORE = ", score )
         return score, elapsedTime, sw.diagnostics()
         
     except SimError as msg:

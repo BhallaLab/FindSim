@@ -90,7 +90,7 @@ class SimWrap():
     def changeParams( self, params ):
         return
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
         return
 
     def buildVclamp( self, stim ):
