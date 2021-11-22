@@ -274,14 +274,18 @@ class Readout:
         ret.entities = [ entity ]
         ret.field = field
         if field == 'conc' or field == 'concInit':
-            ret.quantityUnits = "uM"
+            if self.field in ['conc', 'concInit'] and not self.quantityUnits == 'ratio':
+                ret.quantityUnits = self.quantityUnits
+            else:
+                ret.quantityUnits = "uM"
+                ret.useNormalization = False
         if field == 'n' or field == 'nInit':
             ret.quantityUnits = "#"
         if field == 'Vm' or field == 'Em':
             ret.quantityUnits = "mV"
         if field == 'current' or field == 'Im' or field == 'Ik':
             ret.quantityUnits = "pA"
-        self.quantityScale = convertQuantityUnits[self.quantityUnits]
+        ret.quantityScale = convertQuantityUnits[ret.quantityUnits]
         ret.isPlotOnly = True
         return ret
         

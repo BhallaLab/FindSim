@@ -311,6 +311,9 @@ class SimWrapHillTau( SimWrap ):
         self.plots = [[]]*numPlots
 
     def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns main plot dt as a float, and the number of main plots.
+        tempArray = np.array(self.model.plotvec).transpose()
+        for index, plotNum in self.plotPath.values():
+            self.plots[plotNum] = tempArray[index]
         return [ np.array( i ) for i in self.plots], [self.plotDt] * len( self.plots ), self.numMainPlots
     
     def deliverStim( self, qe ):
@@ -331,10 +334,12 @@ class SimWrapHillTau( SimWrap ):
         t0 = time.time()
         self.model.advance( advanceTime, settle = doSettle )
         self.runtime += time.time() - t0
+        '''
         if doPlot:
             tempArray = np.array(self.model.plotvec[:][j:]).transpose()
             for index, plotNum in self.plotPath.values():
                 self.plots[plotNum].extend( tempArray[index] )
+        '''
         return
 
     def reinitSimulation( self ):
