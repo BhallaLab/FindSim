@@ -72,6 +72,8 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
         'Hz': 1.0, '1/sec':1.0, 'sec':1.0, '1/s': 1.0, 's':1.0, 'min':60.0,
         'mV/ms':1.0, '%':100.0, 'Fold change':1.0, 'none': 1 }
 
+# The below version is kept for backward compatibility with some examples.
+# It is deprecated and the default will become NRMS.
 defaultScoreFunc = "(expt-sim)*(expt-sim)/(datarange*datarange + 1e-9)"
 
 sw = ""         #default dummy value for SimWrap
@@ -529,7 +531,10 @@ class Readout:
             sem = d["stderr"] * qs
             sim = sw.getObjParam( entity, str( d["field"] ) )
             datarange = max( expt, sim, 1e-9 )
-            score += eval( scoringFormula )
+            if scoringFormula in ["NRMS", "nrms"]:
+                score += (expt - sim) * (expt - sim )
+            else: 
+                score += eval( scoringFormula )
             numScore += 1.0
 
         '''
@@ -547,6 +552,8 @@ class Readout:
         #print( "direct score of {}".format( score / numScore ) )
         if numScore == 0:
             return -1
+        if scoringFormula in ["NRMS", "nrms"]:
+            return (np.sqrt( score / numScore ) ) / datarange
         return score/numScore
     directParamScore = staticmethod( directParamScore )
 
@@ -1019,7 +1026,8 @@ class PlotPanel:
         else:
             title = "FindSim comparison for: "
         for i in self.name:
-            title += ylabel.split('(')[0]
+            #title += ylabel.split('(')[0]
+            title += scriptName.split( '/' )[-1]
         plt.title( title, fontsize = self.labelFontSize)
         plt.tick_params( labelsize=self.tickFontSize )
         if isPlotOnly:
@@ -1128,7 +1136,7 @@ def main():
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
     parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
-    parser.add_argument( '-score', '--score_func', type = str, help='Optional: specify scoring function for comparing expt and sim.', default = defaultScoreFunc )
+    parser.add_argument( '-score', '--score_func', type = str, help='Optional: specify scoring function for comparing expt and sim. One can do this either as an expression of the form f(expt, sim, datarange), eg. (expt-sim)/datarange; or as NRMS which does a normalized root-mean-square. NRMS is highly recommended. Default: ' + defaultScoreFunc, default = defaultScoreFunc )
     parser.add_argument( '-t', '--tabulate_output', action="store_true", help='Flag: Print table of plot values. Default is NOT to print table' )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
