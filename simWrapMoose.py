@@ -32,10 +32,32 @@ import ntpath
 import numpy as np
 import moose
 import sys
+'''
 import imp  ## May be deprecated from Python 3.4
 from simWrap import SimWrap 
 from simError import SimError
+'''
+if sys.version_info < (3, 4):
+    import imp               # This is apparently deprecated in Python 3.4 and up
+else:
+    import importlib   
+       
+foundLib_HillTau_ = False
 
+try:
+    import hilltau
+    foundLib_HillTau_ = True
+except Exception as e:
+    pass    
+    
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import SimWrap
+    
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
+    
 elecDt = 50e-6
 elecPlotDt = 100e-6
 fepspScale = 1.0e7 # Arb scaling. Need to figure out how to set,
@@ -319,7 +341,7 @@ class SimWrapMoose( SimWrap ):
         if file_extension == '.xml':
             self.modelId, errormsg = moose.readSBML( fname, 'model', 'ee' )
         elif file_extension == '.g':
-            self.modelId = moose.loadModel( fname, 'model', 'ee' )
+            self.modelId = moose.loadModel( fname, 'model', 'ee' )[0]
         # moose.delete('/model[0]/kinetics[0]/compartment_1[0]')
         elif file_extension == '.py':
             # Assume a moose script for creating the model in rdesigneur.
