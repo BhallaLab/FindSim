@@ -24,9 +24,15 @@
  ********************************************************************/
  '''
 import json
-from simError import SimError
+#from simError import SimError
 import moose
 
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    
+else:
+    from FindSim.simError import SimError
+    
 class SimWrap():
     def __init__( self, *args, **kwargs ):
         self.ignoreMissingObj = kwargs["ignoreMissingObj"]
