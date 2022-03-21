@@ -414,7 +414,7 @@ class SimWrapMoose( SimWrap ):
             stoich.ksolve = ksolve
             stoich.reacSystemPath = compt.path + '/##'
             for i in range( 10, 20 ):
-                moose.setClock( i, 0.2 * minInterval )
+                moose.setClock( i, 0.5 * minInterval )
 
     def buildVclamp( self, stim ):
         # Stim.entities should be the compartment name here.

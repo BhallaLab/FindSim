@@ -160,10 +160,39 @@ class Stimulus:
         return ret
     load = staticmethod( load )
 
+    def minInterval( self ):
+        ret = 1000.0
+        lastt = 0.0
+        lastval = 0.0
+        newdata = []
+        isElec = self.field in ['Im', 'current', 'Vclamp'] or (self.field=='rate' and 'syn' in self.entities[0])
+        for d in self.data:
+            t = float(d[0])*self.timeScale
+            val = float(d[1])*self.quantityScale
+            if t > lastt:   # Avoid zeros, could set many things at once.
+                ret = min( ret, t - lastt )
+                if (not isElec) and (t - lastt) >= 100.0 and lastval < 1e-7 and val > 0.5e-4: 
+                    # Have to insert intermediate step in data.
+                    newdata.append( [float(d[0]), 1e-6 / self.quantityScale] )
+                    newt = t + (t - lastt)/( 100.0 * self.timeScale )
+                    #print( "inserting: ", [d[0], 1e-6], [newt, d[1]] )
+                    newdata.append( [newt, d[1]] )
+                    ret = min( ret, (t - lastt)/100.0 )
+                else:
+                    newdata.append( [d[0], d[1]] )
+            lastt = t
+            lastval = val
+
+        self.data = newdata
+        self.shortestStimInterval = ret
+        return ret
+
+
 
     def configure( self, modelLookup ):
         """Sanity check on all fields. First, check that all the entities
         named in experiment have counterparts in the model definition"""
+        #self.minInterval()
         for i in self.entities:
             #if not i.encode( 'ascii' ) in modelLookup:
             if not i in modelLookup:
@@ -671,6 +700,7 @@ class Qentry():
 
 def putStimsInQ( q, stims, pauseHsolve ):
     for i in stims:
+        isElec = i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0])
         for j in i.data:
             if len(j) == 0:
                 continue
@@ -680,13 +710,12 @@ def putStimsInQ( q, stims, pauseHsolve ):
                 val = float(j[1]) * i.quantityScale
             t = float(j[0])*i.timeScale
             heapq.heappush( q, Qentry( t, i, val ) )
-            # Below we tell the Hsolver to turn off or on for elec calcn.
-            if i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0]) :
+            if isElec:
+                # Below we tell the Hsolver to turn off or on for elec calcn.
                 if val == 0.0:
                     heapq.heappush( q, Qentry(t+pauseHsolve.stimSettle, pauseHsolve, 0) )
                 else:
                     heapq.heappush( q, Qentry(t, pauseHsolve, 1) ) # Turn on hsolve
-
 
 def putReadoutsInQ( q, readouts, pauseHsolve ):
     stdError  = []
@@ -1256,9 +1285,12 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.makeReadoutPlots( readoutVec )
         if 'timeseries' in expt.exptType:
             minInterval = readouts.getMinInterval()
+            for s in stims:
+                minInterval = min( minInterval, s.minInterval() )
         else:
             minInterval = readouts.settleTime
 
+        #print( "minInterval = ", minInterval )
         sw.buildSolver( "gsl", useVclamp = hasVclamp, minInterval = minInterval )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply
