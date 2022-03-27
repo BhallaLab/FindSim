@@ -409,6 +409,9 @@ class SimWrapMoose( SimWrap ):
                 ksolve = moose.Gsolve ( compt.path + '/gsolve' )
             elif solver.lower() in ['gsl','runge kutta method (gsl)']:
                 ksolve = moose.Ksolve( compt.path + '/ksolve' )
+            elif solver.lower() in ['lsoda']:
+                ksolve = moose.Ksolve( compt.path + '/ksolve' )
+                ksolve.method = 'lsoda'
             stoich = moose.Stoich( compt.path + '/stoich' )
             stoich.compartment = moose.element( compt.path )
             stoich.ksolve = ksolve
