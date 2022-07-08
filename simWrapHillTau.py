@@ -167,7 +167,9 @@ class SimWrapHillTau( SimWrap ):
                 elif field == "isBuffered" and value == 1:
                     r = jg.get( "Reacs" )
                     if r and entity in r:
+                        # This simply removes the entity from the eval queue
                         self.deleteList.append( entity )
+                        #r[entity]["isBuffered"] = 1
                     else:
                         e = jg.get( "Eqns" )
                         if e and entity in e:
@@ -319,6 +321,7 @@ class SimWrapHillTau( SimWrap ):
     def deliverStim( self, qe ):
         field = qe.entry.field
         for name in qe.entry.entities:
+            #print( "in deliver stim setting {} to {}".format( name, field, qe.val ) )
             if not name in self.modelLookup:
                 raise SimError( "SimWrapHillTau::deliverStim: Entity {} not found".format( name ) )
             innerNames = self.modelLookup[name]

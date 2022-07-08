@@ -167,6 +167,11 @@ class Stimulus:
         newdata = []
         isElec = self.field in ['Im', 'current', 'Vclamp'] or (self.field=='rate' and 'syn' in self.entities[0])
         for d in self.data:
+            if float( d[0] ) == 0.0:    # Stim at starting time. Legit.
+                newdata.append( [d[0], d[1]] )
+                lastval = float(d[1])*self.quantityScale
+                continue
+
             t = float(d[0])*self.timeScale
             val = float(d[1])*self.quantityScale
             if t > lastt:   # Avoid zeros, could set many things at once.
@@ -1107,11 +1112,14 @@ def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
     for i in scaleParam:
         sp.extend( i )
     localSW.deleteSimulation()
-    localSW.loadModelFile( origFname, dummyModify, sp, dumpFname, "" )
+    localSW.loadModelFile( origFname, silentDummyModify, sp, dumpFname, "")
 
 def dummyModify( erSPlist, modelWarning ):
     #raise SimError( "dummyModify: should never be called\n")
     print( "dummyModify", end = "" )
+
+def silentDummyModify( erSPlist, modelWarning ):
+    return 0
 
 def loadJson( fname, mapFile ):
     stims = []
@@ -1182,7 +1190,7 @@ def main():
         simWrap = "HillTau"
     innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False, plots = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False, plots = None, solver = "lsoda" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
