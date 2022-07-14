@@ -367,7 +367,7 @@ class Readout:
         # Check for zeroes in the denominator
         eps = 1e-16
         if len( [ x for x in ref if abs(x) < eps ] ) > 0:
-            raise SimError( "runDoser: Normalization failed due to zero denominator" )
+            raise SimError( "runDoser: Normalization3 failed due to zero denominator" )
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
@@ -874,11 +874,11 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
 
     if readouts.useNormalization and readouts.normMode == "each":
         if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
-            raise SimError( "runDoser: Normalization failed due to zero denominator" )
+            raise SimError( "runDoser: Normalization1 failed due to zero denominator" )
         readouts.simData = [ x/y for x, y in zip(readouts.simData, readouts.ratioData) ]
     else:
         if abs(norm) < eps:
-            raise SimError( "runDoser: Normalization failed due to zero denominator" )
+            raise SimError( "runDoser: Normalization2 failed due to zero denominator" )
         readouts.simData = [ x/norm for x in readouts.simData ]
     if getPlots or True:
         # Collect detailed time series
