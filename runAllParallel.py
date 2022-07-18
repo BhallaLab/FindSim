@@ -85,6 +85,7 @@ def main():
     parser.add_argument( '-n', '--numProcesses', type = int, help='Optional: Number of processes to spawn, default = 4', default = 4 )
     parser.add_argument( '-m', '--model', type = str, help='Optional: Composite model definition file. First searched in directory "location", then in current directory.', default = "" )
     parser.add_argument( '-map', '--map', type = str, help='Model entity mapping file. This is a JSON file.', default = "" )
+    parser.add_argument( '--solver', type = str, help='Solver to use. Options gsl, gssa, lsoda. Default gsl.', default = "gsl" )
     parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
     parser.add_argument( '-v', '--verbose', action="store_true", help="Flag: default False. When set, prints all sorts of warnings and diagnostics.")
     args = parser.parse_args()
@@ -103,7 +104,7 @@ def main():
     pool = Pool( processes = args.numProcesses )
     #ret = findSim.innerMain(fnames[0], hidePlot=True)
 
-    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=not args.verbose, scaleParam=args.scale_param, optimizeElec = False, mapFile = args.map ), callback=reportReturn ) for i in fnames ]
+    ret = [pool.apply_async( findSim.innerMain, (i,), dict(modelFile = modelFile, hidePlot=True, silent=not args.verbose, scaleParam=args.scale_param, optimizeElec = False, mapFile = args.map, solver=args.solver ), callback=reportReturn ) for i in fnames ]
     results = [ i.get() for i in ret ]
     numGood = 0
     sumScore = 0.0
