@@ -1180,7 +1180,7 @@ def main():
     parser.add_argument( '-hs', '--hide_subplots', action="store_true", help='Hide subplot output of simulation. By default the graphs include dotted lines to indicate individual quantities (e.g., states of a molecule) that are being summed to give a total response. This flag turns off just those dotted lines, while leaving the main plot intact.' )
     parser.add_argument( '-bf', '--big_font', action="store_true", help='Use larger font size in plots, useful for generating figures for presentation. Default is small font.' )
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
-    parser.add_argument( '-s', '--scale_param', nargs=3, default=[],  help='Scale specified object.field by ratio.' )
+    parser.add_argument( '-s', '--scale_param', nargs='+', default=[],  help='Scale specified object.field by ratio.' )
     parser.add_argument( '-settle_time', '--settle_time', type=float, default=0,  help='Run model for specified settle time and return dict of {path,conc}.' )
     parser.add_argument( '-imo', '--ignore_missing_obj', action="store_true", help='Flag, default False. When set the code ignores references to missing objects. Normally it would throw an error.' )
     parser.add_argument( '-v', '--verbose', action="store_true", help='Flag, default False. When set, prints out diagnostics such as references not found, or automatically deleted entities after various checks for dangling reactions.' )
@@ -1235,6 +1235,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 pv.append( scaleParam[i] + "." + scaleParam[i+1] )
             ret = sw.getParamVec ( pv )
             sw.deleteSimulation()
+            #print( "getParamVec = ", ret )
             return ret
         else:
             #print( "SCALE PARAM = ", [p for p in scaleParam] )

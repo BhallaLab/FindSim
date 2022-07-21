@@ -65,10 +65,11 @@ class SimWrap():
 
     def getParamVec( self, params ):
         # Params is a list of strings of form obj.field
+        # If param not found we put in a -1.
         ret = []
         for p in params:
             [ obj, field ] = p.split( '.' )
-            ret.append( self.getObjParam( obj, field ) )
+            ret.append( self.getObjParam( obj, field, isSilent=True ) )
         return ret
 
     def _scaleOneParam( self, params ): # place holder, to be overridden

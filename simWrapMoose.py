@@ -712,18 +712,25 @@ class SimWrapMoose( SimWrap ):
                     #print (" sumFields rr = {}, val = {}".format( e.name, e.conc ) )
         return tot
 
-    def getObjParam( self, entity, field ):
+    def getObjParam( self, entity, field, isSilent = False ):
         if not entity in self.modelLookup:
             # Try to use the entity name directly, without lookup
             foundObj = self.findObj( entity )
             if foundObj.name == '/':
+                if isSilent:
+                    return -2.0
                 raise SimError( "SimWrapMoose::getObjParam: Entity {} not found, check Object map".format( entity ) )
             else:
                 self.modelLookup[ entity ] = [ foundObj.path ]
         elmPathList = self.lookup(entity)
+        #print( "IN GetOBJParam, elmPathList = ", elmPathList )
         if len( elmPathList ) != 1:
+            if isSilent:
+                return -2.0
             raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmPathList ) ) )
         if elmPathList[0] == '/' or not moose.exists( elmPathList[0] ):
+            if isSilent:
+                return -2.0
             raise SimError( "SimWrapMoose::getObjParam: elm {} not found, check".format( elmPathList[0] ) )
 
         elm = moose.element( elmPathList[0] )
