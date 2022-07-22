@@ -1228,6 +1228,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
         fileName, file_extension = os.path.splitext(model.fileName)
+        sw.deleteSimulation()
         if getInitParamVal:
             sw.loadModelFile( model.fileName, model.modify, [], dumpFname, paramFname )
             pv = []
