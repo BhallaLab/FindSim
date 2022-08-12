@@ -434,16 +434,18 @@ class SimWrapHillTau( SimWrap ):
         self.paramAccessTime += time.time() - t0
 
 
-    def getObjParam( self, entity, field ):
+    def getObjParam( self, entity, field, isSilent = False ):
         if entity in self.model.namedConsts:
             return self.model.namedConsts[entity]
         if not entity in self.modelLookup:
-            if self.ignoreMissingObj:
-                return 1.0
+            if self.ignoreMissingObj or isSilent:
+                return -2.0
             raise SimError( "SimWrapHillTau::getObjParam: Entity {} not found".format( entity ) )
         elms = self.modelLookup[entity]
         if len( elms ) != 1:
-            raise SimError( "SimWrapHillTau::getObjParam: Should only have 1 object, found {} ".format( len( elms ) ) )
+            if isSilent:
+                return -2.0
+            raise SimError( "SimWrapHillTau::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elms ) ) )
         return self.getField( elms[0], field )
 
 

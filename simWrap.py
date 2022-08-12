@@ -69,7 +69,7 @@ class SimWrap():
         ret = []
         for p in params:
             [ obj, field ] = p.split( '.' )
-            ret.append( self.getObjParam( obj, field, isSilent=True ) )
+            ret.append( self.getObjParam( obj, field, isSilent=False ) )
         return ret
 
     def _scaleOneParam( self, params ): # place holder, to be overridden

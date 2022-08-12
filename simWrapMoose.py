@@ -72,6 +72,7 @@ def isNotDescendant( elm, ancestorSet ):
 def getReacKd( elm ):
     if not elm.isA['Reac']:
             raise SimError( "getReacKd: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
+    #print( "getReacKd for {} = {}, concKb/Kf = {}/{} ".format( elm.name, elm.Kb/elm.Kf, elm.Kb, elm.Kf ) )
     return elm.Kb/elm.Kf
 
 def setReacKd( elm, Kd ):
@@ -98,7 +99,9 @@ def getReacTau( elm ):
     scaleKb = 0.001 ** (elm.numProducts-1)
     tau = 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
     #print( "TAU = {:.4f}, Kf = {:.4g}, Kb = {:.4g}".format( tau, elm.Kb, elm.Kf, ) )
-    return 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
+    #print( "getReacTau for {} = {}, Kb={}, Kf={} ".format( elm.name, tau, elm.Kb, elm.Kf ) )
+
+    return tau
 
 def setReacTau( elm, tau ):
     # Here we use the form tau = 1/(Kf + Kb) with suitable scaling.
@@ -176,41 +179,8 @@ class SimWrapMoose( SimWrap ):
 
         if field == 'Kd':
             setReacKd( obj, scale )
-            '''
-            if not obj.isA[ "Reac" ]:
-                #break 
-                raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
-            tau = 1.0 / (obj.Kf + obj.Kb)
-            Kd = scale
-            #print("PreScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
-            obj.Kb = 1.0 / ( tau * (1.0 + 1.0/ Kd ) )
-            obj.Kf = 1.0 / ( tau * (Kd + 1.0 ) )
-            #print("ScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
-            '''
         elif field == 'tau':
-            #kd = getReacKd( obj )
-            #tau = getReacTau( obj )
             setReacTau( obj, scale )
-            #print( "Orig Kd={:.4g}, tau={:.4f}, Assigned tau={:.4g}, final Kd={:.4g}, tau={:.4f}".format( kd, tau, scale, getReacKd(obj), getReacTau(obj)))
-            '''
-            if not obj.isA[ "Reac" ]:
-                raise SimError( "scaleParam: can only assign tau to a Reac, was: '{}'".format( obj.className ) )
-            tau = scale
-            if obj.Kf > 0:
-                if obj.Kb > 0:
-                    Kd = obj.Kb/obj.Kf
-                    obj.Kb = 1.0/(tau * ( 1 + 1/Kd ) )
-                    obj.Kf = obj.Kb / Kd
-                else:
-                    obj.Kf = 1.0/tau  # 1/tau
-                    obj.Kb = 0.0        # Retain unidirectionality
-            elif obj.Kb > 0:
-                obj.Kb = 1.0/tau      # 1/tau
-                obj.Kf = 0.0            # Retain unidirectionality
-            else:       # Both are zero, leave them there.
-                obj.Kb = obj.Kf = 0.0
-            #print("ScaledParam **TAU** {}.{} Kf={:.4f} Kb={:.4f}, tau={:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau) )
-            '''
         else: 
             val = obj.getField( field )
             obj.setField( field, scale)
@@ -727,7 +697,7 @@ class SimWrapMoose( SimWrap ):
         if len( elmPathList ) != 1:
             if isSilent:
                 return -2.0
-            raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmPathList ) ) )
+            raise SimError( "SimWrapMoose::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elmPathList ) ) )
         if elmPathList[0] == '/' or not moose.exists( elmPathList[0] ):
             if isSilent:
                 return -2.0

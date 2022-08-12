@@ -505,20 +505,17 @@ class Readout:
         score = 0.0
         numScore = 0.0
         dat = []
+        datarange = max( self.simData )
         if self.data:
             dvals = [i[1] for i in self.data]
             dat = self.data
         elif self.bardata:
             dvals = [i["value"] for i in self.bardata]
             dat = [ [0, i["value"], i["stderr"] ] for i in self.bardata ]
-        datarange = max( dvals ) - min( dvals )
-        if datarange < 1e-9:
-            if max( dvals ) > 1e-8:
-                datarange = max( dvals )
-            else:
-                datarange = 1e-9
         if self.tabulateOutput:
             print( "{:>12s}   {:>12s}  {:>12s}  {:>12s}".format( "t", "expt", "sim", "sem" ) )
+        for dd in dat:
+            datarange = max( datarange, dd[1] ) # dd[1] is expt data
         if scoringFormula in ['nrms', 'NRMS']:
             for i, sim in zip( dat, self.simData ):
                 t = i[0]
@@ -566,7 +563,7 @@ class Readout:
             sim = sw.getObjParam( entity, str( d["field"] ) )
             datarange = max( expt, sim, 1e-9 )
             if scoringFormula in ["NRMS", "nrms"]:
-                score += (expt - sim) * (expt - sim )
+                score += (expt - sim) * (expt-sim) / (datarange*datarange)
             else: 
                 score += eval( scoringFormula )
             numScore += 1.0
@@ -587,7 +584,7 @@ class Readout:
         if numScore == 0:
             return -1
         if scoringFormula in ["NRMS", "nrms"]:
-            return (np.sqrt( score / numScore ) ) / datarange
+            return np.sqrt( score / numScore )
         return score/numScore
     directParamScore = staticmethod( directParamScore )
 
@@ -884,6 +881,7 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
         # Collect detailed time series
         readouts.plots, readouts.plotDt, readouts.numMainPlots = sw.fillPlots()
     score = processReadouts( readouts, model.scoringFormula )
+    #print( "TimeseriesScore = ", score )
 
     return score
 
@@ -909,6 +907,7 @@ def parseAndRunDoser( model, stims, readouts ):
     #Assuming one stimulus block, one molecule allowed
     runDoser( model, stims[0], readouts )
     score = processReadouts( readouts, model.scoringFormula )
+    #print( "DoserScore = ", score )
     return score
 
 def runDoser( model, stim, readout ):
@@ -978,6 +977,7 @@ def parseAndRunBarChart( model, stims, readouts ):
     runBarChart( model, stims, readouts )
 
     score = processReadouts( readouts, model.scoringFormula )
+    #print( "BarchartScore = ", score )
     return score
 
 ##########################################################################
@@ -1156,6 +1156,20 @@ def runit( expt, model, stims, readouts, getPlots = False ):
     else:
         return 0.0
 
+def getInitParams( modelFile, mapFile, paramList ):
+    # ParamList as strings of objpath.field 
+    if modelFile.split('.')[-1] == "json":
+        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+    else:
+        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+
+    sw.deleteSimulation()
+    sw.loadModelFile( modelFile, silentDummyModify, [], "", "" )
+    ret = sw.getParamVec ( paramList )
+    sw.deleteSimulation()
+    #print( "getParamVec = ", ret )
+    return ret
+
 def main():
     """ This program handles loading a kinetic model, and running it
  with the specified stimuli. The output is then compared with expected output to generate a model score.
@@ -1173,7 +1187,7 @@ def main():
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
     parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
-    parser.add_argument( '-score', '--score_func', type = str, help='Optional: specify scoring function for comparing expt and sim. One can do this either as an expression of the form f(expt, sim, datarange), eg. (expt-sim)/datarange; or as NRMS which does a normalized root-mean-square. NRMS is highly recommended. Default: ' + defaultScoreFunc, default = defaultScoreFunc )
+    parser.add_argument( '-sf', '--scoreFunc', type = str, help='Optional: specify scoring function for comparing expt and sim. One can do this either as an expression of the form f(expt, sim, datarange), eg. (expt-sim)/datarange; or as NRMS which does a normalized root-mean-square. NRMS is highly recommended. Default: ' + defaultScoreFunc, default = defaultScoreFunc )
     parser.add_argument( '--solver', type = str, help='Optional: Solver to use. Options are gsl, gssa and lsoda', default = "gsl" )
     parser.add_argument( '-t', '--tabulate_output', action="store_true", help='Flag: Print table of plot values. Default is NOT to print table' )
     parser.add_argument( '-hp', '--hide_plot', action="store_true", help='Hide plot output of simulation along with expected values. Default is to show plot.' )
@@ -1188,9 +1202,9 @@ def main():
     simWrap = ""
     if args.model.split( '.' )[-1] == "json":
         simWrap = "HillTau"
-    innerMain( args.script, scoreFunc = args.score_func, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, solver = args.solver )
+    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", getInitParamVal = False, plots = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, solver = "gsl" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1228,20 +1242,11 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if not os.path.isfile(model.fileName):
             raise SimError( "Model file name {} not found".format( model.fileName ) )
         fileName, file_extension = os.path.splitext(model.fileName)
+
         sw.deleteSimulation()
-        if getInitParamVal:
-            sw.loadModelFile( model.fileName, model.modify, [], dumpFname, paramFname )
-            pv = []
-            for i in range( 0, len( scaleParam ), 3 ):
-                pv.append( scaleParam[i] + "." + scaleParam[i+1] )
-            ret = sw.getParamVec ( pv )
-            sw.deleteSimulation()
-            #print( "getParamVec = ", ret )
-            return ret
-        else:
-            #print( "SCALE PARAM = ", [p for p in scaleParam] )
-            #sys.stdout.flush()
-            sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
+        #print( "SCALE PARAM = ", [p for p in scaleParam] )
+        #sys.stdout.flush()
+        sw.loadModelFile( model.fileName, model.modify, scaleParam, dumpFname, paramFname )
 
         if expt.exptType == 'directparameter':
             t0 = time.time()
