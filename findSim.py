@@ -367,7 +367,13 @@ class Readout:
         # Check for zeroes in the denominator
         eps = 1e-16
         if len( [ x for x in ref if abs(x) < eps ] ) > 0:
-            raise SimError( "runDoser: Normalization3 failed due to zero denominator" )
+            # Treat the output as all zeroes in this case.
+            self.simData = [0.0] * len( ref )
+            #raise SimError( "runDoser: Normalization3 failed due to zero denominator" )
+            print( "Warning: runDoser: Normalization3 failed due to zero denominator" )
+            return
+
+
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
@@ -864,7 +870,9 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
             # The event Q has caused this special value to be recorded.
             norm = readouts.ratioReferenceValue
             if norm < eps:
-                raise SimError( "parseAndRun: normalizing to ratioReferenceValue which is zero" )
+                #raise SimError( "parseAndRun: normalizing to ratioReferenceValue which is zero" )
+                print( "Warning parseAndRun: normalizing to ratioReferenceValue which is zero. Using 1.0e12 instead so we compare expt to a near-zero output" )
+                norm = 1.0e12
         elif readouts.normMode == "dose":
             print( "Warning: trying to normalize time-series to a dose. Probably you want to use start or a preset time. Using start." )
             norm = readouts.ratioData[0]
