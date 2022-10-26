@@ -71,7 +71,7 @@ def isNotDescendant( elm, ancestorSet ):
 
 def getReacKd( elm ):
     if not elm.isA['Reac']:
-            raise SimError( "getReacKd: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
+            raise SimError( "getReacKd: can only get Kd on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
     #print( "getReacKd for {} = {}, concKb/Kf = {}/{} ".format( elm.name, elm.Kb/elm.Kf, elm.Kb, elm.Kf ) )
     return elm.Kb/elm.Kf
 
@@ -79,7 +79,7 @@ def setReacKd( elm, Kd ):
     # Here we want to change the ratio of Kf and Kb while keeping 
     # tau the same.
     if not elm.isA['Reac']:
-            raise SimError( "getReacKd: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
+            raise SimError( "getReacKd: can only set Kd on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
     tau = getReacTau( elm ) # Note func assumption about reac orders 
     #print("PreScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
     scaleKf = 0.001 ** (elm.numSubstrates-1)
@@ -90,7 +90,7 @@ def setReacKd( elm, Kd ):
 
 def getReacTau( elm ):
     if not elm.isA['Reac']:
-            raise SimError( "getReacTau: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
+            raise SimError( "getReacTau: can only get tau on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
     # This is a little dubious, because order 1 reac has 1/conc.time
     # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
     # This latter is the Kf we want to use, assuming typical concs are
@@ -104,6 +104,8 @@ def getReacTau( elm ):
     return tau
 
 def setReacTau( elm, tau ):
+    if not elm.isA['Reac']:
+            raise SimError( "setReacTau: can only set tau on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
     # Here we use the form tau = 1/(Kf + Kb) with suitable scaling.
     # If we assume that Kf and Kb contribute equally to tau, we just
     # need to scale them accordingly.
@@ -701,6 +703,7 @@ class SimWrapMoose( SimWrap ):
         if elmPathList[0] == '/' or not moose.exists( elmPathList[0] ):
             if isSilent:
                 return -2.0
+            moose.le( '/model[0]/kinetics[0]/MAPK[0]/MAPK_p_p[0]' )
             raise SimError( "SimWrapMoose::getObjParam: elm {} not found, check".format( elmPathList[0] ) )
 
         elm = moose.element( elmPathList[0] )

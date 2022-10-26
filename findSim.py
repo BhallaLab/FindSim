@@ -348,16 +348,16 @@ class Readout:
                 ref = [referenceAtExtraDose] * len( ref )
                 tempret = ret.pop() # Pop the readout mol here too.
             elif self.normMode == "start": 
-                ref = [ret[0]] * len( ret )
+                ref = [ref[0]] * len( ret )
             elif self.normMode == "end": 
-                ref = [ret[-1]] * len( ret )
+                ref = [ref[-1]] * len( ret )
             elif self.normMode == "min": 
-                ref = [min(ret)] * len( ret )
+                ref = [min(ref)] * len( ret )
             elif self.normMode == "max": 
-                ref = [max(ret)] * len( ret )
+                ref = [max(ref)] * len( ret )
             elif self.normMode == "presetTime": 
                 print( "Probably you want sampling mode to be one of: start, end, min, max, dose. Defaulting to 'start'")
-                ref = [ret[0]] * len( ret )
+                ref = [ref[0]] * len( ret )
         else:
             ref = [self.quantityScale * 1.0] * len( ret )
         # The remaining case is that normMode == 'each', in which case we
@@ -962,12 +962,14 @@ def runBarChart( model, stims, readout ):
         stimList.append( stimLine )
 
     responseList = [ readout.entities, readout.field, readout.ratioReferenceEntities, readout.field ]
+    #print( responseList )
     # Some fuzzy normalization stuff
     if readout.useNormalization and readout.normMode == "presetTime":
         stimList.append( [] )
     # And here we go:
     ret, ref = sw.steadyStateStims( stimList, responseList, isSeries = False, settleTime = readout.settleTime )
     # Extract values.
+    #print( ref, ret )
     readout.digestSteadyStateRun( ref, ret )
 
 def parseAndRunBarChart( model, stims, readouts ):
