@@ -622,14 +622,15 @@ class Readout:
                 gf.write( '             "timeUnits": "{}",\n'.format(ss["timeUnits"]) )
             gf.write( '             "quantityUnits": "{}",\n'.format( ss["quantityUnits"] ) )
             gf.write( '             "entity": "{}",\n'.format( ss["entity"]) )
-            gf.write( '             "field": "{}",\n'.format( ss["field"]) )
-            gf.write( '             "data": ['.format( self.field ) )
-            comma = "\n"
-            for dd in ss["data"]:
-                gf.write( '{}                {}'.format( comma, dd ) )
-                comma = ",\n"
-            gf.write( '\n             ]\n'.format( self.field ) )
-            gf.write( '         }\n' )
+            gf.write( '             "field": "{}"'.format( ss["field"]) )
+            if "data" in ss:
+                gf.write( ',\n             "data": ['.format(self.field) )
+                comma = "\n"
+                for dd in ss["data"]:
+                    gf.write( '{}                {}'.format( comma, dd ) )
+                    comma = ",\n"
+                gf.write( '\n             ]'.format( self.field ) )
+            gf.write( '\n         }\n' )
         gf.write( '     ],\n' )
 
     def dumpFindSimFileOpen(self ):
@@ -674,6 +675,14 @@ class Readout:
         gf.write( '         "quantityUnits": "{}",\n'.format( self.quantityUnits ) )
         gf.write( '         "entities": [{}],\n'.format( array2str(self.entities) ) )
         gf.write( '         "field": "{}",\n'.format( self.field ) )
+        if "settleTime" in self.findsim["Readouts"]:
+            gf.write( '         "settleTime": {:.3f},\n'.format( self.settleTime ) )
+        rr = self.findsim["Readouts"]
+        if "display" in rr:
+            gf.write( '         "display": {\n' )
+            gf.write( '             "useXlog": {},\n'.format( convBool( self.useXlog ) ) )
+            gf.write( '             "useYlog": {}\n'.format( convBool( self.useYlog ) ) )
+            gf.write( '         },\n' )
         gf.write( '         "data": [\n'.format( self.field ) )
 
     def dumpFindSimFileClose( self ):
@@ -714,6 +723,13 @@ def array2str( arr ):
     for aa in arr[1:]:
         ret += ', "' + aa + '"'
     return ret
+
+def convBool( arg ):
+    if arg:
+        return "true"
+    else:
+        return "false"
+
 ##########################################################################
 
 class Model:
