@@ -644,7 +644,11 @@ class Readout:
         gf.write( '{\n    "FileType":"FindSim",\n' )
         gf.write( '    "Version":"1.0",\n' )
         gf.write( '    "Metadata":{\n' )
-        gf.write( '        "transcriber":"{} and findSim Generate",\n'.format( self.findsim["Metadata"]["transcriber"] ) )
+        transcriber = self.findsim["Metadata"]["transcriber"]
+        if "findSim Generate" in transcriber:
+            gf.write( '        "transcriber":"{},\n'.format(transcriber) )
+        else:
+            gf.write( '        "transcriber":"{} and findSim Generate",\n'.format( transcriber ) )
         gf.write( '        "organization":"{}",\n'.format( self.findsim["Metadata"]["organization"] ) )
         gf.write( '        "source": {\n' )
         gf.write( '            "sourceType": "simulation",\n' )
