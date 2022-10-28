@@ -288,6 +288,7 @@ class SimWrapHillTau( SimWrap ):
     def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
         self.plotDt = minInterval * 0.1
         self.model.dt = minInterval * 0.1
+        #print( "Plotdt = {:.3f}, modeldt = {:.3f}, minInterval = {:.3f}".format( self.plotDt, self.model.dt, minInterval ) )
         return
 
     def buildVclamp( self, stim ):

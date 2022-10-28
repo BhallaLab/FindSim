@@ -16,7 +16,7 @@
 					"properties": {
 						"sourceType": {
 							"type": "string",
-							"enum": ["paper", "inhouse", "database", "other"]
+							"enum": ["paper", "inhouse", "database", "simulation", "other"]
 						},
 						"PMID": {"type": "number"},
 						"doi": {"type": "string"},

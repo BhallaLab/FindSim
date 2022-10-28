@@ -218,7 +218,9 @@ class Readout:
     fepspFields = [ 'fEPSP_peak','fEPSP_slope','fIPSP_peak','fIPSP_slope' ]
     postSynFields = fepspFields + epspFields + epscFields
     elecFields = ['Vm', 'Im', 'current'] + epspFields + epscFields
-    def __init__( self, ro, isPlotOnly = False ):
+    def __init__( self, findsim, isPlotOnly = False ):
+        self.findsim = findsim
+        ro = findsim["Readouts"]
         self.directParamData = ro.get( "paramdata" )
         self.isPlotOnly = isPlotOnly
         if not self.directParamData:
@@ -240,6 +242,8 @@ class Readout:
 
             self.bardata = ro.get( "bardata" )  # only for barcharts
             self.tabulateOutput = False
+            self.generate = None
+            self.generateFile = None
             self.normMode = "none"
             norm = ro.get( "normalization" )
             self.useNormalization = False
@@ -520,18 +524,25 @@ class Readout:
             dat = [ [0, i["value"], i["stderr"] ] for i in self.bardata ]
         if self.tabulateOutput:
             print( "{:>12s}   {:>12s}  {:>12s}  {:>12s}".format( "t", "expt", "sim", "sem" ) )
+        if self.generate:
+            self.dumpFindSimFileOpen()
         for dd in dat:
             datarange = max( datarange, dd[1] ) # dd[1] is expt data
         if scoringFormula in ['nrms', 'NRMS']:
+            comma = ""
             for i, sim in zip( dat, self.simData ):
                 t = i[0]
                 expt = i[1]
                 sem = i[2]
                 if self.tabulateOutput:
                     print( "{:12.3f}   {:12.3f}  {:12.5g}  {:12.3f}".format( t, expt, sim, sem ) )
+                if self.generateFile:
+                    self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
+                    comma = ",\n"
                 score += (expt - sim) * (expt - sim)
             return np.sqrt(score / len(dat))/datarange
 
+        comma = ""
         for i, sim in zip( dat, self.simData ):
             #sim /= self.quantityScale
             t = i[0]
@@ -539,10 +550,15 @@ class Readout:
             sem = i[2]
             if self.tabulateOutput:
                 print( "{:12.3f}   {:12.3f}  {:12.5g}  {:12.3f}".format( t, expt, sim, sem ) )
+            if self.generateFile:
+                self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
+                comma = ",\n"
             #print "Formula = ", scoringFormula, eval( scoringFormula )
             score += eval( scoringFormula )
             numScore += 1.0
 
+        if self.generateFile:
+            self.dumpFindSimFileClose()
         if numScore == 0:
             return -1
         return score/numScore
@@ -594,6 +610,110 @@ class Readout:
         return score/numScore
     directParamScore = staticmethod( directParamScore )
 
+    def writeStims( self ):
+        if not "Stimuli" in self.findsim:
+            return
+        gf = self.generateFile
+        gf.write( '     "Stimuli": [\n' )
+        stims = self.findsim["Stimuli"]
+        for ss in stims:
+            gf.write( '         {\n' )
+            if "timeUnits" in ss:
+                gf.write( '             "timeUnits": "{}",\n'.format(ss["timeUnits"]) )
+            gf.write( '             "quantityUnits": "{}",\n'.format( ss["quantityUnits"] ) )
+            gf.write( '             "entity": "{}",\n'.format( ss["entity"]) )
+            gf.write( '             "field": "{}",\n'.format( ss["field"]) )
+            gf.write( '             "data": ['.format( self.field ) )
+            comma = "\n"
+            for dd in ss["data"]:
+                gf.write( '{}                {}'.format( comma, dd ) )
+                comma = ",\n"
+            gf.write( '\n             ]\n'.format( self.field ) )
+            gf.write( '         }\n' )
+        gf.write( '     ],\n' )
+
+    def dumpFindSimFileOpen(self ):
+        if not self.generate or self.generate.split(".")[-1] != "json":
+            return
+        if self.generate.split(".")[-1] != "json":
+            print( "Warning: generate file name '{}' does not have .json suffix. Skipping.\n".format( self.generate ) )
+            return
+        self.generateFile = open( self.generate, "w" )
+        gf = self.generateFile
+        gf.write( '{\n    "FileType":"FindSim",\n' )
+        gf.write( '    "Version":"1.0",\n' )
+        gf.write( '    "Metadata":{\n' )
+        gf.write( '        "transcriber":"{} and findSim Generate",\n'.format( self.findsim["Metadata"]["transcriber"] ) )
+        gf.write( '        "organization":"{}",\n'.format( self.findsim["Metadata"]["organization"] ) )
+        gf.write( '        "source": {\n' )
+        gf.write( '            "sourceType": "simulation",\n' )
+        gf.write( '            "PMID": 0,\n' )
+        gf.write( '            "authors": "",\n' )
+        gf.write( '            "journal": "",\n' )
+        gf.write( '            "year": 2022,\n' )
+        gf.write( '            "figure": "0"\n' )
+        gf.write( '        }\n' )
+        gf.write( '    },\n' )
+        #############################
+        gf.write( '     "Experiment": {\n' )
+        gf.write( '         "design": "{}",\n'.format(self.findsim["Experiment"]["design"]) )
+        gf.write( '         "species": "Silico",\n' )
+        gf.write( '         "cellType": "Simulation",\n' )
+        gf.write( '         "temperature": 37,\n' )
+        if "notes" in self.findsim["Experiment"]:
+            notes = self.findsim["Experiment"]["notes"]
+            gf.write( '         "notes": "{}"\n'.format( notes ) )
+        else:
+            gf.write( '         "notes": "Readouts generated by FindSim simulation."\n' )
+        gf.write( '     },\n' )
+        #############################
+        self.writeStims()
+        #############################
+        gf.write( '     "Readouts": {\n' )
+        gf.write( '         "timeUnits": "{}",\n'.format(self.timeUnits) )
+        gf.write( '         "quantityUnits": "{}",\n'.format( self.quantityUnits ) )
+        gf.write( '         "entities": [{}],\n'.format( array2str(self.entities) ) )
+        gf.write( '         "field": "{}",\n'.format( self.field ) )
+        gf.write( '         "data": [\n'.format( self.field ) )
+
+    def dumpFindSimFileClose( self ):
+        gf = self.generateFile
+        if not gf:
+            return
+        gf.write( '\n         ]\n'.format( self.field ) )
+        gf.write( '    }' )
+        if "Modifications" in self.findsim:
+            gf.write( ',\n    "Modifications": {\n' )
+            for key, val in self.findsim["Modifications"].items():
+                if key in ["subset", "itemsToDelete"]:
+                    gf.write( '        "{}":[{}]\n'.format( key, array2str(val) ) )
+                elif key == "notes":
+                    gf.write( '        "notes":{}\n'.format( val ) )
+                elif key == "parameterChange":
+                    gf.write( '        "parameterChange": [' )
+                    comma = "\n"
+                    for pp in val:
+                        gf.write( '{}        {\n'.format( comma ) )
+                        gf.write( '            "entity": "{},"\n'.format( pp["entity"] ) )
+                        gf.write( '            "field": "{},"\n'.format( pp["field"] ) )
+                        gf.write( '            "value": {},\n'.format( pp["value"] ) )
+                        gf.write( '            "units": "{}"\n'.format( pp["units"] ) )
+                        gf.write( '        }' )
+                        comma = ",\n"
+
+                    gf.write( '        ]\n' )
+
+
+            gf.write( '    }\n' )
+            gf.write( '}' )
+        gf.close()
+        self.generateFile = None
+
+def array2str( arr ):
+    ret = '"' + arr[0] + '"'
+    for aa in arr[1:]:
+        ret += ', "' + aa + '"'
+    return ret
 ##########################################################################
 
 class Model:
@@ -1148,7 +1268,7 @@ def loadJson( fname, mapFile ):
     jsonschema.validate( findsim, schema )
     expt = Experiment( findsim["Metadata"], findsim["Experiment"] )
     stims = Stimulus.load( findsim ) # Stimuli are an optional argument
-    readouts = Readout( findsim["Readouts"] )
+    readouts = Readout( findsim )
     model = Model( findsim, mapFile ) # mods are an optional argument.
     return expt, stims, readouts, model
 
@@ -1206,15 +1326,16 @@ def main():
     parser.add_argument( '-o', '--optimize_elec', action="store_true", help='Optimize electrical computation. By default the electrical computation runs for the entire duration of the simulation. With this flag the system turns off the electrical engine except during the times when electrical stimuli are being given. This can be *much* faster.' )
     parser.add_argument( '-s', '--scale_param', nargs='+', default=[],  help='Scale specified object.field by ratio.' )
     parser.add_argument( '-settle_time', '--settle_time', type=float, default=0,  help='Run model for specified settle time and return dict of {path,conc}.' )
+    parser.add_argument( '-g', '--generate', type=str, default=None, help='Generate a findSim experiment by duplicating input spec and replacing all values with the output of the simulation.' )
     parser.add_argument( '-imo', '--ignore_missing_obj', action="store_true", help='Flag, default False. When set the code ignores references to missing objects. Normally it would throw an error.' )
     parser.add_argument( '-v', '--verbose', action="store_true", help='Flag, default False. When set, prints out diagnostics such as references not found, or automatically deleted entities after various checks for dangling reactions.' )
     args = parser.parse_args()
     simWrap = ""
     if args.model.split( '.' )[-1] == "json":
         simWrap = "HillTau"
-    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, solver = args.solver )
+    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1228,6 +1349,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     expt, stims, readouts, model = loadJson( exptFile, mapFile )
     model.scoringFormula = scoreFunc # Override the earlier version.
     readouts.tabulateOutput = tabulateOutput
+    readouts.generate = generate
 
     if mapFile != "":
     	mapFile = mapFile
