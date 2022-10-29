@@ -471,7 +471,11 @@ class SimWrapHillTau( SimWrap ):
         ret = []
         ref = []
         self.reinitSimulation()
-        st = settleTime * 5.0 # The first settle time typically needs to be longer.
+        #st = settleTime * 5.0 # The first settle time typically needs 
+        # to be longer. But I've removed this because it is an unexpected 
+        # behaviour and it also leads to numerical issues. I have also 
+        # removed a later multiplication of settleTime by 10. If the user
+        # wants a long settle time they should assign it explicitly.
         for pt in stimList:
             if isSeries:
                 for (stimEntity, field, value, scale) in pt:
@@ -481,10 +485,8 @@ class SimWrapHillTau( SimWrap ):
                     if field == 'conc':
                         self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
-                        #self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
                         #print( elm, " conc = ", self.getField( elm, "conc" ) )
-                self.advanceSimulation( st * 10, doPlot = False, doSettle = True)
-                st = settleTime
+                self.advanceSimulation( settleTime, doPlot = False, doSettle = True)
             else:
                 orig = []
                 for (stimEntity, field, value, scale) in pt:

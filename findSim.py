@@ -616,8 +616,9 @@ class Readout:
         gf = self.generateFile
         gf.write( '     "Stimuli": [\n' )
         stims = self.findsim["Stimuli"]
+        stimComma = ""
         for ss in stims:
-            gf.write( '         {\n' )
+            gf.write( stimComma + '         {\n' )
             if "timeUnits" in ss:
                 gf.write( '             "timeUnits": "{}",\n'.format(ss["timeUnits"]) )
             gf.write( '             "quantityUnits": "{}",\n'.format( ss["quantityUnits"] ) )
@@ -630,8 +631,9 @@ class Readout:
                     gf.write( '{}                {}'.format( comma, dd ) )
                     comma = ",\n"
                 gf.write( '\n             ]'.format( self.field ) )
-            gf.write( '\n         }\n' )
-        gf.write( '     ],\n' )
+            gf.write( '\n         }' )
+            stimComma = ",\n"
+        gf.write( '\n     ],\n' )
 
     def dumpFindSimFileOpen(self ):
         if not self.generate or self.generate.split(".")[-1] != "json":
@@ -646,7 +648,7 @@ class Readout:
         gf.write( '    "Metadata":{\n' )
         transcriber = self.findsim["Metadata"]["transcriber"]
         if "findSim Generate" in transcriber:
-            gf.write( '        "transcriber":"{},\n'.format(transcriber) )
+            gf.write( '        "transcriber":"{}",\n'.format(transcriber) )
         else:
             gf.write( '        "transcriber":"{} and findSim Generate",\n'.format( transcriber ) )
         gf.write( '        "organization":"{}",\n'.format( self.findsim["Metadata"]["organization"] ) )
@@ -1412,7 +1414,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 #plt.show()
             #print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
             sw.deleteSimulation()
-            return score, elapsedTime, sw.diagnostics()
+            return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data )
 
         hasVclamp = False
         if len( stims ) > 0:
@@ -1494,7 +1496,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.deleteSimulation()
         #print( "DIAGNOSTICS ------------------------------" )
         #print( "SCORE = ", score )
-        return score, elapsedTime, sw.diagnostics()
+        return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data )
         
     except SimError as msg:
         if not silent:

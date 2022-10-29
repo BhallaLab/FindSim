@@ -25,7 +25,7 @@
  '''
 import json
 from simError import SimError
-import moose
+import numpy as np
 
 class SimWrap():
     def __init__( self, *args, **kwargs ):
@@ -45,8 +45,16 @@ class SimWrap():
                 
         return
 
-    def diagnostics( self ):
-        return { "runtime": self.runtime, "loadtime": self.loadtime, "paramAccessTime": self.paramAccessTime }
+    def diagnostics( self, sim, expt ):
+        edata = np.array( expt )
+        assert ( len( edata ) == len( expt ) )
+        return { "runtime": self.runtime, 
+                "loadtime": self.loadtime, 
+                "paramAccessTime": self.paramAccessTime, 
+                "sim": np.array( sim ),
+                "exptX": edata[:0],
+                "exptY": edata[:1]
+            }
 
     def lookup( self, key ):
         ret = self.modelLookup.get( key )
