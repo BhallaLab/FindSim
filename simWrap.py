@@ -46,14 +46,19 @@ class SimWrap():
         return
 
     def diagnostics( self, sim, expt ):
-        edata = np.array( expt )
-        assert ( len( edata ) == len( expt ) )
+        if not expt:
+            ex = []
+            ey = []
+        else:
+            edata = np.array( expt )
+            ex = edata[:0]
+            ey = edata[:1]
         return { "runtime": self.runtime, 
                 "loadtime": self.loadtime, 
                 "paramAccessTime": self.paramAccessTime, 
                 "sim": np.array( sim ),
-                "exptX": edata[:0],
-                "exptY": edata[:1]
+                "exptX": ex,
+                "exptY": ey
             }
 
     def lookup( self, key ):
