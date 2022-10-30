@@ -74,7 +74,9 @@ convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3,
 
 # The below version is kept for backward compatibility with some examples.
 # It is deprecated and the default will become NRMS.
-defaultScoreFunc = "(expt-sim)*(expt-sim)/(datarange*datarange + 1e-9)"
+#defaultScoreFunc = "(expt-sim)*(expt-sim)/(datarange*datarange + 1e-9)"
+defaultScoreFunc = "NRMS"
+
 
 sw = ""         #default dummy value for SimWrap
 fschema = "FindSim-Schema.json" # Name of JSON schema file
@@ -528,8 +530,8 @@ class Readout:
             self.dumpFindSimFileOpen()
         for dd in dat:
             datarange = max( datarange, dd[1] ) # dd[1] is expt data
+        comma = ""
         if scoringFormula in ['nrms', 'NRMS']:
-            comma = ""
             for i, sim in zip( dat, self.simData ):
                 t = i[0]
                 expt = i[1]
@@ -540,26 +542,28 @@ class Readout:
                     self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
                     comma = ",\n"
                 score += (expt - sim) * (expt - sim)
-            return np.sqrt(score / len(dat))/datarange
+            nrmsScore = np.sqrt(score / len(dat))/datarange
 
-        comma = ""
-        for i, sim in zip( dat, self.simData ):
-            #sim /= self.quantityScale
-            t = i[0]
-            expt = i[1]
-            sem = i[2]
-            if self.tabulateOutput:
-                print( "{:12.3f}   {:12.3f}  {:12.5g}  {:12.3f}".format( t, expt, sim, sem ) )
-            if self.generateFile:
-                self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
-                comma = ",\n"
-            #print "Formula = ", scoringFormula, eval( scoringFormula )
-            score += eval( scoringFormula )
-            numScore += 1.0
+        else:
+            for i, sim in zip( dat, self.simData ):
+                #sim /= self.quantityScale
+                t = i[0]
+                expt = i[1]
+                sem = i[2]
+                if self.tabulateOutput:
+                    print( "{:12.3f}   {:12.3f}  {:12.5g}  {:12.3f}".format( t, expt, sim, sem ) )
+                if self.generateFile:
+                    self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
+                    comma = ",\n"
+                #print "Formula = ", scoringFormula, eval( scoringFormula )
+                score += eval( scoringFormula )
+                numScore += 1.0
 
         if self.generateFile:
             self.dumpFindSimFileClose()
-        if numScore == 0:
+        if scoringFormula in ['nrms', 'NRMS']:
+            return nrmsScore
+        elif numScore == 0:
             return -1
         return score/numScore
 
@@ -1414,7 +1418,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                 #plt.show()
             #print( "Score = {:.3f} for\t{}\tElapsed Time = {:.1f} s".format( score, os.path.basename(exptFile), elapsedTime ) )
             sw.deleteSimulation()
-            return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data )
+            return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data, expt.exptType )
 
         hasVclamp = False
         if len( stims ) > 0:
@@ -1496,7 +1500,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.deleteSimulation()
         #print( "DIAGNOSTICS ------------------------------" )
         #print( "SCORE = ", score )
-        return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data )
+        return score, elapsedTime, sw.diagnostics( readouts.simData, readouts.data, expt.exptType )
         
     except SimError as msg:
         if not silent:

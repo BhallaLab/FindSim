@@ -45,17 +45,18 @@ class SimWrap():
                 
         return
 
-    def diagnostics( self, sim, expt ):
+    def diagnostics( self, sim, expt, exptType ):
         if not expt:
             ex = []
             ey = []
         else:
             edata = np.array( expt )
-            ex = edata[:0]
-            ey = edata[:1]
+            ex = edata[:,0]
+            ey = edata[:,1]
         return { "runtime": self.runtime, 
                 "loadtime": self.loadtime, 
                 "paramAccessTime": self.paramAccessTime, 
+                "exptType": exptType, 
                 "sim": np.array( sim ),
                 "exptX": ex,
                 "exptY": ey
