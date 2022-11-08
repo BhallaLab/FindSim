@@ -169,7 +169,7 @@ class SimWrapHillTau( SimWrap ):
                     if r and entity in r:
                         # This simply removes the entity from the eval queue
                         self.deleteList.append( entity )
-                        #r[entity]["isBuffered"] = 1
+                        r[entity]["isBuffered"] = 1
                     else:
                         e = jg.get( "Eqns" )
                         if e and entity in e:

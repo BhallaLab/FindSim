@@ -542,7 +542,10 @@ class Readout:
                     self.generateFile.write( "{}                [{:.3f}, {:.3f}, {:.3f}]".format( comma, t, sim, sem ) )
                     comma = ",\n"
                 score += (expt - sim) * (expt - sim)
-            nrmsScore = np.sqrt(score / len(dat))/datarange
+            if datarange > 1e-6:
+                nrmsScore = np.sqrt(score / len(dat))/datarange
+            else:
+                nrmsScore = np.sqrt(score / len(dat))
 
         else:
             for i, sim in zip( dat, self.simData ):
