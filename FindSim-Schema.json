@@ -106,6 +106,18 @@
 						"items": {"type": "string"}
 				},
 				"field": {"type": "string" },
+				"window": {"type": "object",
+						"properties": {
+								"startt": {"type": "number"},
+								"endt": {"type": "number"},
+								"dt": {"type": "number"},
+								"operation": {"type": "string",
+									"enum": ["min", "max", "mean", "sdev"]
+								}
+						},
+					"required": ["startt", "endt", "dt", "operation"],
+					"additionalProperties": false
+				},
 				"settleTime": {"type": "number", 
 			   		"minimum": 0.0, 
 					"maximum": 5000	

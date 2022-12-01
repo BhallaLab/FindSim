@@ -36,6 +36,8 @@ import imp  ## May be deprecated from Python 3.4
 from simWrap import SimWrap 
 from simError import SimError
 
+MINIMUM_TAU = 1e-3     # Do not permit excessively fast chem time consts.
+MINIMUM_TAU_RATIO = 1e-2  # Do not permit excessively large change in tau.
 elecDt = 50e-6
 elecPlotDt = 100e-6
 fepspScale = 1.0e7 # Arb scaling. Need to figure out how to set,
@@ -110,6 +112,10 @@ def setReacTau( elm, tau ):
     # If we assume that Kf and Kb contribute equally to tau, we just
     # need to scale them accordingly.
     oldTau = getReacTau( elm )
+    if oldTau < MINIMUM_TAU:
+        return
+    if tau < oldTau * MINIMUM_TAU_RATIO:
+        tau = oldTau * MINIMUM_TAU_RATIO
     elm.Kf *= oldTau / tau
     elm.Kb *= oldTau / tau
 
@@ -264,6 +270,8 @@ class SimWrapMoose( SimWrap ):
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
+            if len( self.lookup(entity) ) == 0:
+                continue
             objPath = self.lookup( entity )[0]
             if objPath == '/':
                 continue

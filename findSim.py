@@ -225,6 +225,9 @@ class Readout:
         ro = findsim["Readouts"]
         self.directParamData = ro.get( "paramdata" )
         self.isPlotOnly = isPlotOnly
+        self.simData = []
+        self.window = None  # If present, use [startt, endt, dt, operation]
+        self.data = []
         if not self.directParamData:
             self.timeUnits = ro["timeUnits"]
             self.timeScale = convertTimeUnits[self.timeUnits]
@@ -246,6 +249,10 @@ class Readout:
             self.tabulateOutput = False
             self.generate = None
             self.generateFile = None
+            if "window" in ro:
+                win = ro["window"]
+                self.window = [win["startt"], win["endt"], win["dt"], 
+                        win["operation"] ]
             self.normMode = "none"
             norm = ro.get( "normalization" )
             self.useNormalization = False
@@ -273,7 +280,6 @@ class Readout:
                     if not self.ratioReferenceTime:
                         self.ratioReferenceTime = self.settleTime
             # Set up lists to use in the analysis
-            self.simData = []
             self.ratioData = []
             self.plots = []
             # Set up Display parameters
@@ -617,6 +623,45 @@ class Readout:
         return score/numScore
     directParamScore = staticmethod( directParamScore )
 
+    # This function handles cases where the readout is a function of a
+    # small window of samples, such as a min, max, or mean. It converts
+    # each small window into individual simData and ratioData values.
+    def consolidateWindows( self ):
+        # Consolidate windows. If readouts.windows != None, then we have to
+        # condense the ratio and the simData terms as per specified op
+        if self.window:
+            w = self.window
+            assert( len( w ) == 4 )
+            assert( w[3] in ["min", "max", "mean", "sdev" ] )
+            numSamples = int( round( (w[1] - w[0]) / w[2] ) +1 ) 
+            sd = []
+            #print( "numSamples = {}, len = {}, ".format( numSamples, len( self.simData ) ) )
+            for ii in range( len( self.simData ) // numSamples ):
+                sb = self.simData[ii*numSamples:(ii+1)*numSamples]
+                if w[3] == "min":
+                    sd.append( min( sb ) )
+                if w[3] == "max":
+                    sd.append( max( sb ) )
+                if w[3] == "mean":
+                    sd.append( np.mean( sb ) )
+                if w[3] == "sdev":
+                    sd.append( np.sdev( sb ) )
+            if len( self.ratioData ) == len( self.simData ): 
+                rd = []
+                for ii in range( len( self.ratioData ) // numSamples ):
+                    rb = self.ratioData[ii*numSamples:(ii+1)*numSamples]
+                    if w[3] == "min":
+                        rd.append( min( rb ) )
+                    if w[3] == "max":
+                        rd.append( max( rb ) )
+                    if w[3] == "mean":
+                        rd.append( np.mean( rb ) )
+                    if w[3] == "sdev":
+                        rd.append( np.sdev( rb ) )
+                self.ratioData = rd
+            self.simData = sd
+
+            
     def writeStims( self ):
         if not "Stimuli" in self.findsim:
             return
@@ -892,7 +937,16 @@ def putReadoutsInQ( q, readouts, pauseHsolve ):
         # ratio reference if needed.
         for j in range( len( readouts.data ) ):
             t = float( readouts.data[j][0] ) * readouts.timeScale
-            heapq.heappush( q, Qentry(t, readouts, j) )
+            if readouts.window:
+                startt = t + readouts.window[0] * readouts.timeScale
+                endt = t + readouts.window[1] * readouts.timeScale
+                dt = readouts.window[2] * readouts.timeScale
+                for t in np.arange( startt, endt, dt ):
+                    t *= readouts.timeScale
+                    heapq.heappush( q, Qentry(t, readouts, j) )
+            else:
+                heapq.heappush( q, Qentry(t, readouts, j) )
+
 
     if readouts.useNormalization and readouts.normMode == "presetTime":
         # We push in -1 to signify that this is to get ratio reference
@@ -1001,6 +1055,11 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
             doReadout( qe, model )
         elif isinstance( qe.entry, PauseHsolve ):
             qe.entry.setHsolveState( int(qe.val) )
+
+    # This function handles cases where the readout is a function of a
+    # small window of samples, such as a min, max, or mean. It converts
+    # each small window into individual simData and ratioData values.
+    readouts.consolidateWindows()
 
     # Normalize. Applies to cases where we do a special run for a 
     # single normalization value that scales all points. Since it

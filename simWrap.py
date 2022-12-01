@@ -66,6 +66,8 @@ class SimWrap():
         ret = self.modelLookup.get( key )
         if ret:
             return ret
+        elif self.ignoreMissingObj:
+            return []
         raise SimError( "SimWrap: failed modelLookup[{}]".format( key ) )
 
     def _scaleParams( self, params ):
