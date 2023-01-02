@@ -941,7 +941,7 @@ def putReadoutsInQ( q, readouts, pauseHsolve ):
                 startt = t + readouts.window[0] * readouts.timeScale
                 endt = t + readouts.window[1] * readouts.timeScale
                 dt = readouts.window[2] * readouts.timeScale
-                for t in np.arange( startt, endt, dt ):
+                for t in np.arange( startt, endt + 1e-8, dt ):
                     t *= readouts.timeScale
                     heapq.heappush( q, Qentry(t, readouts, j) )
             else:
@@ -1020,6 +1020,7 @@ def doEpspReadout( readout ):
 
 def doEntityAndRatioReadout( readout, field ):
     sim = sw.sumFields( readout.entities, field )
+    # print( "Appending simData: ", len( readout.simData ), len( readout.ratioData ) )
     readout.simData.append( sim/readout.quantityScale )
     ratioReference = 1.0
     if readout.useNormalization:
@@ -1224,7 +1225,7 @@ class PlotPanel:
             self.expt = [ i["value"] for i in readout.bardata]
             self.yerror = [ i["stderr"] for i in readout.bardata]
         self.sim = readout.simData # Ratios already handled at this stage
-        #print( "xplts = {}, sim = {}, expt = {}, yerror = {}".format( len( self.xpts), len( self.sim ), len( self.expt), len( self.yerror )) )
+        #print( "IN PlotPanel: xpts = {}, sim = {}, expt = {}, yerror = {}".format( len( self.xpts), len( self.sim ), len( self.expt), len( self.yerror )) )
         self.sumName=""
         for i in self.name:
             self.sumName += i
