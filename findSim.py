@@ -66,7 +66,7 @@ convertTimeUnits = {'sec': 1.0,'s': 1.0,
         "days": 86400.0}
 
 convertQuantityUnits = { 'M': 1e3, 'mM': 1.0, 'uM': 1.0e-3, 
-        'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, 'ratio':1.0, 
+        'nM':1.0e-6, 'pM': 1.0e-9, 'number':1.0, '#': 1.0, 'ratio':1.0, 
         'V': 1.0, 'mV': 0.001, 'uV': 1.0e-6, 'nV':1.0e-9,
         'A': 1.0, 'mA': 0.001, 'uA': 1.0e-6, 'nA':1.0e-9, 'pA':1.0e-12,
         'Hz': 1.0, '1/sec':1.0, 'sec':1.0, '1/s': 1.0, 's':1.0, 'min':60.0,
@@ -632,7 +632,7 @@ class Readout:
         if self.window:
             w = self.window
             assert( len( w ) == 4 )
-            assert( w[3] in ["min", "max", "mean", "sdev" ] )
+            assert( w[3] in ["min", "max", "mean", "sdev", "oscPk", "oscVal" ] )
             numSamples = int( round( (w[1] - w[0]) / w[2] ) +1 ) 
             sd = []
             #print( "numSamples = {}, len = {}, ".format( numSamples, len( self.simData ) ) )
@@ -640,11 +640,19 @@ class Readout:
                 sb = self.simData[ii*numSamples:(ii+1)*numSamples]
                 if w[3] == "min":
                     sd.append( min( sb ) )
-                if w[3] == "max":
+                elif w[3] == "oscVal" and (ii % 2) == 0: # start osc on val
+                    sd.append( min( sb ) )
+                elif w[3] == "oscPk" and (ii % 2) == 1:
+                    sd.append( min( sb ) )
+                elif w[3] == "max":
                     sd.append( max( sb ) )
-                if w[3] == "mean":
+                elif w[3] == "oscPk" and (ii % 2) == 0: # start osc on pk
+                    sd.append( max( sb ) )
+                elif w[3] == "oscVal" and (ii % 2) == 1:
+                    sd.append( max( sb ) )
+                elif w[3] == "mean":
                     sd.append( np.mean( sb ) )
-                if w[3] == "sdev":
+                elif w[3] == "sdev":
                     sd.append( np.sdev( sb ) )
             if len( self.ratioData ) == len( self.simData ): 
                 rd = []
@@ -652,11 +660,19 @@ class Readout:
                     rb = self.ratioData[ii*numSamples:(ii+1)*numSamples]
                     if w[3] == "min":
                         rd.append( min( rb ) )
-                    if w[3] == "max":
+                    elif w[3] == "oscVal" and (ii % 2) == 0: # start on val
+                        rd.append( min( rb ) )
+                    elif w[3] == "oscPk" and (ii % 2) == 1:
+                        rd.append( min( rb ) )
+                    elif w[3] == "max":
                         rd.append( max( rb ) )
-                    if w[3] == "mean":
+                    elif w[3] == "oscPk" and (ii % 2) == 0: # start on pk
+                        rd.append( max( rb ) )
+                    elif w[3] == "oscVal" and (ii % 2) == 1:
+                        rd.append( max( rb ) )
+                    elif w[3] == "mean":
                         rd.append( np.mean( rb ) )
-                    if w[3] == "sdev":
+                    elif w[3] == "sdev":
                         rd.append( np.sdev( rb ) )
                 self.ratioData = rd
             self.simData = sd
