@@ -1521,6 +1521,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         if plots:
             if expt.exptType == "timeseries":
                 for i in plots:
+                    uniqueentity = []
                     sp = i.split( "." ) # entity.field
                     entity = model._tempModelLookup.get( sp[0] )
                     if not entity:
@@ -1529,8 +1530,10 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                     if len(sp) != 2:
                         print("Field missing. Specify plot item as entity.field:", sp)
                         continue
-                    #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
-                    readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
+                    if entity not in uniqueentity:
+                        uniqueentity.append(entity)
+                        #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
+                        readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
             else:
                 print("Warning: Experiment design is '{}'. Only 'TimeSeries' supports extra plots. Skipping".format( experiment.exptType ) )
 
