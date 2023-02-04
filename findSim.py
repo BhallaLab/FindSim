@@ -389,7 +389,7 @@ class Readout:
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
-    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False ):
+    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType,dumpPlots, bigFont = False):
         if self.isPlotOnly:
             separator = ":"
         else:
@@ -473,6 +473,10 @@ class Readout:
                 tconv = convertTimeUnits[ self.timeUnits ]
                 xpts = np.array( range( len( ypts ) ) ) * self.plotDt[idx] / tconv
                 ypts /= scale
+                if dumpPlots:
+                    with open(dumpPlots, "a") as fs:
+                        for ploti in range(0,len(xpts)):
+                            fs.write("%s,%s,%s\n" % (xpts[ploti],ypts[ploti],pp.ylabel[0:pp.ylabel.index(" ")]))
                 if not self.isPlotOnly :
                     sumvec += ypts
                     if not hideSubplots:
@@ -1419,6 +1423,7 @@ def main():
     parser.add_argument( '-map', '--map', type = str, help='Optional: mapping file from tsv names to sim-specific strings. JSON format.', default = "" )
     #parser.add_argument( '-schema', '--schema', type = str, help='Optional: Schema for json version of the findSim experiment definition. JSON format.', default = "findSimSchema.json" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
+    parser.add_argument( '-dp', '--dump_plots', type = str, help='Optional: dump plots to file', default = "" )
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
     parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
@@ -1438,9 +1443,9 @@ def main():
     simWrap = ""
     if args.model.split( '.' )[-1] == "json":
         simWrap = "HillTau"
-    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
+    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, dumpPlots= args.dump_plots,paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", dumpPlots="",paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1569,11 +1574,21 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             readouts.plots = readouts.plots[:readouts.numMainPlots]
             readouts.plotdt = readouts.plotDt[:readouts.numMainPlots]
         elapsedTime = time.time() - t0
-        if not hidePlot:
+
+        if not hidePlot or dumpPlots:
+            if not dumpPlots:
+                if os.path.exists(dumpPlots):
+                    os.remove(dumpPlots)
+                with open(dumpPlots, "a") as fs:
+                    fs.write("Time,Value,Name\n")
+                    fs.close()
+                
             for rd in readoutVec:
-                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType,dumpPlots, bigFont = bigFont)
+        if not hidePlot:
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
+            
 
         '''
             plt.figure( "Main FindSim Plots" )
