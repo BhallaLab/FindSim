@@ -28,14 +28,13 @@
 from __future__ import print_function
 import re
 import os
-#import ntpath
 import json
 import numpy as np
 import moose
-#import imp  ## May be deprecated from Python 3.4
 from simWrap import SimWrap 
 from simError import SimError
 import hillTau
+import time
 
 SIGSTR = "{:.4g}" # Used for dumping JSON files.
 
@@ -44,13 +43,22 @@ class SimWrapHillTau( SimWrap ):
         SimWrap.__init__( self, *args, **kwargs )
         self.plotPath = {}
         self.plotDt = 1.0
-        self.settleTime = 300.0
+        self.settleTime = 3000.0    # HillTau settling is indept of time.
         # Inherited from SimWrap: self.modelLookup = {}
         self.model = ""
+        self.saveList = []
+        self.deleteList = []
 
     def _scaleOneParam( self, params ):
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], g    ot: '{}'".format( params ) )
+        if params[0] in self.model.namedConsts:
+            print( "ERROR: should not be seeing a namedConst in scaleOneParam: ", parms[0] )
+            assert( 0 )
+            self.model.namedConsts[ params[0] ] = float( params[2] )
+            self.jsonDict["Consts"][params[0]] = float( params[2] )
+            return
+
         if not params[0] in self.modelLookup:
             if self.silent:
                 return
@@ -60,48 +68,47 @@ class SimWrapHillTau( SimWrap ):
         entity = self.modelLookup[ params[0] ][0]
         field = params[1]
         scale = float( params[2] )
-        if not ( scale >= 0.0 and scale <= 100.0 ):
-            raise SimError( "scaleOneParam: {} out of range 0 to 100".format( scale ) )
+        if not ( scale >= 0.0 ):
+            raise SimError( "scaleOneParam: {} below 0".format( scale ) )
         if field in ["conc", "concInit"]:
             mol = self.model.molInfo[ entity ]
-            c = self.model.concInit[ mol.index ] * scale 
-            self.model.conc[ mol.index ]= self.model.concInit[mol.index]= c
-            self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = c
+            self.model.conc[ mol.index ]= self.model.concInit[mol.index]= scale
+            self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = scale
         elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]:
             reac = self.model.reacInfo[ entity ]
             dictReac = self.jsonDict["Groups"][reac.grp]["Reacs"][reac.name]
             if field == "KA":
-                reac.KA *= scale
+                reac.KA = scale
                 reac.kh = reac.KA ** reac.HillCoeff
                 dictReac["KA"] = reac.KA
                 #print( "rescale {}.KA: new = {}, scale = {}".format( reac.name, reac.KA, scale ) )
             elif field == "tau":
                 # There is an implicit linkage of tau and tau2 when equal.
+                tau = scale
                 if np.isclose( reac.tau, reac.tau2 ):
-                    reac.tau2 = reac.tau * scale
-                reac.tau *= scale
+                    reac.tau2 = tau
+                reac.tau = tau
                 dictReac["tau"] = reac.tau
             elif field == "tau2":
-                reac.tau2 *= scale
+                reac.tau2 = scale
                 dictReac["tau2"] = reac.tau2
             elif field == "baseline":
-                reac.baseline *= scale
+                reac.baseline = scale
                 #print( "BASELINE = {};     SCALE = {}".format(reac.baseline, scale) )
                 dictReac["baseline"] = reac.baseline
             elif field == "gain":
-                reac.gain *= scale
+                reac.gain = scale
                 dictReac["gain"] = reac.gain
             elif field == "Kmod":
-                reac.Kmod *= scale
+                reac.Kmod = scale
                 dictReac["Kmod"] = reac.Kmod
             elif field == "Amod":
-                reac.Amod *= scale
+                reac.Amod = scale
                 dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
         # This operates at the level of the JSON dict. We then have to
         # rebuild the model.
-        jd = self.jsonDict
         for ( _entity, change ) in itemsToDelete:
             if change != 'delete':
                 continue
@@ -111,92 +118,35 @@ class SimWrapHillTau( SimWrap ):
             objList = self.modelLookup.get( _entity )
             if objList:
                 for obj in objList:
-                    deleteObj( obj, jd['Groups'] )
+                    self.deleteList.append( obj )
             elif self.ignoreMissingObj:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::deleteItems: entity '{}' not found".format( _entity ) )
             else:
                 raise SimError( "SimWrapHillTau::deleteItems: Entity '{}' not found".format( _entity ) )
 
-    def deleteObj( self, obj, grps ):
-            grps = jd['Groups']
-            if obj in grps:
-                del grps[ obj ]
-            else: # Scan through all the groups
-                for i in grps:
-                    found = False
-                    if obj in i["Reacs"]:
-                        del i["Reacs"][ obj ]
-                        found = True
-                    if obj in i["Species"]:
-                        # Here we have the tricky situation that there may
-                        # be reacs that depend on this species. Fortunately
-                        # in the HillTau form, all substrates are created
-                        # as species with a conc of zero. So this would
-                        # not contribute to any downstream activity
-                        del i["Species"][ obj ]
-                        found = True
-                    if obj in i["Eqns"]:
-                        del i["Eqns"][ obj ]
-                        found = True
-                    if not found:
-                        raise SimError( "deleteObj: Obj '{}' not found".format( obj ) )
-
     def subsetItems( self, _modelSubset ):
-        # This saves only those entries specified in the subset.
-        # In order to do so, it must save anything closer to the root.
-        # For the purposes of HillTau models, it saves the groups above
-        # each entry.
-        # Also has to save all substrates of each reaction entry.
-        # But normally the subset only refers to molecules.
-        modelSubset = {}
+        # This builds up a 'saveList' of items to be preserved for
+        # calculation.
+        # If a subset entry is a group, save all its reactions and eqns.
+        # If a subset entry is a reaction or eqn, save it.
+        # Don't need to delete anything, just disable unused reacs.
+        self.saveList = []
         for i in _modelSubset:
-            if i in self.objMap:
-                modelSubset[i] = self.objMap[i]
-            elif not self.silent:
-                print( "Warning: in subsetItems(): item {} not found".format( i ) )
-        '''
-        try:
-            modelSubset = [ self.modelLookup[i][0] for i in _modelSubset]
-        except KeyError as ve:
-            raise SimError( "subsetItems: Obj '{}' not known".format( i ) )
-        '''
+            objList = self.modelLookup.get(i)
+            if objList:
+                for obj in objList:
+                    self.saveList.append( obj )
+            elif i in self.jsonDict["Groups"]:
+                # The modifySched func recognizes if i is the parent grp
+                self.saveList.append( i ) 
+                # Could do recursive stuff here if need groups in groups.
 
-        jd = self.jsonDict
-        notSavedGrps = [ i for i in jd["Groups"] if not i in modelSubset ]
-        rescue = {}
-        #assert( len( savedGrps ) + len( notSavedGrps ) == len( jd["Groups"])
-        for g in notSavedGrps: 
-            # make copies of objs that should be saved, including their
-            # parent groups that have to be rescued.
-            # Kill groups that have no saved items
-            jg = jd["Groups"][g]
-            rescue[ g ] = { "Species": {}, "Reacs": {}, "Eqns" : {} }
-            doRescue = False
-            if "Species" in jg:
-                for mol, val in jg["Species"].items():
-                    if mol in modelSubset:
-                        rescue[g]["Species"][mol] = val
-                        doRescue = True
-            if "Reacs" in jg:
-                for reac, val in jg["Reacs"].items():
-                    if reac in modelSubset:
-                        rescue[g]["Reacs"][reac] = val
-                        doRescue = True
-            if "Eqns" in jg:
-                for eqn, val in jg["Eqns"].items():
-                    if eqn in modelSubset:
-                        rescue[g]["Eqns"][eqn] = val
-                        doRescue = True
-            #print( "************   Deleting jg: {}".format( g ) )
-            del jd["Groups"][g]
-            if not doRescue:
-                #print( "************   Not rescuing jg: {}".format( g ) )
-                del rescue[g]
-
-        # Merge the saved groups with the rescued groups.
-        #print( "************   jd[Groups]: {}".format( jd["Groups"] ) )
-        jd["Groups"].update( rescue )
+            elif self.ignoreMissingObj:
+                if not self.silent:
+                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
+            else:
+                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( i ) )
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -214,6 +164,19 @@ class SimWrapHillTau( SimWrap ):
                     if s and entity in s:
                         s[entity] = value
                         #print("Changing {} of '{}' to {}".format( field, entity, value ) )
+                elif field == "isBuffered" and value == 1:
+                    r = jg.get( "Reacs" )
+                    if r and entity in r:
+                        # This simply removes the entity from the eval queue
+                        self.deleteList.append( entity )
+                        r[entity]["isBuffered"] = 1
+                    else:
+                        e = jg.get( "Eqns" )
+                        if e and entity in e:
+                            self.deleteList.append( entity )
+                    #if len( self.deleteList ) > 0:
+                    #    self.model.modifySched( saveList = [], deleteList = self.deleteList )
+
                 elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]: 
                     r = jg.get( "Reacs" )
                     if r and entity in r:
@@ -232,19 +195,43 @@ class SimWrapHillTau( SimWrap ):
                         elif field == "Amod":
                             r[entity]["Amod"] = value
 
+    def scaleNamedConsts( self, scaleParam ):
+        constDict = self.jsonDict.get( "Constants" )
+        if constDict:
+            newScaleParam = []
+            for i in range( 0, len( scaleParam ), 3 ):
+                key = scaleParam[i]
+                val = scaleParam[i+2]
+                if key in constDict:
+                    constDict[key] = val
+                    #print( "scaling const ", key, " to ", val )
+                else:
+                    newScaleParam.append( key )
+                    newScaleParam.append( scaleParam[i+1] )
+                    newScaleParam.append( val )
+            # Reassign scaleParam with the found consts removed.
+            return newScaleParam
+        else:
+            return scaleParam
+
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
+        #t0 = time.time()
+        #print( "Loading model file ", fname, " with numScale = ", len(scaleParam)  )
         self.turnOffElec = True
         fileName, file_extension = os.path.splitext( fname )
         if file_extension == '.json':
             self.jsonDict = hillTau.loadHillTau( fname )
+            scaleParam = self.scaleNamedConsts( scaleParam )
             qs = hillTau.getQuantityScale( self.jsonDict )
             hillTau.scaleDict( self.jsonDict, qs )
             self.extendObjMap() # Extends objects from jsonDict into objMap
-            # It comes back as deleteItems, subsetItems, prune, changeParams
-            modifyFunc( {}, "" ) # Callback.
-            self.model = hillTau.parseModel( self.jsonDict )
+            # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
             self.buildModelLookup( self.objMap ) 
+            modifyFunc( {}, "" ) # Callback.
+            t0 = time.time()
+            self.model = hillTau.parseModel( self.jsonDict )
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
+            self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
             self._scaleParams( scaleParam )
             '''
             for i in range( len( scaleParam ) / 6 ):
@@ -260,6 +247,7 @@ class SimWrapHillTau( SimWrap ):
                     json.dump( self.jsonDict, f, indent = 4)
         else:
             raise SimError( "HillTau models are .json. Type '{}' not known".format( fname ) )
+        self.loadtime += time.time() - t0
         return
 
 
@@ -278,20 +266,29 @@ class SimWrapHillTau( SimWrap ):
                     if not i in om:
                         om[i] = [i]
 
-
     def buildModelLookup( self, objMap ):
         # All Mols are keys in modelLookup, plus whatever objMap sets.
         # We ensure that only valid objects are keys.
         for key, val in objMap.items():
             v = val[0]
+            self.modelLookup[key] = val
+
+    '''
+    def buildModelLookup( self, objMap ):
+        # All Mols are keys in modelLookup, plus whatever objMap sets.
+        # We ensure that only valid objects are keys.
+        for key, val in objMap.items():
+            print( "Setting modelLookup: ", key, "  ", val )
+            v = val[0]
             if v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo:
                 self.modelLookup[key] = val
-        '''
-        for key, val in self.modelLookup.items():
-            print( "modelLookup[{}] = {}".format( key, val ) )
-        '''
+                print( "Setting modelLookup: ", key, "  ", val )
+    '''
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
+        self.plotDt = minInterval * 0.1
+        self.model.dt = minInterval * 0.1
+        #print( "Plotdt = {:.3f}, modeldt = {:.3f}, minInterval = {:.3f}".format( self.plotDt, self.model.dt, minInterval ) )
         return
 
     def buildVclamp( self, stim ):
@@ -302,24 +299,30 @@ class SimWrapHillTau( SimWrap ):
 
     def makeReadoutPlots( self, readouts ):
         numPlots = 0
+        self.numMainPlots = 0
         for i in readouts:
             for j in i.entities:
                 if not j in self.modelLookup:
                     continue
                 objList = self.modelLookup[ j ]
-                #print( "##########{}".format( objList ) )
                 for objName in objList:
                     index = self.model.molInfo[objName].index
                     self.plotPath[objName] = [ index, numPlots ]
                     numPlots += 1
+            if not i.isPlotOnly:
+                self.numMainPlots = numPlots
         self.plots = [[]]*numPlots
 
-    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float.
-        return [ np.array( i ) for i in self.plots], self.plotDt
+    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns main plot dt as a float, and the number of main plots.
+        tempArray = np.array(self.model.plotvec).transpose()
+        for index, plotNum in self.plotPath.values():
+            self.plots[plotNum] = tempArray[index]
+        return [ np.array( i ) for i in self.plots], [self.plotDt] * len( self.plots ), self.numMainPlots
     
     def deliverStim( self, qe ):
         field = qe.entry.field
         for name in qe.entry.entities:
+            #print( "in deliver stim setting {} to {}".format( name, field, qe.val ) )
             if not name in self.modelLookup:
                 raise SimError( "SimWrapHillTau::deliverStim: Entity {} not found".format( name ) )
             innerNames = self.modelLookup[name]
@@ -332,27 +335,36 @@ class SimWrapHillTau( SimWrap ):
     def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         ct = self.model.currentTime
         j = len( self.model.plotvec )
+        t0 = time.time()
         self.model.advance( advanceTime, settle = doSettle )
+        self.runtime += time.time() - t0
+        '''
         if doPlot:
             tempArray = np.array(self.model.plotvec[:][j:]).transpose()
             for index, plotNum in self.plotPath.values():
                 self.plots[plotNum].extend( tempArray[index] )
+        '''
         return
 
     def reinitSimulation( self ):
+        t0 = time.time()
         self.model.reinit()
+        self.runtime += time.time() - t0
         return
 
     def sumFields( self, entityList, field ):
+        t0 = time.time()
         tot = 0.0
         for rr in entityList:
             elms = self.modelLookup[rr]
             for e in elms:
                 mi = self.model.molInfo[e]
                 tot += self.model.conc[ mi.index ]
+        self.paramAccessTime += time.time() - t0
         return tot
 
     def setField( self, objName, field, value ):
+        t0 = time.time()
         if field in ['conc', 'concInit']:
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
@@ -386,8 +398,10 @@ class SimWrapHillTau( SimWrap ):
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
             raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
+        self.paramAccessTime += time.time() - t0
 
     def getField( self, objName, field ):
+        t0 = time.time()
         if field == 'conc':
             if objName in self.model.molInfo: 
                 return self.model.conc[ self.model.molInfo[objName].index ]
@@ -418,18 +432,25 @@ class SimWrapHillTau( SimWrap ):
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
             raise SimError( "SimWrapHillTau::getField: Unknown obj.field {}.{}".format( objName, field ) )
+        self.paramAccessTime += time.time() - t0
 
 
-    def getObjParam( self, entity, field ):
+    def getObjParam( self, entity, field, isSilent = False ):
+        if entity in self.model.namedConsts:
+            return self.model.namedConsts[entity]
         if not entity in self.modelLookup:
+            if self.ignoreMissingObj or isSilent:
+                return -2.0
             raise SimError( "SimWrapHillTau::getObjParam: Entity {} not found".format( entity ) )
         elms = self.modelLookup[entity]
         if len( elms ) != 1:
-            raise SimError( "SimWrapHillTau::getObjParam: Should only have 1 object, found {} ".format( len( elms ) ) )
+            if isSilent:
+                return -2.0
+            raise SimError( "SimWrapHillTau::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elms ) ) )
         return self.getField( elms[0], field )
 
 
-    def steadyStateStims(self, stimList, responseList, isSeries = False, settleTime = 300 ):
+    def steadyStateStims(self, stimList, responseList, isSeries = False, settleTime = 3000.0 ):
         '''
         Computes steady_state output for specified stimulus combinatations.
         stimList is 2-D list of 
@@ -450,7 +471,11 @@ class SimWrapHillTau( SimWrap ):
         ret = []
         ref = []
         self.reinitSimulation()
-        st = settleTime * 5.0 # The first settle time typically needs to be longer.
+        #st = settleTime * 5.0 # The first settle time typically needs 
+        # to be longer. But I've removed this because it is an unexpected 
+        # behaviour and it also leads to numerical issues. I have also 
+        # removed a later multiplication of settleTime by 10. If the user
+        # wants a long settle time they should assign it explicitly.
         for pt in stimList:
             if isSeries:
                 for (stimEntity, field, value, scale) in pt:
@@ -458,23 +483,25 @@ class SimWrapHillTau( SimWrap ):
                     #print( "SF: {}\t{}\t{}\t{}".format( elm, field, value, scale) )
                     self.setField( elm, field, value * scale )
                     if field == 'conc':
+                        self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
-                self.advanceSimulation( st, doPlot = False, doSettle = True)
-                st = settleTime
+                        #print( elm, " conc = ", self.getField( elm, "conc" ) )
+                self.advanceSimulation( settleTime, doPlot = False, doSettle = True)
             else:
                 orig = []
                 for (stimEntity, field, value, scale) in pt:
-                    #print( "BBBBBBBBBBBBBBB {}".format( stimEntity ) )
                     elm = self.modelLookup[ stimEntity ][0]
                     orig.append( ( elm, field, self.getField(elm, field) ) )
                     self.setField( elm, field, value * scale )
                     if field == 'conc':
+                        self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
                 self.reinitSimulation()
                 self.advanceSimulation( settleTime, doPlot = False )
                 for elm, field, oldval in orig:
                     self.setField( elm, field, oldval )
                     if field == 'conc':
+                        self.setField( elm, "conc", oldval )
                         self.setField( elm, "concInit", oldval )
 
             ret.append( self.sumFields( responseList[0], responseList[1] ) )

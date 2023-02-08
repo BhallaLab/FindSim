@@ -41,6 +41,8 @@
 	"RecLigandBinding":["RecLigandBinding"],
 	"makeTernary":["Rec_Glu_bind_Gq"],
 	"CaM":["CaM/CaM"],
+	"ERK":["MAPK/MAPK"],
+	"pERK":["MAPK/MAPK_p_p","MAPK/MAPK_p"],
 	"FMRP_synth":["FMRP_synth"],
 	"SHCp":["SHC_p"],
 	"SHC":["SHC"],

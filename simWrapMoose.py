@@ -36,6 +36,8 @@ import imp  ## May be deprecated from Python 3.4
 from simWrap import SimWrap 
 from simError import SimError
 
+MINIMUM_TAU = 1e-3     # Do not permit excessively fast chem time consts.
+MINIMUM_TAU_RATIO = 1e-2  # Do not permit excessively large change in tau.
 elecDt = 50e-6
 elecPlotDt = 100e-6
 fepspScale = 1.0e7 # Arb scaling. Need to figure out how to set,
@@ -65,11 +67,65 @@ def isNotDescendant( elm, ancestorSet ):
     return True
 
 #######################################################################
+## Four utility functions to set/get Kd and tau. All assignments should use
+## these funcs to retain consistency.
+#######################################################################
+
+def getReacKd( elm ):
+    if not elm.isA['Reac']:
+            raise SimError( "getReacKd: can only get Kd on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
+    #print( "getReacKd for {} = {}, concKb/Kf = {}/{} ".format( elm.name, elm.Kb/elm.Kf, elm.Kb, elm.Kf ) )
+    return elm.Kb/elm.Kf
+
+def setReacKd( elm, Kd ):
+    # Here we want to change the ratio of Kf and Kb while keeping 
+    # tau the same.
+    if not elm.isA['Reac']:
+            raise SimError( "getReacKd: can only set Kd on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
+    tau = getReacTau( elm ) # Note func assumption about reac orders 
+    #print("PreScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
+    scaleKf = 0.001 ** (elm.numSubstrates-1)
+    scaleKb = 0.001 ** (elm.numProducts-1)
+    elm.Kf = 1.0 / ( tau * (scaleKb * Kd + scaleKf ) )
+    elm.Kb = Kd * elm.Kf
+    #print("ScaledParam ** KD ** {}.{} Kf={:.4f} Kb={:.4f} tau = {:.4f}  tgtKd = {:.4f}".format( params[0], field, obj.Kf, obj.Kb, tau, Kd) )
+
+def getReacTau( elm ):
+    if not elm.isA['Reac']:
+            raise SimError( "getReacTau: can only get tau on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
+    # This is a little dubious, because order 1 reac has 1/conc.time
+    # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
+    # This latter is the Kf we want to use, assuming typical concs are
+    # around 1 uM.
+    scaleKf = 0.001 ** (elm.numSubstrates-1)
+    scaleKb = 0.001 ** (elm.numProducts-1)
+    tau = 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
+    #print( "TAU = {:.4f}, Kf = {:.4g}, Kb = {:.4g}".format( tau, elm.Kb, elm.Kf, ) )
+    #print( "getReacTau for {} = {}, Kb={}, Kf={} ".format( elm.name, tau, elm.Kb, elm.Kf ) )
+
+    return tau
+
+def setReacTau( elm, tau ):
+    if not elm.isA['Reac']:
+            raise SimError( "setReacTau: can only set tau on a Reac, was: '{}' on '{}'".format( elm.className, elm.path ) )
+    # Here we use the form tau = 1/(Kf + Kb) with suitable scaling.
+    # If we assume that Kf and Kb contribute equally to tau, we just
+    # need to scale them accordingly.
+    oldTau = getReacTau( elm )
+    if oldTau < MINIMUM_TAU:
+        return
+    if tau < oldTau * MINIMUM_TAU_RATIO:
+        tau = oldTau * MINIMUM_TAU_RATIO
+    elm.Kf *= oldTau / tau
+    elm.Kb *= oldTau / tau
+
+#######################################################################
 
 class SimWrapMoose( SimWrap ):
     def __init__( self, *args, **kwargs ):
         SimWrap.__init__( self, *args, **kwargs )
         self.plotPath = {}
+
 
     def findObj( self, uname, noRaise = False ):
         '''
@@ -101,88 +157,79 @@ class SimWrapMoose( SimWrap ):
 
 
     def _scaleOneParam( self, params ):
+        #print( "scaleOneParam: ", params )
         if len(params) != 3:
             raise SimError( "scaleOneParam: expecting [obj, field, scale], got: '{}'".format( params ) )
 
         if not params[0] in self.modelLookup:
             foundObj = self.findObj( params[0] )
-            if foundObj.name == 'root':
+            if foundObj.name == '/':
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ) not found".format( params[0], params[1] ) )
             else:
-                self.modelLookup[ params[0] ] = [ foundObj ]
+                self.modelLookup[ params[0] ] = [ foundObj.path ]
                 if not self.silent:
                     print( "simWrapMOOSE::_scaleOneParam( {}.{} ): added to map ".format( params[0], params[1] ) )
-        obj = self.lookup( params[0] )[0]
-        field = params[1]
-        if obj.path == '/':  # No object found
+        objPath = self.lookup( params[0] )[0]
+        if objPath == '/':  # No object found
             return
-        '''
-        if (sys.version_info > (3, 0)):
-            field = params[1].decode()
-        else:
-            field = params[1].encode( 'ascii' )
-        '''
-        scale = float( params[2] )
+        obj =  moose.element( objPath )
+        if obj.path == '/': # No object found on path
+            return
+        field = params[1]
+        scale = float( params[2] ) # This is now the assignment value.
         if not isinstance(field,str):
             field = field.decode()
         else:
             field = field
-        if not ( scale >= 0.0 and scale <= 100.0 ):
+        if not ( scale >= 0.0):
             raise SimError( "Error: Scale {} out of range".format( scale ) )
-        if scale <= 0.0 and field in ['Kd', 'tau']:
-            print( "simWrapMoose::_scaleOneParam: Error, scale = {} is <= 0".format( scale ) )
-            raise SimError( "simWrapMoose::_scaleOneParam: terminated" )
 
         if field == 'Kd':
-            if not obj.isA[ "Reac" ]:
-                #break 
-                raise SimError( "scaleParam: can only assign Kd to a Reac, was: '{}'".format( obj.className ) )
-            sf = np.sqrt( scale )
-            obj.Kb *= sf
-            obj.Kf /= sf
-            #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
+            setReacKd( obj, scale )
         elif field == 'tau':
-            if not obj.isA[ "Reac" ]:
-                raise SimError( "scaleParam: can only assign tau to a Reac, was: '{}'".format( obj.className ) )
-            obj.Kb /= scale
-            obj.Kf /= scale
-            #print("ScaledParam {}.{} Kf={:.4f} Kb={:.4f}".format( params[0], field, obj.Kf, obj.Kb) )
+            setReacTau( obj, scale )
         else: 
             val = obj.getField( field )
-            obj.setField( field, val * scale)
-            #print("ScaledParam {}.{} from {} to {}".format( params[0], field, val, obj.getField( field ) ) )
+            obj.setField( field, scale)
+            #print("ScaledParam {} {}.{} from {} to {} with scale {}".format( obj.path, params[0], field, val, obj.getField( field ), scale ) )
         return
+
     def deleteItems( self, itemsToDelete ):
         for ( entity, change ) in itemsToDelete[:]:
             entity = entity.strip(' \n\t\r')
             if entity in self.modelLookup:
-                objList = self.modelLookup[entity]
-                for obj in objList:
-                    if (self.ignoreMissingObj and obj.name == 'root') :
+                objPathList = self.modelLookup[entity]
+                for objPath in objPathList:
+                    if (self.ignoreMissingObj and objPath == '/') :
                         if self.silent == False:
                             print( "Alert: simWrapMoose::deleteItems: Object in entity list but not in model '{}'".format( entity ) )
                         continue
                     if change == 'delete':
-                        if obj.path != self.modelId.path:
-                            moose.delete( obj )
+                        if objPath != self.modelId.path and moose.exists( objPath ):
+                            moose.delete( objPath )
                         else:
-                            raise SimError("Cannot delete modelId or rootPath: '{}'".format( obj) )
+                            raise SimError("Cannot delete modelId or rootPath: '{}'".format( objPath) )
             elif self.silent == False:
                 print( "Alert: simWrapMoose::deleteItems: '{}' not found".format( entity ) )
 
 
     def subsetItems( self, modelSubset ):
+        origNumSubs = {} # Key is path of obj, val is [nsub, nprd]
         nonContainers, directContainers = [],[]
         indirectContainers = [self.modelId]
 
         kinpath = self.modelId.path
+        for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
+            origNumSubs[e.path] = [len( e.neighbors['sub'] ), len( e.neighbors['prd'] ) ]
 
         for i in modelSubset: 
             elist = self.lookup( i )
-            for elm in elist:
-                if self.ignoreMissingObj and elm.name == 'root':
-                    #print( 'ignored' )
+            for elmPath in elist:
+                if self.ignoreMissingObj and elmPath == '/':
+                    continue
+                elm = moose.element( elmPath )
+                if elm.path == '/':
                     continue
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
@@ -216,24 +263,32 @@ class SimWrapMoose( SimWrap ):
                 moose.delete( i )
             else:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
+        # Remove all enzymes which have changed substrates or products.
+        for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
+            if origNumSubs[ e.path ] != [len(e.neighbors['sub']), len( e.neighbors['prd'] ) ]:
+                moose.delete( e )
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
-            obj = self.lookup( entity )[0]
-            if obj.name == 'root':
+            if len( self.lookup(entity) ) == 0:
+                continue
+            objPath = self.lookup( entity )[0]
+            if objPath == '/':
                 continue
             if field == "concInit (uM)":
                 field = "concInit"
+            obj = moose.element( objPath )
+            if obj.path == '/':
+                continue
             obj.setField( str( field ), value )
             #print( "PARAM {}.{} = {}, buf = {}".format( obj.name, field, value, obj.isBuffered ) )
 
     def buildModelLookup( self, tempModelLookup ):
         for key, paths in tempModelLookup.items():
             foundObj = [ self.findObj( p, noRaise = True ) for p in paths ]
-            foundObj = [ j for j in foundObj if j.name != 'root' ]
+            foundObj = [ j.path for j in foundObj if j.name != '/' ]
             if len( foundObj ) > 0:
                 self.modelLookup[key] = foundObj
-                #print( "modelLookup[{}] = {}".format( key, foundObj[0].path ) )
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ): # modify arg is a func
 	#This list holds the entire models Reac/Enz sub/prd list for reference
@@ -281,7 +336,9 @@ class SimWrapMoose( SimWrap ):
             # Deprecated. Here we override the rdes to NOT make a solver.
             #self.turnOffElec = rdes.turnOffElec
             #rdes.turnOffElec = False
+            #print( "LIB: ", moose.element( '/library/chem/kinetics/glu/vesicle_release' ).Kf )
             mscript.build( rdes )
+            #print( "MODEL: ", moose.element( '/model/chem/dend/glu/vesicle_release' ).Kf )
             self.modelId = moose.element( '/model' )
             self.buildModelLookup( self.objMap )
             #rdes.turnOffElec = self.turnOffElec
@@ -302,7 +359,7 @@ class SimWrapMoose( SimWrap ):
         self.modelId = moose.element( '/model' )
 
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1.0 ):
         # Here we remove and rebuild the HSolver because we have to add vclamp
         # after loading the model.
         if useVclamp: 
@@ -326,25 +383,28 @@ class SimWrapMoose( SimWrap ):
             if solver.lower() in ['none','ee','exponential euler method (ee)']:
                 return
             if len( moose.wildcardFind( compt.path + "/##[ISA=Stoich]" ) ) > 0:
-                print( "findSim::buildSolver: Warning: Chem solvers already defined. Use 'none' or 'ee' in solver specifier to avoid this message. Model should work anyway." )
+                #print( "findSim::buildSolver: Warning: Chem solvers already defined. Use 'none' or 'ee' in solver specifier to avoid this message. Model should work anyway." )
                 return
             if solver.lower() in ['gssa','stochastic simulation (gssa)']:
                 ksolve = moose.Gsolve ( compt.path + '/gsolve' )
             elif solver.lower() in ['gsl','runge kutta method (gsl)']:
                 ksolve = moose.Ksolve( compt.path + '/ksolve' )
+            elif solver.lower() in ['lsoda']:
+                ksolve = moose.Ksolve( compt.path + '/ksolve' )
+                ksolve.method = 'lsoda'
             stoich = moose.Stoich( compt.path + '/stoich' )
             stoich.compartment = moose.element( compt.path )
             stoich.ksolve = ksolve
             stoich.reacSystemPath = compt.path + '/##'
             for i in range( 10, 20 ):
-                moose.setClock( i, 0.1 )
+                moose.setClock( i, 0.5 * minInterval )
 
     def buildVclamp( self, stim ):
         # Stim.entities should be the compartment name here.
-        compt = self.lookup( stim.entities[0] )[0]
-        path = compt.path
-        vclamp = moose.VClamp( path + '/vclamp' )
-        self.modelLookup['vclamp'] = [vclamp,]
+        comptPath = self.lookup( stim.entities[0] )[0]
+        vclamp = moose.VClamp( comptPath + '/vclamp' )
+        self.modelLookup['vclamp'] = [vclamp.path,]
+        compt = moose.element(comptPath)
         vclamp.mode = 0     # Default. could try 1, 2 as well
         vclamp.tau = 0.2e-3 # lowpass filter for command voltage input
         vclamp.ti = 20e-6   # Integral time
@@ -431,12 +491,17 @@ class SimWrapMoose( SimWrap ):
 
     def makeReadoutPlots( self, readouts ):
         moose.Neutral('/model/plots')
+        self.numMainPlots = 0
         for i in readouts:
-            readoutElms = []
+            readoutElmPaths = []
             for j in i.entities:
-                readoutElms.extend( self.lookup(j) )
-            for elm in readoutElms:
+                readoutElmPaths.extend( self.lookup(j) )
+            for elmPath in readoutElmPaths:
                 ######Creating tables for plotting for full run #############
+                if elmPath == '/' or not moose.exists( elmPath ):
+                    continue
+                self.numMainPlots += not( i.isPlotOnly )
+                elm = moose.element( elmPath )
                 plotpath = '/model/plots/' + ntpath.basename(elm.name)
                 if i.field in i.elecFields:
                     plot = moose.Table(plotpath)
@@ -496,14 +561,14 @@ class SimWrapMoose( SimWrap ):
 
     def fillPlots( self ):
         plots = []
-        dt = 0.1
+        dt = []
         for i in self.plotPath.values():
             plotvec = moose.vec( i )
-            dt = plotvec[0].dt
             for j in plotvec:
                 plots.append( j.vector ) # should be a numpy array
+                dt.append( j.dt )
                 #print( "FillPlots: dt = {}, n = {}, dataIndex = {} ".format( dt, len(j.vector), j.index ) )
-        return plots, dt
+        return plots, dt,  self.numMainPlots
     
     def deliverStim( self, qe ):
         field = qe.entry.field
@@ -511,14 +576,18 @@ class SimWrapMoose( SimWrap ):
         for name in qe.entry.entities:
             if not name in self.modelLookup:
                 raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( name ) )
-            elms = self.modelLookup[name]
+            elmPaths = self.modelLookup[name]
             #print( "deliverStim {}.{}  {}@{}".format( elms[0].path, field, qe.val, moose.element( '/clock' ).currentTime ) )
-            for e in elms:
+            for ePath in elmPaths:
+                if ePath == '/' or not moose.exists( ePath ):
+                    continue
+
                 if field == 'Vclamp':
-                    path = e.path + '/vclamp'
+                    path = ePath + '/vclamp'
                     moose.element( path ).setField( 'command', qe.val )
                     #print(" Setting Vclamp {} to {}".format( path, qe.val ))
                 else:
+                    e = moose.element( ePath )
                     e.setField( str(field), qe.val )
                     if qe.t == 0:
                         ## At time zero we initial the value concInit or nInit
@@ -532,7 +601,7 @@ class SimWrapMoose( SimWrap ):
     def getCurrentTime( self ):
         return moose.element( '/clock' ).currentTime
 
-    def advanceSimulation( self, advanceTime ):
+    def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         moose.start( advanceTime )
 
     def reinitSimulation( self ):
@@ -571,7 +640,10 @@ class SimWrapMoose( SimWrap ):
                     #print ("setField {}.{} = {}".format( stimEntity, field, value*scale ) )
                     if not stimEntity in self.modelLookup:
                         raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( stimEntity ) )
-                    elm = self.modelLookup[stimEntity][0]
+                    elmPath = self.modelLookup[stimEntity][0]
+                    if not moose.exists( elmPath ):
+                        continue
+                    elm = moose.element( elmPath )
                     if 'conc' in field:
                         elm.setField( "concInit", value * scale )
                         elm.setField( "conc", value * scale )
@@ -586,7 +658,11 @@ class SimWrapMoose( SimWrap ):
                     # here we assign the stimulus.
                     if not stimEntity in self.modelLookup:
                         raise SimError( "simWrapMoose::deliverStim: entity '{}' not found, check object map".format( stimEntity ) )
-                    elm = self.modelLookup[stimEntity][0]
+                    elmPath = self.modelLookup[stimEntity][0]
+                    if elmPath == '/' or not moose.exists( elmPath ):
+                        raise SimError( "simWrapMoose::deliverStim: Obj for entity '{}' = '{}' not found, check if it has been deleted".format( stimEntity[0], elmPath ) )
+                    elm = moose.element( elmPath )
+
                     orig.append( (elm, field, elm.getField( field ) ) )
                     elm.setField( field, value * scale )
                 moose.reinit()
@@ -608,38 +684,41 @@ class SimWrapMoose( SimWrap ):
     def sumFields( self, entityList, field ):
         tot = 0.0
         for rr in entityList:
-            elms = self.lookup( rr )
-            for e in elms:
-                #print (" sumFields rr = {}, val = {}".format( e.name, e.conc ) )
-                tot += e.getField( str( field ) )
+            elmPaths = self.lookup( rr )
+            for ePath in elmPaths:
+                if ePath != '/' and moose.exists( ePath ):
+                    e = moose.element( ePath )
+                    tot += e.getField( str( field ) )
+                    #print (" sumFields rr = {}, val = {}".format( e.name, e.conc ) )
         return tot
 
-    def getObjParam( self, entity, field ):
+    def getObjParam( self, entity, field, isSilent = False ):
         if not entity in self.modelLookup:
             # Try to use the entity name directly, without lookup
             foundObj = self.findObj( entity )
-            if foundObj.name == 'root':
+            if foundObj.name == '/':
+                if isSilent:
+                    return -2.0
                 raise SimError( "SimWrapMoose::getObjParam: Entity {} not found, check Object map".format( entity ) )
             else:
-                self.modelLookup[ entity ] = [ foundObj ]
-        elmList = self.lookup(entity)
-        if len( elmList ) != 1:
-            raise SimError( "SimWrapMoose::getObjParam: Should only have 1 object, found {} ".format( len( elmList ) ) )
-        elm = elmList[0]
+                self.modelLookup[ entity ] = [ foundObj.path ]
+        elmPathList = self.lookup(entity)
+        #print( "IN GetOBJParam, elmPathList = ", elmPathList )
+        if len( elmPathList ) != 1:
+            if isSilent:
+                return -2.0
+            raise SimError( "SimWrapMoose::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elmPathList ) ) )
+        if elmPathList[0] == '/' or not moose.exists( elmPathList[0] ):
+            if isSilent:
+                return -2.0
+            moose.le( '/model[0]/kinetics[0]/MAPK[0]/MAPK_p_p[0]' )
+            raise SimError( "SimWrapMoose::getObjParam: elm {} not found, check".format( elmPathList[0] ) )
+
+        elm = moose.element( elmPathList[0] )
         if field == 'Kd':
-            if not elm.isA['Reac']:
-                raise SimError( "getObjParam: can only get Kd on a Reac, was: '{}'".format( elm.className ) )
-            return elm.Kb/elm.Kf
+            return getReacKd( elm )
         elif field == 'tau':
-            # This is a little dubious, because order 1 reac has 1/conc.time
-            # units. Suppose Kf = x / mM.sec. Then Kf = 0.001x/uM.sec
-            # This latter is the Kf we want to use, assuming typical concs are
-            # around 1 uM.
-            if not elm.isA['Reac']:
-                raise SimError( "getObjParam: can only get tau on a Reac, was: '{}'".format( obj.className ) )
-            scaleKf = 0.001 ** (elm.numSubstrates-1)
-            scaleKb = 0.001 ** (elm.numProducts-1)
-            return 1.0 / ( elm.Kb * scaleKb + elm.Kf * scaleKf )
+            return getReacTau( elm )
         else:
             return elm.getField( field )
 

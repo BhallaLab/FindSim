@@ -25,25 +25,49 @@
  '''
 import json
 from simError import SimError
-import moose
+import numpy as np
 
 class SimWrap():
     def __init__( self, *args, **kwargs ):
         self.ignoreMissingObj = kwargs["ignoreMissingObj"]
         self.silent = kwargs["silent"]
         self.modelLookup = {}
+        self.runtime = 0.0
+        self.loadtime = 0.0
+        self.paramAccessTime = 0.0
         if "mapFile" in kwargs and len( kwargs["mapFile"] ) > 5:
             with open( kwargs["mapFile"] ) as fd:
                 self.objMap = json.load( fd )
         self.modelId = ""
         self.plots = {} # Keys: Readout objects. Values: 2d numpy arrays
+        self.upperLimit = {} # Key: field name . Value: upper limit
+        self.lowerLimit = {} # Key: field name. Values: lower limit
                 
         return
+
+    def diagnostics( self, sim, expt, exptType ):
+        if not expt:
+            ex = []
+            ey = []
+        else:
+            edata = np.array( expt )
+            ex = edata[:,0]
+            ey = edata[:,1]
+        return { "runtime": self.runtime, 
+                "loadtime": self.loadtime, 
+                "paramAccessTime": self.paramAccessTime, 
+                "exptType": exptType, 
+                "sim": np.array( sim ),
+                "exptX": ex,
+                "exptY": ey
+            }
 
     def lookup( self, key ):
         ret = self.modelLookup.get( key )
         if ret:
             return ret
+        elif self.ignoreMissingObj:
+            return []
         raise SimError( "SimWrap: failed modelLookup[{}]".format( key ) )
 
     def _scaleParams( self, params ):
@@ -54,6 +78,15 @@ class SimWrap():
         for i in range( 0, len(params), 3):
             self._scaleOneParam( params[i:i+3] )
             # _scaleOneParam is a derived function
+
+    def getParamVec( self, params ):
+        # Params is a list of strings of form obj.field
+        # If param not found we put in a -1.
+        ret = []
+        for p in params:
+            [ obj, field ] = p.split( '.' )
+            ret.append( self.getObjParam( obj, field, isSilent=False ) )
+        return ret
 
     def _scaleOneParam( self, params ): # place holder, to be overridden
         return
@@ -74,7 +107,7 @@ class SimWrap():
     def changeParams( self, params ):
         return
 
-    def buildSolver( self, solver, useVclamp = False ):
+    def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
         return
 
     def buildVclamp( self, stim ):
@@ -86,8 +119,8 @@ class SimWrap():
     def makeReadoutPlots( self, readouts ):
         return
 
-    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float.
-        return [], 1.0;
+    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns dt as a float and numMainPlots
+        return [], [1.0], 0
     
     def deliverStim( self, qe ):
         return
@@ -95,7 +128,7 @@ class SimWrap():
     def getCurrentTime( self ):
         return 0.0
 
-    def advanceSimulation( self, advanceTime ):
+    def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
         return
 
     def reinitSimulation( self ):
@@ -135,3 +168,4 @@ class SimWrap():
 
     def assignPresettle( settledict ):
         return
+

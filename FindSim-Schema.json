@@ -3,6 +3,8 @@
 	"description" : "This is a schema for descriptors of experiments used by the FindSim package.",
 	"type": "object",
 	"properties": {
+		"FileType": {"type": "string"},
+		"Version": {"type": "string"},
 		"Metadata": {
 		"type": "object",
 			"properties": {
@@ -14,7 +16,7 @@
 					"properties": {
 						"sourceType": {
 							"type": "string",
-							"enum": ["paper", "inhouse", "database", "other"]
+							"enum": ["paper", "inhouse", "database", "simulation", "other"]
 						},
 						"PMID": {"type": "number"},
 						"doi": {"type": "string"},
@@ -77,6 +79,7 @@
 						"enum": ["conc", "inject", "Vm", "Vclamp", "rate", "weight","EPSP_peak","synInput"],
 						"description": "rate and weight are used for synaptic input"
 			   		},
+					"isBuffered": {"type": "number" },
 					"data": {"type": "array",
 						"items": { "type": "array", 
 							"items": {"type": "number" },
@@ -103,6 +106,18 @@
 						"items": {"type": "string"}
 				},
 				"field": {"type": "string" },
+				"window": {"type": "object",
+						"properties": {
+								"startt": {"type": "number"},
+								"endt": {"type": "number"},
+								"dt": {"type": "number"},
+								"operation": {"type": "string",
+									"enum": ["min", "max", "mean", "sdev", "oscPk", "oscVal"]
+								}
+						},
+					"required": ["startt", "endt", "dt", "operation"],
+					"additionalProperties": false
+				},
 				"settleTime": {"type": "number", 
 			   		"minimum": 0.0, 
 					"maximum": 5000	
