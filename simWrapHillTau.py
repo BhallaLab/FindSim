@@ -154,8 +154,9 @@ class SimWrapHillTau( SimWrap ):
     def changeParams( self, params ):
         ''' 
         simWrapHillTau::changeParams( self, params )
-        This changes param values. Note that it gets called BEFORE
-        the modelLookup is built. It operates directly on the json dict.
+        This changes param values. 
+        It operates directly on the json dict.
+        It is meant to be called BEFORE the modelLookup is built.
         '''
         for ( entity, field, value) in params:
             for jg in self.jsonDict["Groups"].values():
@@ -168,8 +169,9 @@ class SimWrapHillTau( SimWrap ):
                     r = jg.get( "Reacs" )
                     if r and entity in r:
                         # This simply removes the entity from the eval queue
-                        self.deleteList.append( entity )
+                        # self.deleteList.append( entity )
                         r[entity]["isBuffered"] = 1
+                        #self.setField( entity, "isBuffered",  1 )
                     else:
                         e = jg.get( "Eqns" )
                         if e and entity in e:
@@ -374,9 +376,9 @@ class SimWrapHillTau( SimWrap ):
                     self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
-        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
+        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod', "isBuffered"]:
             if objName in self.model.reacInfo:
-                reac = self.model.reacInfo[elm]
+                reac = self.model.reacInfo[objName]
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown reac {}".format( objName ) )
             if field == 'KA':
@@ -394,6 +396,8 @@ class SimWrapHillTau( SimWrap ):
                 reac.Kmod = value
             elif field == 'Amod':
                 reac.Amod = value
+            elif field == 'isBuffered':
+                reac.isBuffered = value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
