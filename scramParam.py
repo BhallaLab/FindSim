@@ -55,6 +55,9 @@ class Scram:
     def getParamDict( self ):
         return self.model.getParamDict()
 
+    def fillParamDict( self, pd ):
+        self.model.fillParamDict( pd )
+
     def setParamDict( self, paramDict ):
         self.model.setParamDict( paramDict )
 
@@ -66,6 +69,23 @@ class Scram:
         for key, val in paramDict.items():
             paramDict[key] = np.exp( np.log( val ) + random.uniform(-log, log) )
         self.model.setParamDict( paramDict )
+
+
+    def compare( self, cmpModel, mapFile, paramDict ):
+        self.model.clear()
+        cmp = Scram( cmpModel, mapFile )
+        cpd = dict( paramDict )
+        cmp.fillParamDict( cpd )
+        # Do other stuff here if we have a param list to compare.
+        v1 = np.array( [paramDict[key] for key in sorted(paramDict)] )
+        v2 = np.array( [cpd[key] for key in sorted(paramDict)] )
+        dp = np.dot( v1, v2 ) / (np.sqrt(v1.dot(v1)) * np.sqrt(v2.dot(v2)) )
+        delta = 2*(v1 - v2) / (v1 + v2)
+        nrms1 = np.sqrt(np.dot(delta, delta) / len( delta ))
+        delta = (v1 - v2) / v1
+        nrms2 = np.sqrt(np.dot(delta, delta) / len( delta ))
+        print( "nrms1={:.3f},  nrms2={:.3f}  dp={:.3f}".format( 
+            nrms1, nrms2, dp ) )
 
 
 class MooseScram ():
@@ -130,6 +150,11 @@ class MooseScram ():
                 pd[rr.path + ".Kf"] = rr.Kf
         print( "getParamDict has {} entries".format( len( pd ) ) )
         return pd
+
+    def fillParamDict( self, pd ):
+        for key in pd:
+            obj, field = os.path.splitext( key )
+            pd[key] = moose.element( obj ).getField( field[1:] )
     
     def setParamDict( self, pd ):
         for key, val in pd.items():
@@ -146,7 +171,8 @@ class MooseScram ():
                 print( "Moose Model type not known: '{}'".format(dumpFname))
                 quit()
                 
-
+    def clear( self ):
+        moose.element( self.modelId ).name =  "cleared"
 
 
 class HTScram ( ):
@@ -188,6 +214,9 @@ class HTScram ( ):
         pd = {}
         return pd
 
+    def clear( self ):
+        return
+
 
 def main():
     """ This program accesses parameters of SBML or HillTau models to scramble them, compare them, or otherwise manipulate them.
@@ -215,6 +244,9 @@ def main():
 
     if args.outputModel:
         scram.dumpModel( args.outputModel )
+
+    if args.compare:
+        scram.compare( args.compare, args.map, pd )
 
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
