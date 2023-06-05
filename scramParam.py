@@ -76,6 +76,7 @@ class Scram:
         cmp = Scram( cmpModel, mapFile )
         cpd = dict( paramDict )
         cmp.fillParamDict( cpd )
+        cmp.model.clear()
         # Do other stuff here if we have a param list to compare.
         v1 = np.array( [paramDict[key] for key in sorted(paramDict)] )
         v2 = np.array( [cpd[key] for key in sorted(paramDict)] )
@@ -84,8 +85,7 @@ class Scram:
         nrms1 = np.sqrt(np.dot(delta, delta) / len( delta ))
         delta = (v1 - v2) / v1
         nrms2 = np.sqrt(np.dot(delta, delta) / len( delta ))
-        print( "nrms1={:.3f},  nrms2={:.3f}  dp={:.3f}".format( 
-            nrms1, nrms2, dp ) )
+        return nrms1, nrms2, dp
 
 
 class MooseScram ():
@@ -148,7 +148,7 @@ class MooseScram ():
                 pd[rr.path + ".Kb"] = rr.Kb
             if rr.Kf > 0:
                 pd[rr.path + ".Kf"] = rr.Kf
-        print( "getParamDict has {} entries".format( len( pd ) ) )
+        #print( "getParamDict has {} entries".format( len( pd ) ) )
         return pd
 
     def fillParamDict( self, pd ):
@@ -172,7 +172,11 @@ class MooseScram ():
                 quit()
                 
     def clear( self ):
-        moose.element( self.modelId ).name =  "cleared"
+        #print( self.modelId, self.modelId.path )
+        if self.modelId and moose.exists( self.modelId.path ):
+            moose.delete( self.modelId )
+            self.modelId = None
+        #moose.element( self.modelId ).name =  "cleared"
 
 
 class HTScram ( ):
@@ -228,6 +232,8 @@ def main():
     parser.add_argument( 'map', type = str, help='Required: mapping file from shortcut names to sim-specific strings. JSON format.' )
     parser.add_argument( '-p', '--paramList', type = str, nargs = '+', help='Optional: Parameters specified as obj.field [obj.field obj.field...]' )
     parser.add_argument( '-a', '--allParams', action="store_true", help='Flag: Operate on all nonzero parameters in model' )
+    parser.add_argument( '-f', '--freezeParams', type = str, nargs = '+', help='Optional: Freeze (do not vary) the listed parameters even if they turn up in the -p or -a arguments. Parameters specified as obj.field [obj.field obj.field...]' )
+    parser.add_argument( '-l', '--listParams', action="store_true", help='Flag: Count and print out number of nonzero parameters in model' )
     parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
     parser.add_argument( '-c', '--compare', type = str, help='Optional: Compare params for two models using NRMS. Argument is comparison file name.' )
     parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters.' )
@@ -239,6 +245,21 @@ def main():
     if args.allParams:
         pd = scram.getParamDict()
 
+    if args.freezeParams:
+        for ff in args.freezeParams:
+            if pd.get( ff ):
+                pd.pop( ff )
+            else:
+                print( "Warning: freezeParams did not find: ", ff )
+
+    if args.listParams:
+        pd = scram.getParamDict()
+        print( "Number of non-zero parameters = ", len( pd ) )
+        for ii, key in enumerate( sorted( pd ) ):
+            print( "{:<4d}{:65s} {:.5f}".format( ii+1, key, pd[key] ) )
+        quit()
+
+
     if args.scramble and args.scramble > 0:
         scram.scramble( pd, args.scramble )
 
@@ -246,7 +267,9 @@ def main():
         scram.dumpModel( args.outputModel )
 
     if args.compare:
-        scram.compare( args.compare, args.map, pd )
+        nrms1, nrms2, dp = scram.compare( args.compare, args.map, pd )
+        print( "nrms1={:.3f},  nrms2={:.3f}  dp={:.3f}".format( 
+            nrms1, nrms2, dp ) )
 
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
