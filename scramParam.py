@@ -34,6 +34,10 @@ import hillTau
 import sys
 import random
 
+def fsig( x ):
+    # Format floats to 4 sig fig for cleaner files
+    return float( "{:.4g}".format(x) )
+
 class Scram:
     def __init__( self, fname, mapfname ):
         self.fname = fname
@@ -184,8 +188,13 @@ class HTScram ( ):
         self.scram = scram
         self.jsonDict = hillTau.loadHillTau( scram.fname )
         #scaleParam = self.scaleNamedConsts( scaleParam )
-        qs = hillTau.getQuantityScale( self.jsonDict )
-        hillTau.scaleDict( self.jsonDict, qs )
+        self.qs = hillTau.getQuantityScale( self.jsonDict )
+        hillTau.scaleDict( self.jsonDict, self.qs )
+        #self.extendObjMap( ) # This is in simWrapHillTau
+        # and adds entries into the ObjMap if not already there
+        #self.buildModelLookup( self.objMap) # Called by parent Scram class
+        self.model = hillTau.parseModel( self.jsonDict )
+        self.onlyTau = {}   # a dict of name:flag to specify it tau==tau2
 
     def buildModelLookup( self, objMap ):
         # All Mols are keys in modelLookup, plus whatever objMap sets.
@@ -194,31 +203,88 @@ class HTScram ( ):
             v = val[0]
             self.scram.modelLookup[key] = val
 
-    '''
-    def scaleNamedConsts( self, scaleParam ):
-        constDict = self.jsonDict.get( "Constants" )
-        if constDict:
-            newScaleParam = []
-            for i in range( 0, len( scaleParam ), 3 ):
-                key = scaleParam[i]
-                val = scaleParam[i+2]
-                if key in constDict:
-                    constDict[key] = val
-                    #print( "scaling const ", key, " to ", val )
-                else:
-                    newScaleParam.append( key )
-                    newScaleParam.append( scaleParam[i+1] )
-                    newScaleParam.append( val )
-            # Reassign scaleParam with the found consts removed.
-            return newScaleParam
-        else:
-            return scaleParam
-    '''
+
+    def fillParamDict( self, pd ):
+        for key in pd:
+            obj, field = os.path.splitext( key )
+            if field == "concInit":
+                pd[key] = self.model.molInfo[obj].concInit
+            else:
+                ri = self.model.reacInfo[obj]
+                pd[key] = getattr( self.model.reacInfo[obj], field, 0.0 )
+    
+    def setParamDict( self, pd ):
+        for key, val in pd.items():
+            obj, field = os.path.splitext( key )
+            field = field[1:]
+            print( "setParam {}.{} to {}".format( obj, field, val ) )
+            if field == "concInit":
+                self.model.molInfo[obj].concInit = val
+            else:
+                setattr( self.model.reacInfo[obj], field, val )
+                if (field == "tau") and self.onlyTau[obj]: #Same tau2
+                    self.model.reacInfo[obj].tau2 = val
+
+    def ht2dict( self ):
+        for key, val in self.model.molInfo.items():
+            if val.concInit > 0.0:
+               self.jsonDict["Groups"][val.grp]["Species"][val.name] = fsig( val.concInit )
+        for key, val in self.model.reacInfo.items():
+            rr = self.jsonDict["Groups"][val.grp]["Reacs"][val.name]
+            rr["KA"] = fsig( val.KA )
+            rr["tau"] = fsig( val.tau )
+            if fsig( val.tau ) != fsig( val.tau2 ):
+                rr[ "tau2" ] = fsig( val.tau2 )
+            if val.baseline > 0.0:
+                rr[ "baseline" ] = fsig( val.baseline )
+            if val.gain != 1.0:
+                rr[ "gain" ] = fsig( val.gain )
+            if (len(val.subs ) > 2) and (val.subs[-1] != val.subs[1]):
+                rr[ "Kmod" ] = fsig( val.Kmod )
+                rr[ "Amod" ] = fsig( val.Amod )
+
+    def dumpModel( self, dumpFname ):
+        if len(dumpFname) > 2:
+            f, extn = os.path.splitext( dumpFname )
+            if extn == '.json':
+                self.ht2dict()
+                hillTau.scaleDict( self.jsonDict, 1.0 / self.qs )
+
+                with open( dumpFname, 'w') as f:
+                    json.dump( self.jsonDict, f, indent = 4)
+            else:
+                print("HillTau file type not known: '{}'".format(dumpFname))
+                quit()
+
+
     def getParamDict( self ):
         pd = {}
+        for key, val in self.model.molInfo.items():
+            rr = self.model.reacInfo.get( key )
+            if (val.concInit > 0.0) and not( rr ):
+                pd[ key + ".concInit" ] = val.concInit
+            if rr:
+                if rr.isBuffered:
+                    pd[ key + ".concInit" ] = val.concInit
+                    continue
+                pd[ key + ".KA" ] = rr.KA
+                pd[ key + ".tau" ] = rr.tau
+                if rr.tau != rr.tau2:
+                    pd[ key + ".tau2" ] = rr.tau2
+                    self.onlyTau[key] = False
+                else:
+                    self.onlyTau[key] = True
+                if rr.baseline > 0.0:
+                    pd[ key + ".baseline" ] = rr.baseline
+                if rr.gain != 1.0:
+                    pd[ key + ".gain" ] = rr.gain
+                if (len(rr.subs ) > 2) and (rr.subs[-1] != rr.subs[1]):
+                    pd[ key + ".Kmod" ] = rr.Kmod
+                    pd[ key + ".Amod" ] = rr.Amod
         return pd
 
     def clear( self ):
+        # deleting the Python object will clear it.
         return
 
 
@@ -256,7 +322,7 @@ def main():
         pd = scram.getParamDict()
         print( "Number of non-zero parameters = ", len( pd ) )
         for ii, key in enumerate( sorted( pd ) ):
-            print( "{:<4d}{:65s} {:.5f}".format( ii+1, key, pd[key] ) )
+            print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd[key] ) )
         quit()
 
 
