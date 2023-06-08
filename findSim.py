@@ -389,7 +389,7 @@ class Readout:
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
-    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType,dumpPlots, bigFont = False):
+    def displayPlots( self, fname, modelLookup, stims,  readoutentities, hideSubplots, exptType,dumpPlots, bigFont = False):
         if self.isPlotOnly:
             separator = ":"
         else:
@@ -476,7 +476,11 @@ class Readout:
                 if dumpPlots:
                     with open(dumpPlots, "a") as fs:
                         for ploti in range(0,len(xpts)):
-                            fs.write("%s,%s,%s\n" % (xpts[ploti],ypts[ploti],pp.ylabel[0:pp.ylabel.index(" ")]))
+                            if (pp.ylabel[0:pp.ylabel.index(" ")]==readoutentities[0]):
+                                #readoutentities molecule will be scaled and not the rest
+                                fs.write("%s,%s,%s,%s\n" % (xpts[ploti],ypts[ploti]*scale,pp.ylabel[0:pp.ylabel.index(" ")],scale))
+                            else:
+                                fs.write("%s,%s,%s,%s\n" % (xpts[ploti],ypts[ploti],pp.ylabel[0:pp.ylabel.index(" ")],scale))
                 if not self.isPlotOnly :
                     sumvec += ypts
                     if not hideSubplots:
@@ -1423,7 +1427,7 @@ def main():
     parser.add_argument( '-map', '--map', type = str, help='Optional: mapping file from tsv names to sim-specific strings. JSON format.', default = "" )
     #parser.add_argument( '-schema', '--schema', type = str, help='Optional: Schema for json version of the findSim experiment definition. JSON format.', default = "findSimSchema.json" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
-    parser.add_argument( '-dp', '--dump_plots', type = str, help='Optional: dump plots to file', default = "" )
+    parser.add_argument( '-dp', '--dump_plots', type = str, help='Optional: dump plots to file, default works only for TimeSeries Experiment', default = "" )
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
     parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
@@ -1461,8 +1465,11 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     readouts.tabulateOutput = tabulateOutput
     readouts.generate = generate
 
+    if dumpPlots != "" and expt.exptType != 'timeseries':
+        print("Only Time Series Experiment plots are saved")
+
     if mapFile != "":
-    	mapFile = mapFile
+        mapFile = mapFile
     else:
         mapFile = expt.testMap
         
@@ -1525,8 +1532,8 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         readoutVec = [readouts]
         if plots:
             if expt.exptType == "timeseries":
+                uniqueentity = []
                 for i in plots:
-                    uniqueentity = []
                     sp = i.split( "." ) # entity.field
                     entity = model._tempModelLookup.get( sp[0] )
                     if not entity:
@@ -1536,7 +1543,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                         print("Field missing. Specify plot item as entity.field:", sp)
                         continue
                     if entity not in uniqueentity:
-                        uniqueentity.append(entity)
+                        uniqueentity.append(entity[0])
                         #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
                         readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
             else:
@@ -1575,16 +1582,17 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             readouts.plotdt = readouts.plotDt[:readouts.numMainPlots]
         elapsedTime = time.time() - t0
 
-        if not hidePlot or dumpPlots:
-            if not dumpPlots:
-                if os.path.exists(dumpPlots):
-                    os.remove(dumpPlots)
-                with open(dumpPlots, "a") as fs:
-                    fs.write("Time,Value,Name\n")
-                    fs.close()
+        if not hidePlot or dumpPlots != "":
+            if dumpPlots != "":
+                if expt.exptType == "timeseries":
+                    if os.path.exists(dumpPlots):
+                        os.remove(dumpPlots)
+                    with open(dumpPlots, "a") as fs:
+                        fs.write("Time,Value,Name,scale\n")
+                        fs.close()
                 
             for rd in readoutVec:
-                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType,dumpPlots, bigFont = bigFont)
+                rd.displayPlots( exptFile, model._tempModelLookup, stims, readouts.entities,hideSubplots, expt.exptType,dumpPlots, bigFont = bigFont)
         if not hidePlot:
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
             plt.show()
