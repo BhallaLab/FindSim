@@ -207,6 +207,7 @@ class HTScram ( ):
     def fillParamDict( self, pd ):
         for key in pd:
             obj, field = os.path.splitext( key )
+            field = field[1:]
             if field == "concInit":
                 pd[key] = self.model.molInfo[obj].concInit
             else:
@@ -217,7 +218,7 @@ class HTScram ( ):
         for key, val in pd.items():
             obj, field = os.path.splitext( key )
             field = field[1:]
-            print( "setParam {}.{} to {}".format( obj, field, val ) )
+            #print( "setParam {}.{} to {}".format( obj, field, val ) )
             if field == "concInit":
                 self.model.molInfo[obj].concInit = val
             else:
