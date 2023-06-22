@@ -68,10 +68,16 @@ class Scram:
     def dumpModel( self, dumpFname ):
         self.model.dumpModel( dumpFname )
 
-    def scramble( self, paramDict, scrambleRange ):
+    def logLinScramble( self, paramDict, scrambleRange ):
         log = np.log( scrambleRange )
         for key, val in paramDict.items():
             paramDict[key] = np.exp( np.log( val ) + random.uniform(-log, log) )
+        self.model.setParamDict( paramDict )
+
+    def normScramble( self, paramDict, scrambleRange ):
+        log = np.log( scrambleRange )
+        for key, val in paramDict.items():
+            paramDict[key] = np.exp( np.log( val ) + random.normal(0.0, log) )
         self.model.setParamDict( paramDict )
 
 
@@ -288,6 +294,47 @@ class HTScram ( ):
         # deleting the Python object will clear it.
         return
 
+def matchParamByName( path, name ):
+    '''
+    Looks for a match of the specified object name in a full object path.
+    Returns True if there is a match.
+
+    The typical Moose object path is something like 
+        /model[0]/kinetics[0]/EGFR[0]/EGFR[0]. 
+    Suppose we wanted to match EGFR. We want it to look up the final part 
+    of the string, ignoring all the earlier portions, and stripping out the
+    [0]. 
+    Here is a problematic (but common) case. Suppose we wanted the enzyme 
+    site on PKC: 
+        /model[0]/kinetics[0]/PKC[0]/PKC[0]/enz
+    But there is also an enzyme site on PKA.
+        /model[0]/kinetics[0]/PKA[0]/PKA[0]/enz
+    To disambiguate, we permit specification by longer strings with the "/"
+    separators, such as "PKC/enz"
+    In the case of HillTau the naming is simpler and all molecules and 
+    reactions have a unique name.
+    '''
+    if len( path.split(".") ) > 1: # It has fields
+        pField = path.split(".")[-1]
+        nField = name.split(".")[-1]
+        if pField != nField:
+            return False
+        path = path[:-len(pField)-1]
+        name = name[:-len(pField)-1]
+
+    spPath = path.split( "/" )
+    spName = name.split( "/" )
+    if len( spName ) > len( spPath ):
+        return False
+    for ii, nn in enumerate( reversed(spName ) ):
+        p = spPath[-ii - 1]
+        pp = p[:-3] if p[-3:] == "[0]" else p
+        if pp != nn:
+            return False
+    return True
+
+
+
 
 def main():
     """ This program accesses parameters of SBML or HillTau models to scramble them, compare them, or otherwise manipulate them.
@@ -301,7 +348,8 @@ def main():
     parser.add_argument( '-a', '--allParams', action="store_true", help='Flag: Operate on all nonzero parameters in model' )
     parser.add_argument( '-f', '--freezeParams', type = str, nargs = '+', help='Optional: Freeze (do not vary) the listed parameters even if they turn up in the -p or -a arguments. Parameters specified as obj.field [obj.field obj.field...]' )
     parser.add_argument( '-l', '--listParams', action="store_true", help='Flag: Count and print out number of nonzero parameters in model' )
-    parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
+    parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
+    parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
     parser.add_argument( '-c', '--compare', type = str, help='Optional: Compare params for two models using NRMS. Argument is comparison file name.' )
     parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters.' )
 
@@ -314,9 +362,13 @@ def main():
 
     if args.freezeParams:
         for ff in args.freezeParams:
-            if pd.get( ff ):
-                pd.pop( ff )
-            else:
+            popped = False
+            for pp in pd:
+                if matchParamByName( pp, ff ):
+                    pd.pop( pp )
+                    popped = True
+                    break;
+            if not popped:
                 print( "Warning: freezeParams did not find: ", ff )
 
     if args.listParams:
@@ -326,9 +378,11 @@ def main():
             print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd[key] ) )
         quit()
 
+    if args.logLinScramble and args.logLinScramble > 0:
+        scram.logLinScramble( pd, args.logLinScramble )
 
     if args.scramble and args.scramble > 0:
-        scram.scramble( pd, args.scramble )
+        scram.normScramble( pd, args.normScramble )
 
     if args.outputModel:
         scram.dumpModel( args.outputModel )
