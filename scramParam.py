@@ -32,7 +32,6 @@ import json
 import moose
 import hillTau
 import sys
-import random
 
 def fsig( x ):
     # Format floats to 4 sig fig for cleaner files
@@ -71,13 +70,13 @@ class Scram:
     def logLinScramble( self, paramDict, scrambleRange ):
         log = np.log( scrambleRange )
         for key, val in paramDict.items():
-            paramDict[key] = np.exp( np.log( val ) + random.uniform(-log, log) )
+            paramDict[key] = np.exp( np.log( val ) + np.random.uniform(-log, log) )
         self.model.setParamDict( paramDict )
 
     def normScramble( self, paramDict, scrambleRange ):
         log = np.log( scrambleRange )
         for key, val in paramDict.items():
-            paramDict[key] = np.exp( np.log( val ) + random.normal(0.0, log) )
+            paramDict[key] = np.exp( np.log( val ) + np.random.normal(0.0, log) )
         self.model.setParamDict( paramDict )
 
 
@@ -382,7 +381,7 @@ def main():
         scram.logLinScramble( pd, args.logLinScramble )
 
     if args.scramble and args.scramble > 0:
-        scram.normScramble( pd, args.normScramble )
+        scram.normScramble( pd, args.scramble )
 
     if args.outputModel:
         scram.dumpModel( args.outputModel )
