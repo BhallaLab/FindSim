@@ -17,8 +17,8 @@
 
 '''
 *******************************************************************
- * File:            scramParam.py
- * Description:     Utility to scramble model parameters
+ * File:            simdiff.py
+ * Description:     Utility to compare model entities and parameters
  * Author:          Upinder S. Bhalla
  * E-mail:          bhalla@ncbs.res.in
  *  Copyright (c) U.S. Bhalla 2023
@@ -49,7 +49,7 @@ class Scram:
         elif file_extension == ".json":
             self.model = HTScram( self )
         else:
-            print( "Error, model has to be either SBML (.xml) or HillTau (.json)" )
+            print( "Error, model has to be either SBML (.xml), kkit (.g) or HillTau (.json)" )
 
         with open( mapfname ) as fd:
             self.objMap = json.load( fd )
@@ -281,10 +281,10 @@ def matchParamByName( path, name ):
 
 
 def main():
-    """ This program accesses parameters of SBML or HillTau models to scramble them, compare them, or otherwise manipulate them.
+    """ This program compares ODE or HillTau models.
     """
-    parser = argparse.ArgumentParser( description = 'scramParam argument parser.\n'
-    'This program loads a kinetic model, and compares or scrambles the parameters\n')
+    parser = argparse.ArgumentParser( description = 'simdiff argument parser.\n'
+    'This program loads two kinetic models, and compares them for presence of entities and for values of parameters\n')
 
     parser.add_argument( 'model', type = str, help='Required: filename of first model, which can be SBML, .g or HillTau.')
     parser.add_argument( 'map', type = str, help='Required: mapping file from shortcut names to sim-specific strings. JSON format.' )
@@ -299,9 +299,9 @@ def main():
     scram.model.clear()
 
     if args.listParams:
-        print( "Number of non-zero parameters = ", len( pd ) )
-        for ii, key in enumerate( sorted( pd ) ):
-            print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd[key] ) )
+        print( "Number of non-zero parameters = ", len( pd1 ) )
+        for ii, key in enumerate( sorted( pd1 ) ):
+            print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd1[key] ) )
         quit()
 
 
