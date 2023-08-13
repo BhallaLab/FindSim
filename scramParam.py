@@ -79,24 +79,6 @@ class Scram:
             paramDict[key] = np.exp( np.log( val ) + np.random.normal(0.0, log) )
         self.model.setParamDict( paramDict )
 
-
-    def compare( self, cmpModel, mapFile, paramDict ):
-        self.model.clear()
-        cmp = Scram( cmpModel, mapFile )
-        cpd = dict( paramDict )
-        cmp.fillParamDict( cpd )
-        cmp.model.clear()
-        # Do other stuff here if we have a param list to compare.
-        v1 = np.array( [paramDict[key] for key in sorted(paramDict)] )
-        v2 = np.array( [cpd[key] for key in sorted(paramDict)] )
-        dp = np.dot( v1, v2 ) / (np.sqrt(v1.dot(v1)) * np.sqrt(v2.dot(v2)) )
-        delta = 2*(v1 - v2) / (v1 + v2)
-        nrms1 = np.sqrt(np.dot(delta, delta) / len( delta ))
-        delta = (v1 - v2) / v1
-        nrms2 = np.sqrt(np.dot(delta, delta) / len( delta ))
-        return nrms1, nrms2, dp
-
-
 class MooseScram ():
     def __init__( self, scram ):
         self.scram = scram
@@ -336,7 +318,7 @@ def matchParamByName( path, name ):
 
 
 def main():
-    """ This program accesses parameters of SBML or HillTau models to scramble them, compare them, or otherwise manipulate them.
+    """ This program accesses parameters of SBML or HillTau models to scramble them.
     """
     parser = argparse.ArgumentParser( description = 'scramParam argument parser.\n'
     'This program loads a kinetic model, and compares or scrambles the parameters\n')
@@ -349,8 +331,8 @@ def main():
     parser.add_argument( '-l', '--listParams', action="store_true", help='Flag: Count and print out number of nonzero parameters in model' )
     parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
     parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
-    parser.add_argument( '-c', '--compare', type = str, help='Optional: Compare params for two models using NRMS. Argument is comparison file name.' )
     parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters.' )
+    parser.add_argument( '-n', '--numOutputModels', type = int, help='Optional: number of scrambled models to generate. Default = 1.', default = 1 )
 
     args = parser.parse_args()
 
@@ -377,19 +359,27 @@ def main():
             print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd[key] ) )
         quit()
 
-    if args.logLinScramble and args.logLinScramble > 0:
-        scram.logLinScramble( pd, args.logLinScramble )
-
-    if args.scramble and args.scramble > 0:
-        scram.normScramble( pd, args.scramble )
-
+    origParamDict = dict( pd ) # Make the reference copy.
     if args.outputModel:
-        scram.dumpModel( args.outputModel )
+        fname, fext = os.path.splitext( args.outputModel )
+    else:
+        fname, fext = os.path.splitext( args.model )
+        fname = "o_" + fname
 
-    if args.compare:
-        nrms1, nrms2, dp = scram.compare( args.compare, args.map, pd )
-        print( "nrms1={:.3f},  nrms2={:.3f}  dp={:.3f}".format( 
-            nrms1, nrms2, dp ) )
+    for idx in range( args.numOutputModels ):
+        pd = dict( origParamDict ) # Restore to orig params
+        if args.logLinScramble and args.logLinScramble > 0:
+            scram.logLinScramble( pd, args.logLinScramble )
+        elif args.scramble and args.scramble > 0:
+            scram.normScramble( pd, args.scramble )
+        else:
+            print( "Error: Must specify either scramble or logLinScramble options" )
+            quit()
+
+        if args.numOutputModels == 1:
+            scram.dumpModel( "{}{}".format( fname, fext ) )
+        else:
+            scram.dumpModel( "{}_{:03d}{}".format( fname, idx, fext ) )
 
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
