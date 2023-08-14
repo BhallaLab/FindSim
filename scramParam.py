@@ -38,10 +38,8 @@ def fsig( x ):
     return float( "{:.4g}".format(x) )
 
 class Scram:
-    def __init__( self, fname, mapfname ):
+    def __init__( self, fname ):
         self.fname = fname
-        self.mapfname = mapfname
-        self.modelLookup = {}
         fileName, file_extension = os.path.splitext( fname )
         self.file_extension = file_extension
         if file_extension in [".xml", ".sbml", ".g"]:
@@ -50,10 +48,6 @@ class Scram:
             self.model = HTScram( self )
         else:
             print( "Error, model has to be either SBML (.xml) or HillTau (.json)" )
-
-        with open( mapfname ) as fd:
-            self.objMap = json.load( fd )
-        self.model.buildModelLookup( self.objMap )
 
     def getParamDict( self ):
         return self.model.getParamDict()
@@ -86,13 +80,7 @@ class MooseScram ():
             self.modelId, errormsg = moose.readSBML( scram.fname, 'model', 'ee' )
         elif scram.file_extension == '.g':
             self.modelId = moose.loadModel( scram.fname, 'model', 'ee' )
-
-    def buildModelLookup( self, objMap ):
-        for key, paths in objMap.items():
-            foundObj = [ self.findObj( p, noRaise = True ) for p in paths ]
-            foundObj = [ j.path for j in foundObj if j.name != '/' ]
-            if len( foundObj ) > 0:
-                self.scram.modelLookup[key] = foundObj
+        self.modelPath = self.modelId.path + "/kinetics"
 
     def findObj( self, uname, noRaise = False ):
         '''
@@ -128,17 +116,21 @@ class MooseScram ():
         pools = moose.wildcardFind( self.modelId.path +'/##[ISA=PoolBase]' )
         enzs = moose.wildcardFind( self.modelId.path +'/##[ISA=EnzBase]' )
         reacs = moose.wildcardFind( self.modelId.path +'/##[ISA=Reac]' )
+        parentLen = len( self.modelId.path + "/kinetics[0]" )
         for pp in pools:
+            ppath = pp.path[parentLen:].replace( "[0]", "" )
             if pp.concInit > 0.0:
-                pd[pp.path + ".concInit"] = pp.concInit
+                pd[ppath + ".concInit"] = pp.concInit
         for ee in enzs:
-            pd[ee.path + ".kcat"] = ee.kcat
-            pd[ee.path + ".Km"] = ee.Km
+            epath = ee.path[ parentLen: ].replace( "[0]", "")
+            pd[epath + ".kcat"] = ee.kcat
+            pd[epath + ".Km"] = ee.Km
         for rr in reacs:
+            rpath = rr.path[ parentLen: ].replace( "[0]", "")
             if rr.Kb > 0:
-                pd[rr.path + ".Kb"] = rr.Kb
+                pd[rpath + ".Kb"] = rr.Kb
             if rr.Kf > 0:
-                pd[rr.path + ".Kf"] = rr.Kf
+                pd[rpath + ".Kf"] = rr.Kf
         #print( "getParamDict has {} entries".format( len( pd ) ) )
         return pd
 
@@ -150,7 +142,8 @@ class MooseScram ():
     def setParamDict( self, pd ):
         for key, val in pd.items():
             obj, field = os.path.splitext( key )
-            moose.element( obj ).setField( field[1:], val )
+            #print( self.modelPath + obj, field )
+            moose.element( self.modelPath + obj ).setField( field[1:], val )
 
     def dumpModel( self, dumpFname ):
         if len(dumpFname) > 2:
@@ -174,22 +167,10 @@ class HTScram ( ):
     def __init__( self, scram ):
         self.scram = scram
         self.jsonDict = hillTau.loadHillTau( scram.fname )
-        #scaleParam = self.scaleNamedConsts( scaleParam )
         self.qs = hillTau.getQuantityScale( self.jsonDict )
         hillTau.scaleDict( self.jsonDict, self.qs )
-        #self.extendObjMap( ) # This is in simWrapHillTau
-        # and adds entries into the ObjMap if not already there
-        #self.buildModelLookup( self.objMap) # Called by parent Scram class
         self.model = hillTau.parseModel( self.jsonDict )
         self.onlyTau = {}   # a dict of name:flag to specify it tau==tau2
-
-    def buildModelLookup( self, objMap ):
-        # All Mols are keys in modelLookup, plus whatever objMap sets.
-        # We ensure that only valid objects are keys.
-        for key, val in objMap.items():
-            v = val[0]
-            self.scram.modelLookup[key] = val
-
 
     def fillParamDict( self, pd ):
         for key in pd:
@@ -302,6 +283,7 @@ def matchParamByName( path, name ):
             return False
         path = path[:-len(pField)-1]
         name = name[:-len(pField)-1]
+        #print( path, name )
 
     spPath = path.split( "/" )
     spName = name.split( "/" )
@@ -315,33 +297,26 @@ def matchParamByName( path, name ):
     return True
 
 
+def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None ):
 
+    scram = Scram( inputModel )
 
-def main():
-    """ This program accesses parameters of SBML or HillTau models to scramble them.
-    """
-    parser = argparse.ArgumentParser( description = 'scramParam argument parser.\n'
-    'This program loads a kinetic model, and compares or scrambles the parameters\n')
+    # paramDict has {key = obj.field: value = value}
+    pd = scram.getParamDict()   # Get all parameters by default.
 
-    parser.add_argument( 'model', type = str, help='Required: filename of model, which can be SBML, .g or HillTau.')
-    parser.add_argument( 'map', type = str, help='Required: mapping file from shortcut names to sim-specific strings. JSON format.' )
-    parser.add_argument( '-p', '--paramList', type = str, nargs = '+', help='Optional: Parameters specified as obj.field [obj.field obj.field...]' )
-    parser.add_argument( '-a', '--allParams', action="store_true", help='Flag: Operate on all nonzero parameters in model' )
-    parser.add_argument( '-f', '--freezeParams', type = str, nargs = '+', help='Optional: Freeze (do not vary) the listed parameters even if they turn up in the -p or -a arguments. Parameters specified as obj.field [obj.field obj.field...]' )
-    parser.add_argument( '-l', '--listParams', action="store_true", help='Flag: Count and print out number of nonzero parameters in model' )
-    parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
-    parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
-    parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters.' )
-    parser.add_argument( '-n', '--numOutputModels', type = int, help='Optional: number of scrambled models to generate. Default = 1.', default = 1 )
+    # Restrict to those in paramList if specified.
+    npd = {}
+    if paramList and len( paramList ) > 0:
+        for pp in pd:
+            for pl in paramList:
+                if matchParamByName( pp, pl ):
+                    npd[pp] = pd[pp]
+        if len( npd ) < len( paramList ):
+            print( "Warning: paramList has entries not present in model, using: ", npd )
+        pd = npd
 
-    args = parser.parse_args()
-
-    scram = Scram( args.model, args.map )
-
-    if args.allParams:
-        pd = scram.getParamDict()
-
-    if args.freezeParams:
+    # Drop those in freezeParams if specified.
+    if freezeParams:
         for ff in args.freezeParams:
             popped = False
             for pp in pd:
@@ -352,35 +327,54 @@ def main():
             if not popped:
                 print( "Warning: freezeParams did not find: ", ff )
 
-    if args.listParams:
-        pd = scram.getParamDict()
-        print( "Number of non-zero parameters = ", len( pd ) )
-        for ii, key in enumerate( sorted( pd ) ):
-            print( "{:<4d}{:65s} {:.3g}".format( ii+1, key, pd[key] ) )
-        quit()
-
     origParamDict = dict( pd ) # Make the reference copy.
-    if args.outputModel:
-        fname, fext = os.path.splitext( args.outputModel )
+    if outputModel:
+        fname, fext = os.path.splitext( outputModel )
     else:
-        fname, fext = os.path.splitext( args.model )
+        fname, fext = os.path.splitext( inputModel )
         fname = "o_" + fname
 
-    for idx in range( args.numOutputModels ):
+    for idx in range( numOutputModels ):
         pd = dict( origParamDict ) # Restore to orig params
-        if args.logLinScramble and args.logLinScramble > 0:
-            scram.logLinScramble( pd, args.logLinScramble )
-        elif args.scramble and args.scramble > 0:
-            scram.normScramble( pd, args.scramble )
+        if isLogNorm:
+            scram.normScramble( pd, scramRange )
         else:
-            print( "Error: Must specify either scramble or logLinScramble options" )
-            quit()
+            scram.logLinScramble( pd, scramRange )
 
-        if args.numOutputModels == 1:
+        if numOutputModels == 1:
             scram.dumpModel( "{}{}".format( fname, fext ) )
         else:
             scram.dumpModel( "{}_{:03d}{}".format( fname, idx, fext ) )
 
+def main():
+    """ This program accesses parameters of SBML or HillTau models to scramble them.
+    """
+    parser = argparse.ArgumentParser( description = 'This program loads a kinetic model, and compares or scrambles the parameters. By default it looks at all non-zero parameters.\n')
+
+    parser.add_argument( 'model', type = str, help='Required: filename of model, which can be SBML, .g or HillTau.')
+    parser.add_argument( '-p', '--paramList', type = str, nargs = '+', help='Optional: Restrict scramble parameters to those specified as obj.field [obj.field obj.field...]' )
+    parser.add_argument( '-f', '--freezeParams', type = str, nargs = '+', help='Optional: Remove listed parameters from set to scramble. Params defined ase obj.field [obj.field obj.field...]' )
+    parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
+    parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
+    parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters. If not specified, it uses the input model file name with the prefix "o_". If there are multiple output files it indexes them with a suffix "_N" where N is a 3-digit number, zero padded on the left, such as "_015."' )
+    parser.add_argument( '-n', '--numOutputModels', type = int, help='Optional: number of scrambled models to generate. Default = 1.', default = 1 )
+
+    args = parser.parse_args()
+    if args.scramble:
+        scramRange = args.scramble
+        isLogNorm = True
+    elif args.logLinScramble:
+        scramRange = args.logLinScramble
+        isLogNorm = False
+    else:
+        print( "Error: must define scramble range either through 'scramble' or through 'logLinScramble' keywords" )
+        quit()
+
+    generateScrambled( args.model, args.outputModel, args.numOutputModels,
+            args.paramList, scramRange, isLogNorm, args.freezeParams )
+
+
 # Run the 'main' if this script is executed standalone.
 if __name__ == '__main__':
     main()
+
