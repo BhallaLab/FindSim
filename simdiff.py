@@ -331,7 +331,7 @@ def main():
     numDiff = 0
     for pp, vv in pd1.items():
         vv2 = pd2.get( pp )
-        if vv2 and ( not math.isclose( vv, vv2 ) ):
+        if vv2 and ( not math.isclose( vv, vv2, rel_tol = 5e-4 ) ):
             numDiff += 1
             print( "{:<4d}{:49s}{:<13.4g}{:<13.4g}".format( numDiff, pp, vv, vv2 ) )
     if numDiff == 0:
