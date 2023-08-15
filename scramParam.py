@@ -135,9 +135,10 @@ class MooseScram ():
         return pd
 
     def fillParamDict( self, pd ):
+        basepath = self.modelId.path + "/kinetics"
         for key in pd:
             obj, field = os.path.splitext( key )
-            pd[key] = moose.element( obj ).getField( field[1:] )
+            pd[key] = moose.element( basepath + obj ).getField( field[1:] )
     
     def setParamDict( self, pd ):
         for key, val in pd.items():
@@ -297,6 +298,7 @@ def matchParamByName( path, name ):
     return True
 
 
+
 def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None ):
 
     scram = Scram( inputModel )
@@ -346,6 +348,19 @@ def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scra
         else:
             scram.dumpModel( "{}_{:03d}{}".format( fname, idx, fext ) )
 
+def mergeModels( inputModel, insertModel, outputModel, paramList ):
+    scram2 = Scram( insertModel )
+    pd2 = { pp:0.0 for pp in paramList }
+    scram2.fillParamDict( pd2 )
+    scram2.model.clear()
+
+    scram1 = Scram( inputModel )
+    pd1 = scram1.getParamDict()   # Get all parameters
+    # Now replace params with those from pd2
+    scram1.setParamDict( pd2 )
+    scram1.dumpModel( "{}".format( outputModel ) )
+    scram1.model.clear()
+
 def main():
     """ This program accesses parameters of SBML or HillTau models to scramble them.
     """
@@ -357,9 +372,19 @@ def main():
     parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
     parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
     parser.add_argument( '-o', '--outputModel', type = str, help='Optional: File name for output model to save with scrambled parameters. If not specified, it uses the input model file name with the prefix "o_". If there are multiple output files it indexes them with a suffix "_N" where N is a 3-digit number, zero padded on the left, such as "_015."' )
+    parser.add_argument( '-i', '--insertModel', type = str, help='Optional: File name for insert model whose parameters have to be inserted (merged) into the first model. Only the parameters in the paramList are inserted. If this option is used then no scrambling is done, hence -n, -s, and -ls options are ignored.' )
     parser.add_argument( '-n', '--numOutputModels', type = int, help='Optional: number of scrambled models to generate. Default = 1.', default = 1 )
 
     args = parser.parse_args()
+
+    if args.insertModel:
+        if not (args.paramList and args.outputModel):
+            print( "Error: to insert a model we need the paramList of params to insert, and the outputModel into which the merged model should be saved." )
+            quit()
+        mergeModels( args.model, args.insertModel, args.outputModel,
+            args.paramList )
+        quit()
+
     if args.scramble:
         scramRange = args.scramble
         isLogNorm = True
