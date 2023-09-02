@@ -280,6 +280,7 @@ def matchParamByName( path, name ):
     if len( path.split(".") ) > 1: # It has fields
         pField = path.split(".")[-1]
         nField = name.split(".")[-1]
+        #print( "PF, NF = ", pField, nField )
         if pField != nField:
             return False
         path = path[:-len(pField)-1]
@@ -288,11 +289,13 @@ def matchParamByName( path, name ):
 
     spPath = path.split( "/" )
     spName = name.split( "/" )
+    #print( "#################", spPath, spName )
     if len( spName ) > len( spPath ):
         return False
     for ii, nn in enumerate( reversed(spName ) ):
         p = spPath[-ii - 1]
         pp = p[:-3] if p[-3:] == "[0]" else p
+        #print( "#################", pp, spPath[-ii - 1], nn )
         if pp != nn:
             return False
     return True
@@ -304,10 +307,24 @@ def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scra
     scram = Scram( inputModel )
 
     # paramDict has {key = obj.field: value = value}
-    pd = scram.getParamDict()   # Get all parameters by default.
+    allParamDict = scram.getParamDict()   # Get all parameters by default.
+    l2ParamDict = {pp.rsplit("/")[-1]:val for pp, val in allParamDict.items() }
+    l3ParamDict = {pp.rsplit("/")[-1]:val for pp, val in l2ParamDict.items() }
 
     # Restrict to those in paramList if specified.
-    npd = {}
+    pd = {}
+    #print( "PPPPPPPPPPPPPPPPPP = ", paramList, len( paramList ) )
+    #print( "DDDDDDDDDDDDDDDDDD = ", allParamDict, len( allParamDict ) )
+    for pp in paramList:
+        if pp in allParamDict:
+            pd[pp] = allParamDict[pp]
+        elif pp in l2ParamDict:
+            pd[pp] = l2ParamDict[pp]
+        elif pp in l3ParamDict:
+            pd[pp] = l3ParamDict[pp]
+        else:
+            print( "Warning: {} from paramList not present in model".format( pp) )
+    '''
     if paramList and len( paramList ) > 0:
         for pp in pd:
             for pl in paramList:
@@ -315,7 +332,8 @@ def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scra
                     npd[pp] = pd[pp]
         if len( npd ) < len( paramList ):
             print( "Warning: paramList has entries not present in model, using: ", npd )
-        pd = npd
+    '''
+    #print( "PPPPPPPPPPPPPPPPPP2 = ", pd, len( pd ) )
 
     # Drop those in freezeParams if specified.
     if freezeParams:
