@@ -40,11 +40,12 @@ import time
 if __package__ is None or __package__ == '':
 	from simError import SimError
 	from simWrap import SimWrap
-
+	import hillTau
 else:
 	from FindSim.simError import SimError
 	from FindSim.simWrap import SimWrap
-
+	import hilltau as hillTau
+	
 SIGSTR = "{:.4g}" # Used for dumping JSON files.
 
 class SimWrapHillTau( SimWrap ):
