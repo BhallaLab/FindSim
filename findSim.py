@@ -51,11 +51,32 @@ if sys.version_info < (3, 4):
     import imp               # This is apparently deprecated in Python 3.4 and up
 else:
     import importlib      
-
+'''
 from simError import SimError
 import simWrap
 import simWrapMoose
 import simWrapHillTau
+'''
+
+foundLib_HillTau_ = False
+try:
+    import hillTau
+    foundLib_HillTau_ = True
+except Exception as e:
+    pass
+
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import  SimWrap
+    from simWrapMoose import SimWrapMoose
+    if foundLib_HillTau_:
+        from simWrapHillTau import SimWrapHillTau
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
+    from FindSim.simWrapMoose import SimWrapMoose
+    if foundLib_HillTau_:
+        from FindSim.simWrapHillTau import SimWrapHillTau
 
 convertTimeUnits = {'sec': 1.0,'s': 1.0, 
         'ms': 1e-3, 'millisec': 1e-3, 'msec' : 1e-3, 
@@ -1337,9 +1358,9 @@ def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
     # does a fresh load, tweaks the params, and saves.
     fname, extn = os.path.splitext( dumpFname )
     if extn == '.g' or extn == '.xml':
-        localSW = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+        localSW = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = True, silent = True )
     elif extn == '.json':
-        localSW = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+        localSW = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = True, silent = True )
     else:
         print( "Warning: dumpTweakedModel: File format '{}' not known".format( extn ) )
         return
@@ -1394,9 +1415,9 @@ def runit( expt, model, stims, readouts, getPlots = False ):
 def getInitParams( modelFile, mapFile, paramList ):
     # ParamList as strings of objpath.field 
     if modelFile.split('.')[-1] == "json":
-        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+        sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False )
     else:
-        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False )
 
     sw.deleteSimulation()
     sw.loadModelFile( modelFile, silentDummyModify, [], "", "" )
@@ -1457,7 +1478,7 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     readouts.generate = generate
 
     if mapFile != "":
-    	mapFile = mapFile
+        mapFile = mapFile
     else:
         mapFile = expt.testMap
         
@@ -1468,9 +1489,18 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     if model.fileName.split('.')[-1] == "json":
         simWrap = "HillTau"
     if simWrap == "":
-        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
     elif simWrap == "HillTau":
-        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+        global foundLib_HillTau_
+        if not foundLib_HillTau_:
+            print('[WARN] No HillTau found.'
+                '\nThis module can be installed by using `pip` in terminal:'
+                '\n\t $ pip install HillTau'
+                )
+            return
+        else:
+            sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+            
     else:
         sw = simWrap.SimWrap( ignoreMissingObj = ignoreMissingObj )
     model.pauseHsolve = PauseHsolve( optimizeElec )

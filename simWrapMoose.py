@@ -32,9 +32,32 @@ import ntpath
 import numpy as np
 import moose
 import sys
-import imp  ## May be deprecated from Python 3.4
-from simWrap import SimWrap 
-from simError import SimError
+
+# import imp  ## May be deprecated from Python 3.4
+# from simWrap import SimWrap 
+# from simError import SimError
+
+
+if sys.version_info < (3, 4):
+    import imp      # This is apparently deprecated in Python 3.4 and up
+else:
+    import importlib   
+
+foundLib_HillTau_ = False
+
+try:
+    import hilltau
+    foundLib_HillTau_ = True
+except Exception as e:
+    pass
+
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import SimWrap
+
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
 
 MINIMUM_TAU = 1e-3     # Do not permit excessively fast chem time consts.
 MINIMUM_TAU_RATIO = 1e-2  # Do not permit excessively large change in tau.
@@ -291,7 +314,7 @@ class SimWrapMoose( SimWrap ):
                 self.modelLookup[key] = foundObj
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ): # modify arg is a func
-	#This list holds the entire models Reac/Enz sub/prd list for reference
+    #This list holds the entire models Reac/Enz sub/prd list for reference
         if moose.exists( '/model' ):
             raise SimError( "loadModelFile: Model already exists" )
         erSPlist = {}
