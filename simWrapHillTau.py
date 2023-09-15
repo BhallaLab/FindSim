@@ -31,11 +31,21 @@ import os
 import json
 import numpy as np
 import moose
-from simWrap import SimWrap 
-from simError import SimError
-import hillTau
+
+# from simWrap import SimWrap 
+# from simError import SimError
+# import hillTau
 import time
 
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import SimWrap
+    import hillTau
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
+    import hilltau as hillTau
+    
 SIGSTR = "{:.4g}" # Used for dumping JSON files.
 
 class SimWrapHillTau( SimWrap ):
