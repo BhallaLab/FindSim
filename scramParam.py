@@ -49,11 +49,11 @@ class Scram:
         else:
             print( "Error, model has to be either SBML (.xml) or HillTau (.json)" )
 
-    def getParamDict( self ):
-        return self.model.getParamDict()
+    def getParamDict( self, includeZero = False ):
+        return self.model.getParamDict( includeZero )
 
     def fillParamDict( self, pd ):
-        self.model.fillParamDict( pd )
+        return self.model.fillParamDict( pd )
 
     def setParamDict( self, paramDict ):
         self.model.setParamDict( paramDict )
@@ -72,6 +72,12 @@ class Scram:
         for key, val in paramDict.items():
             paramDict[key] = np.exp( np.log( val ) + np.random.normal(0.0, log) )
         self.model.setParamDict( paramDict )
+    def findObjPath( self, uname, noRaise = False ):
+        return self.model.findObjPath( uname, noRaise )
+
+    def clear( self):
+        self.model.clear()
+
 
 class MooseScram ():
     def __init__( self, scram ):
@@ -80,11 +86,11 @@ class MooseScram ():
             self.modelId, errormsg = moose.readSBML( scram.fname, 'model', 'ee' )
         elif scram.file_extension == '.g':
             self.modelId = moose.loadModel( scram.fname, 'model', 'ee' )
-        self.modelPath = self.modelId.path + "/kinetics"
+        self.kinPath = self.modelId.path + "/kinetics"
 
-    def findObj( self, uname, noRaise = False ):
+    def findObjPath( self, uname, noRaise = False ):
         '''
-        Model:: findObj locates objects uniquely specified by a string. 
+        Model:: findObjPath locates objects uniquely specified by a string. 
         The object can be located at any depth in the model tree.
         The identifier string typically consists of the name of an object,
         but it may be necessary to disambiguate it by including its parent
@@ -93,33 +99,41 @@ class MooseScram ():
         have to pass "zod/bar" to uniquely specify the object.
         '''
         #name = uname.encode( 'ascii' )
+        parentLen = len( self.modelId.path + "/kinetics[0]" )
         name = uname
         rootpath = self.modelId.path
         try1 = moose.wildcardFind( rootpath+'/' + name )
         try2 = moose.wildcardFind( rootpath+'/##/' + name )
         try2 = [ i for i in try2 if not '/model[0]/plots[0]' in i.path ]  
         if len( try1 ) + len( try2 ) > 1:
-            raise SimError( "findObj: ambiguous name: '{}'".format(name) )
+            raise NameError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
             if noRaise:
-                return moose.element('/')
+                return '/'
             else:
                 print( "findObj: No object found on '{}' named: '{}'".format( rootpath, name) )
                 quit()
         if len( try1 ) == 1:
-            return try1[0]
+            #print( "TRY1 = ", try1[0].path )
+            return try1[0].path[parentLen:].replace( "[0]", "" )
         else:
-            return try2[0]
+            #print( "TRY2 = ", try2[0].path )
+            return try2[0].path[parentLen:].replace( "[0]", "" )
 
-    def getParamDict( self ):
+    def getParamDict( self, includeZero = False ):
+        """
+        Returns dict of {objectPath.field : value} for all params in model.
+        It leaves out parameters with value zero unless includeZero is True.
+        """
         pd = {}
         pools = moose.wildcardFind( self.modelId.path +'/##[ISA=PoolBase]' )
         enzs = moose.wildcardFind( self.modelId.path +'/##[ISA=EnzBase]' )
         reacs = moose.wildcardFind( self.modelId.path +'/##[ISA=Reac]' )
         parentLen = len( self.modelId.path + "/kinetics[0]" )
+        #print( "self.modelId.path", self.modelId.path, self.kinPath )
         for pp in pools:
             ppath = pp.path[parentLen:].replace( "[0]", "" )
-            if pp.concInit > 0.0:
+            if includeZero or pp.concInit > 0.0:
                 pd[ppath + ".concInit"] = pp.concInit
         for ee in enzs:
             epath = ee.path[ parentLen: ].replace( "[0]", "")
@@ -127,24 +141,29 @@ class MooseScram ():
             pd[epath + ".Km"] = ee.Km
         for rr in reacs:
             rpath = rr.path[ parentLen: ].replace( "[0]", "")
-            if rr.Kb > 0:
+            if includeZero or rr.Kb > 0:
                 pd[rpath + ".Kb"] = rr.Kb
-            if rr.Kf > 0:
+            if includeZero or rr.Kf > 0:
                 pd[rpath + ".Kf"] = rr.Kf
         #print( "getParamDict has {} entries".format( len( pd ) ) )
         return pd
 
-    def fillParamDict( self, pd ):
-        basepath = self.modelId.path + "/kinetics"
-        for key in pd:
+    def fillParamDict( self, paramList ):
+        """
+        Returns dict of {objectPath.field : value} for listedParams.
+        """
+        pd = {}
+        for key in paramList:
             obj, field = os.path.splitext( key )
-            pd[key] = moose.element( basepath + obj ).getField( field[1:] )
+            #print( "FILLPA", self.kinPath, obj, field )
+            pd[key] = moose.element( self.kinPath + obj ).getField( field[1:] )
+        return pd
     
     def setParamDict( self, pd ):
         for key, val in pd.items():
             obj, field = os.path.splitext( key )
-            #print( self.modelPath + obj, field )
-            moose.element( self.modelPath + obj ).setField( field[1:], val )
+            #print( "Set Param Dict:   ", self.kinPath + obj, field, val )
+            moose.element( self.kinPath + obj ).setField( field[1:], val )
 
     def dumpModel( self, dumpFname ):
         if len(dumpFname) > 2:
@@ -173,8 +192,9 @@ class HTScram ( ):
         self.model = hillTau.parseModel( self.jsonDict )
         self.onlyTau = {}   # a dict of name:flag to specify it tau==tau2
 
-    def fillParamDict( self, pd ):
-        for key in pd:
+    def fillParamDict( self, paramList ):
+        pd = {}
+        for key in paramList:
             obj, field = os.path.splitext( key )
             field = field[1:]
             if field == "concInit":
@@ -182,6 +202,7 @@ class HTScram ( ):
             else:
                 ri = self.model.reacInfo[obj]
                 pd[key] = getattr( self.model.reacInfo[obj], field, 0.0 )
+        return pd
     
     def setParamDict( self, pd ):
         for key, val in pd.items():
@@ -227,11 +248,11 @@ class HTScram ( ):
                 quit()
 
 
-    def getParamDict( self ):
+    def getParamDict( self, includeZero = False ):
         pd = {}
         for key, val in self.model.molInfo.items():
             rr = self.model.reacInfo.get( key )
-            if (val.concInit > 0.0) and not( rr ):
+            if (includeZero or val.concInit > 0.0) and not( rr ):
                 pd[ key + ".concInit" ] = val.concInit
             if rr:
                 if rr.isBuffered:
@@ -244,7 +265,7 @@ class HTScram ( ):
                     self.onlyTau[key] = False
                 else:
                     self.onlyTau[key] = True
-                if rr.baseline > 0.0:
+                if includeZero or rr.baseline > 0.0:
                     pd[ key + ".baseline" ] = rr.baseline
                 if rr.gain != 1.0:
                     pd[ key + ".gain" ] = rr.gain
@@ -253,101 +274,77 @@ class HTScram ( ):
                     pd[ key + ".Amod" ] = rr.Amod
         return pd
 
+    def findObjPath( self, uname, noRaise = False ):
+        return uname
+
     def clear( self ):
         # deleting the Python object will clear it.
         return
 
-def matchParamByName( path, name ):
-    '''
-    Looks for a match of the specified object name in a full object path.
-    Returns True if there is a match.
+def lookupParamList( mapFile, paramList, scram ):
+    """ Returns list of params using sim-specific path.field format.
+    Also opens and returns mapFile as a dict.
+    If paramList is None, then returns all params.
+    """
+    if not mapFile:
+        return paramList, None
+    if mapFile.split('.')[-1] != 'json':
+        raise ImportError( "Map file '{}' not in JSON format".format(mapFile) )
+    try: 
+        with open( mapFile ) as json_file:
+            m1 = json.load( json_file )
+            m2 = {}
+            for key, val in m1.items():
+                #print("key = ", key, " val = ", val )
+                objPath = scram.findObjPath( str( val[0] ) )
+                #print("objPath  = ", objPath )
+                m2[ str(key) ] = objPath
+            if not paramList:   # return all params
+                return list(scram.getParamDict()), m2
+            ret = lookupListFromMap( m2, paramList )
+            # print( "M2 = ", m2 )
+            return ret, m2
+    except FileNotFoundError:
+        print( "Map file '{}' not found".format(mapFile) )
+        quit()
+        #raise ImportError( "Map file '{}' not found".format(mapFile) )
+    except Exception as e:
+        print( "Some other error: ", e)
+        quit()
 
-    The typical Moose object path is something like 
-        /model[0]/kinetics[0]/EGFR[0]/EGFR[0]. 
-    Suppose we wanted to match EGFR. We want it to look up the final part 
-    of the string, ignoring all the earlier portions, and stripping out the
-    [0]. 
-    Here is a problematic (but common) case. Suppose we wanted the enzyme 
-    site on PKC: 
-        /model[0]/kinetics[0]/PKC[0]/PKC[0]/enz
-    But there is also an enzyme site on PKA.
-        /model[0]/kinetics[0]/PKA[0]/PKA[0]/enz
-    To disambiguate, we permit specification by longer strings with the "/"
-    separators, such as "PKC/enz"
-    In the case of HillTau the naming is simpler and all molecules and 
-    reactions have a unique name.
-    '''
-    if len( path.split(".") ) > 1: # It has fields
-        pField = path.split(".")[-1]
-        nField = name.split(".")[-1]
-        #print( "PF, NF = ", pField, nField )
-        if pField != nField:
-            return False
-        path = path[:-len(pField)-1]
-        name = name[:-len(pField)-1]
-        #print( path, name )
-
-    spPath = path.split( "/" )
-    spName = name.split( "/" )
-    #print( "#################", spPath, spName )
-    if len( spName ) > len( spPath ):
-        return False
-    for ii, nn in enumerate( reversed(spName ) ):
-        p = spPath[-ii - 1]
-        pp = p[:-3] if p[-3:] == "[0]" else p
-        #print( "#################", pp, spPath[-ii - 1], nn )
-        if pp != nn:
-            return False
-    return True
+def lookupListFromMap( mapDict, paramList ):
+    ret = []
+    for pp in paramList:
+        objName, field = os.path.splitext( pp )
+        mm = mapDict.get( objName )
+        if mm:
+            ret.append( mm + field )
+    return ret
 
 
-
-def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None ):
+def generateScrambled( inputModel, mapFile, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None ):
 
     scram = Scram( inputModel )
 
     # paramDict has {key = obj.field: value = value}
-    allParamDict = scram.getParamDict()   # Get all parameters by default.
-    l2ParamDict = {pp.rsplit("/")[-1]:val for pp, val in allParamDict.items() }
-    l3ParamDict = {pp.rsplit("/")[-1]:val for pp, val in l2ParamDict.items() }
-
-    # Restrict to those in paramList if specified.
-    pd = {}
-    #print( "PPPPPPPPPPPPPPPPPP = ", paramList, len( paramList ) )
-    #print( "DDDDDDDDDDDDDDDDDD = ", allParamDict, len( allParamDict ) )
-    for pp in paramList:
-        if pp in allParamDict:
-            pd[pp] = allParamDict[pp]
-        elif pp in l2ParamDict:
-            pd[pp] = l2ParamDict[pp]
-        elif pp in l3ParamDict:
-            pd[pp] = l3ParamDict[pp]
-        else:
-            print( "Warning: {} from paramList not present in model".format( pp) )
-    '''
-    if paramList and len( paramList ) > 0:
-        for pp in pd:
-            for pl in paramList:
-                if matchParamByName( pp, pl ):
-                    npd[pp] = pd[pp]
-        if len( npd ) < len( paramList ):
-            print( "Warning: paramList has entries not present in model, using: ", npd )
-    '''
-    #print( "PPPPPPPPPPPPPPPPPP2 = ", pd, len( pd ) )
+    innerParamList, mapDict = lookupParamList( mapFile, paramList, scram )
+    #print( "NUM PARAMS = ", len( innerParamList ), len( mapDict ) )
 
     # Drop those in freezeParams if specified.
     if freezeParams:
-        for ff in args.freezeParams:
-            popped = False
-            for pp in pd:
-                if matchParamByName( pp, ff ):
-                    pd.pop( pp )
-                    popped = True
-                    break;
-            if not popped:
+        innerFreezeParams = lookupListFromMap( mapDict, freezeParams )
+        #print( mapDict )
+        #print( innerFreezeParams )
+        for ff in innerFreezeParams:
+            #print( "FFFFFFFFFFFF ",  ff )
+            if ff in innerParamList:
+                innerParamList.remove( ff )
+            else:
                 print( "Warning: freezeParams did not find: ", ff )
 
-    origParamDict = dict( pd ) # Make the reference copy.
+    #print( innerParamList )
+    origParamDict = scram.fillParamDict( innerParamList ) # Reference copy.
+    #print( origParamDict )
     if outputModel:
         fname, fext = os.path.splitext( outputModel )
     else:
@@ -366,10 +363,11 @@ def generateScrambled( inputModel, outputModel, numOutputModels, paramList, scra
         else:
             scram.dumpModel( "{}_{:03d}{}".format( fname, idx, fext ) )
 
-def mergeModels( inputModel, insertModel, outputModel, paramList ):
+def mergeModels( inputModel, mapFile, insertModel, outputModel, paramList ):
     scram2 = Scram( insertModel )
-    pd2 = { pp:0.0 for pp in paramList }
-    scram2.fillParamDict( pd2 )
+    innerParamList, mapDict = lookupParamList( mapFile, paramList, scram2 )
+    #pd2 = { pp:0.0 for pp in innerParamList }
+    pd2 = scram2.fillParamDict( innerParamList )
     scram2.model.clear()
 
     scram1 = Scram( inputModel )
@@ -385,7 +383,8 @@ def main():
     parser = argparse.ArgumentParser( description = 'This program loads a kinetic model, and compares or scrambles the parameters. By default it looks at all non-zero parameters.\n')
 
     parser.add_argument( 'model', type = str, help='Required: filename of model, which can be SBML, .g or HillTau.')
-    parser.add_argument( '-p', '--paramList', type = str, nargs = '+', help='Optional: Restrict scramble parameters to those specified as obj.field [obj.field obj.field...]' )
+    parser.add_argument( '-map', "--map", type = str, help='Optional: filename of mapfile, which is a json file. If not specified it assumes that the parameters directly look up internal model definitions.')
+    parser.add_argument( '-p', '--paramList', type = str, nargs = '+', help='Optional: Restrict scramble parameters to those specified as obj.field [obj.field obj.field...]. Default: use all parameters.' )
     parser.add_argument( '-f', '--freezeParams', type = str, nargs = '+', help='Optional: Remove listed parameters from set to scramble. Params defined ase obj.field [obj.field obj.field...]' )
     parser.add_argument( '-s', '--scramble', type = float, help='Optional: Scramble parameters logarithmically over normal distrib with specified range. The width of the normal distribution is the log of the specified range.' )
     parser.add_argument( '-ls', '--logLinScramble', type = float, help='Optional: Scramble parameters logarithmically over specified range. If range is x, then the parameter is scaled between 1/x to x fold of its original value.' )
@@ -399,8 +398,8 @@ def main():
         if not (args.paramList and args.outputModel):
             print( "Error: to insert a model we need the paramList of params to insert, and the outputModel into which the merged model should be saved." )
             quit()
-        mergeModels( args.model, args.insertModel, args.outputModel,
-            args.paramList )
+        mergeModels( args.model, args.map, args.insertModel, 
+            args.outputModel, args.paramList )
         quit()
 
     if args.scramble:
@@ -413,8 +412,9 @@ def main():
         print( "Error: must define scramble range either through 'scramble' or through 'logLinScramble' keywords" )
         quit()
 
-    generateScrambled( args.model, args.outputModel, args.numOutputModels,
-            args.paramList, scramRange, isLogNorm, args.freezeParams )
+    generateScrambled( args.model, args.map, args.outputModel, 
+            args.numOutputModels, args.paramList, scramRange, 
+            isLogNorm, args.freezeParams )
 
 
 # Run the 'main' if this script is executed standalone.

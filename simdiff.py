@@ -56,8 +56,8 @@ class Scram:
             self.objMap = json.load( fd )
         self.model.buildModelLookup( self.objMap )
 
-    def getParamDict( self ):
-        return self.model.getParamDict()
+    def getParamDict( self, includeZero = False ):
+        return self.model.getParamDict( includeZero )
 
     def fillParamDict( self, pd ):
         self.model.fillParamDict( pd )
@@ -67,8 +67,15 @@ class Scram:
         v1 = np.array( [pd1[key] for key in matchKeys ] )
         v2 = np.array( [pd2[key] for key in matchKeys ] )
         dp = np.dot( v1, v2 ) / (np.sqrt(v1.dot(v1)) * np.sqrt(v2.dot(v2)) )
-        delta = 2*(v1 - v2) / (v1 + v2)
+        vsum = v1 + v2
+        v1 = v1[vsum>0]
+        v2 = v2[vsum>0]
+        vsum = vsum[vsum>0]
+        #delta = 2*(v1 - v2) / (v1 + v2)
+        delta = 2*(v1 - v2) / vsum
         nrms1 = np.sqrt(np.dot(delta, delta) / len( delta ))
+        v2 = v2[v1>0]
+        v1 = v1[v1>0]
         delta = (v1 - v2) / v1
         nrms2 = np.sqrt(np.dot(delta, delta) / len( delta ))
         return nrms1, nrms2, 1.0 - dp
@@ -118,7 +125,7 @@ class MooseScram ():
             return try2[0]
 
 
-    def getParamDict( self ):
+    def getParamDict( self, includeZero = False ):
         pd = {}
         objSet = set(())
         pools = moose.wildcardFind( self.modelId.path +'/##[ISA=PoolBase]' )
@@ -127,7 +134,7 @@ class MooseScram ():
         parentLen = len( self.modelId.path + "/kinetics[0]" )
         for pp in pools:
             ppath = pp.path[parentLen:].replace( "[0]", "" )
-            if pp.concInit > 0.0:
+            if includeZero or pp.concInit > 0.0:
                 pd[ppath + ".concInit"] = pp.concInit
             objSet.add( ppath )
         for ee in enzs:
@@ -137,9 +144,9 @@ class MooseScram ():
             objSet.add( epath )
         for rr in reacs:
             rpath = rr.path[ parentLen: ].replace( "[0]", "")
-            if rr.Kb > 0:
+            if includeZero or rr.Kb > 0:
                 pd[rpath + ".Kb"] = rr.Kb
-            if rr.Kf > 0:
+            if includeZero or rr.Kf > 0:
                 pd[rpath + ".Kf"] = rr.Kf
             objSet.add( rpath )
         #print( "getParamDict has {} entries".format( len( pd ) ) )
@@ -207,13 +214,13 @@ class HTScram ( ):
                 rr[ "Kmod" ] = fsig( val.Kmod )
                 rr[ "Amod" ] = fsig( val.Amod )
 
-    def getParamDict( self ):
+    def getParamDict( self, includeZero = False ):
         pd = {}
         objSet = set(())
         for key, val in self.model.molInfo.items():
             objSet.add( key )
             rr = self.model.reacInfo.get( key )
-            if (val.concInit > 0.0) and not( rr ):
+            if (includeZero or val.concInit > 0.0) and not( rr ):
                 pd[ key + ".concInit" ] = val.concInit
             if rr:
                 if rr.isBuffered:
@@ -226,7 +233,7 @@ class HTScram ( ):
                     self.onlyTau[key] = False
                 else:
                     self.onlyTau[key] = True
-                if rr.baseline > 0.0:
+                if includeZero or rr.baseline > 0.0:
                     pd[ key + ".baseline" ] = rr.baseline
                 if rr.gain != 1.0:
                     pd[ key + ".gain" ] = rr.gain
@@ -296,7 +303,7 @@ def main():
     args = parser.parse_args()
 
     scram = Scram( args.model, args.map )
-    pd1, os1 = scram.getParamDict()
+    pd1, os1 = scram.getParamDict( includeZero = True )
     scram.model.clear()
 
     if args.listParams:
@@ -309,7 +316,7 @@ def main():
     map2 = args.map2 if args.map2 else args.map
 
     scram2 = Scram( args.model2, map2 )
-    pd2, os2 = scram2.getParamDict()
+    pd2, os2 = scram2.getParamDict( includeZero = True )
     scram2.model.clear()
 
     diff = os1.difference(os2)
