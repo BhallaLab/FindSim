@@ -363,6 +363,8 @@ def generateScrambled( inputModel, mapFile, outputModel, numOutputModels, paramL
         else:
             scram.dumpModel( "{}_{:03d}{}".format( fname, idx, fext ) )
 
+    scram.clear()
+
 def mergeModels( inputModel, mapFile, insertModel, outputModel, paramList ):
     scram2 = Scram( insertModel )
     innerParamList, mapDict = lookupParamList( mapFile, paramList, scram2 )
