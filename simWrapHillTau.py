@@ -117,8 +117,12 @@ class SimWrapHillTau( SimWrap ):
                 dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
-        # This operates at the level of the JSON dict. We then have to
-        # rebuild the model.
+        # This accumulates a list of objects to delete, which is then
+        # applied to the model once it is built.
+        # Note that we silently ignore requests to delete nonexistent 
+        # objects, or objects that are missing from the map.
+        # Logic is that if the object doesn't exist here, it doesn't matter
+        # if the experiment wants to delete it for some other model.
         for ( _entity, change ) in itemsToDelete:
             if change != 'delete':
                 continue
@@ -129,18 +133,21 @@ class SimWrapHillTau( SimWrap ):
             if objList:
                 for obj in objList:
                     self.deleteList.append( obj )
-            elif self.ignoreMissingObj:
+            else:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::deleteItems: entity '{}' not found".format( _entity ) )
-            else:
-                raise SimError( "SimWrapHillTau::deleteItems: Entity '{}' not found".format( _entity ) )
 
     def subsetItems( self, _modelSubset ):
         # This builds up a 'saveList' of items to be preserved for
         # calculation.
         # If a subset entry is a group, save all its reactions and eqns.
         # If a subset entry is a reaction or eqn, save it.
-        # Don't need to delete anything, just disable unused reacs.
+        # If a subset doesn't exist in the model, ignore the request
+        # without raising an error.
+        # The reasoning is that the subsetted object is implicitly there,
+        # so it is safe as long as we don't try to assign anything to it.
+        # If we try to use it as a stim or readout other functions will
+        # flag it.
         self.saveList = []
         for i in _modelSubset:
             objList = self.modelLookup.get(i)
@@ -151,12 +158,9 @@ class SimWrapHillTau( SimWrap ):
                 # The modifySched func recognizes if i is the parent grp
                 self.saveList.append( i ) 
                 # Could do recursive stuff here if need groups in groups.
-
-            elif self.ignoreMissingObj:
+            else:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
-            else:
-                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( i ) )
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -166,26 +170,50 @@ class SimWrapHillTau( SimWrap ):
         simWrapHillTau::changeParams( self, params )
         This changes param values. 
         It operates directly on the json dict.
-        It is meant to be called BEFORE the modelLookup is built.
+        It is meant to be called AFTER the modelLookup is built. It needs
+        to look up and convert names from the expt file to the model Json.
+        It does some nasty things for assignments to eqns, which only
+        permit string assignments in the hillTau schema.
+        If the modified object doesn't exist in the model, raise an error.
         '''
-        for ( entity, field, value) in params:
+        for ( exptEntity, field, value) in params:
+            mm = self.modelLookup.get( exptEntity )
+            if not mm:
+                raise SimError( "SimWrapHillTau::changeParams: '{}' not found on lookup.".format( exptEntity ) )
+            entity = mm[0]
+            #print( "changing entity {} to {}.{}={}".format( exptEntity, entity, field, value ) )
             for jg in self.jsonDict["Groups"].values():
                 if field == "conc" or field == "concInit":
-                    s = jg.get( "Species" )
-                    if s and entity in s:
-                        s[entity] = value
-                        #print("Changing {} of '{}' to {}".format( field, entity, value ) )
+                    #print("Trying {} of '{}' to {}".format( field, entity, value ) )
+                    rr = jg.get( "Reacs" )
+                    if rr and entity in rr:
+                        rr[entity]["concInit"] = value
+                        #print("Changing reac {} of '{}' to {}".format( field, entity, value ) )
+                        continue
+                    ss = jg.get( "Species" )
+                    if ss and entity in ss:
+                        ss[entity] = value
+                        #print("Changing species {} of '{}' to {}".format( field, entity, value ) )
+                        continue
+                    ee = jg.get( "Eqns" )
+                    if ee and entity in ee:
+                        ee[entity] = "concInit=" + str( value )
+                        #print("Changing eqn {} of '{}' to {}".format( field, entity, ee[entity] ) )
+                        continue
                 elif field == "isBuffered" and value == 1:
                     r = jg.get( "Reacs" )
                     if r and entity in r:
                         # This simply removes the entity from the eval queue
                         # self.deleteList.append( entity )
                         r[entity]["isBuffered"] = 1
+                        continue
                         #self.setField( entity, "isBuffered",  1 )
                     else:
                         e = jg.get( "Eqns" )
                         if e and entity in e:
-                            self.deleteList.append( entity )
+                            continue
+                            # Ignore it. We assume that if it is buffered then concInit is set or is going to be set.
+                            #self.deleteList.append( entity )
                     #if len( self.deleteList ) > 0:
                     #    self.model.modifySched( saveList = [], deleteList = self.deleteList )
 
@@ -236,7 +264,6 @@ class SimWrapHillTau( SimWrap ):
             scaleParam = self.scaleNamedConsts( scaleParam )
             qs = hillTau.getQuantityScale( self.jsonDict )
             hillTau.scaleDict( self.jsonDict, qs )
-            self.extendObjMap() # Extends objects from jsonDict into objMap
             # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
             self.buildModelLookup( self.objMap ) 
             modifyFunc( {}, "" ) # Callback.
@@ -262,25 +289,8 @@ class SimWrapHillTau( SimWrap ):
         self.loadtime += time.time() - t0
         return
 
-
-    def extendObjMap( self ):
-        om = self.objMap
-        for key, val in self.jsonDict["Groups"].items():
-            # Only put in the groups which have not been remapped.
-            if not key in om:
-                om[key] = [key]
-            if "Species" in val:
-                for i in val["Species"]:
-                    if not i in om:
-                        om[i] = [i]
-            if "Reacs" in val:
-                for i in val["Reacs"]:
-                    if not i in om:
-                        om[i] = [i]
-
     def buildModelLookup( self, objMap ):
-        # All Mols are keys in modelLookup, plus whatever objMap sets.
-        # We ensure that only valid objects are keys.
+        # Keys must refer to valid objects
         for key, val in objMap.items():
             v = val[0]
             self.modelLookup[key] = val
@@ -380,12 +390,21 @@ class SimWrapHillTau( SimWrap ):
         if field in ['conc', 'concInit']:
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
+                '''
+                idx = self.model.molInfo[objName].index
+                self.model.concInit[idx] = self.model.conc[ idx ]= value
+                print( "Setting {}[{}] concInit to {}".format( objName, idx, value ) )
+                '''
                 if field == 'conc':
                     self.model.conc[ self.model.molInfo[objName].index ]= value
                 elif field == 'concInit':
+                    #print( "Setting {} concInit to {}".format( objName, value ) )
                     self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
+        elif field == "isBuffered" and objName in self.model.eqnInfo:
+            eqn = self.model.eqnInfo[ objName ]
+            eqn.isBuffered = value
         elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod', "isBuffered"]:
             if objName in self.model.reacInfo:
                 reac = self.model.reacInfo[objName]
