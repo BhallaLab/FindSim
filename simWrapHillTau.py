@@ -81,11 +81,23 @@ class SimWrapHillTau( SimWrap ):
         if not ( scale >= 0.0 ):
             raise SimError( "scaleOneParam: {} below 0".format( scale ) )
         if field in ["conc", "concInit"]:
-            mol = self.model.molInfo[ entity ]
+            mol = self.model.molInfo.get( entity )
+            if not mol:
+                if self.silent:
+                    return
+                else:
+                    raise SimError( "scaleOneParam: Unknown mol: " + entity)
+            #mol = self.model.molInfo[ entity ]
             self.model.conc[ mol.index ]= self.model.concInit[mol.index]= scale
             self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = scale
         elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]:
-            reac = self.model.reacInfo[ entity ]
+            reac = self.model.reacInfo.get( entity )
+            if not reac:
+                if self.silent:
+                    return
+                else:
+                    raise SimError( "scaleOneParam: Unknown reac: "+entity)
+            #reac = self.model.reacInfo[ entity ]
             dictReac = self.jsonDict["Groups"][reac.grp]["Reacs"][reac.name]
             if field == "KA":
                 reac.KA = scale
@@ -271,6 +283,7 @@ class SimWrapHillTau( SimWrap ):
             self.model = hillTau.parseModel( self.jsonDict )
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
             self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
+            #self.trimModelLookup()
             self._scaleParams( scaleParam )
             '''
             for i in range( len( scaleParam ) / 6 ):
@@ -305,6 +318,19 @@ class SimWrapHillTau( SimWrap ):
             if v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo:
                 self.modelLookup[key] = val
                 print( "Setting modelLookup: ", key, "  ", val )
+    '''
+
+    '''
+    def trimModelLookup( self ):
+        temp = dict( self.modelLookup )
+        for key, val in temp.items():
+            v = val[0]
+            if not( v in self.model.grpInfo or v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo ):
+                print( " Popping, ", key, val, v )
+                self.modelLookup.pop( key )
+            if v in self.deleteList:
+                print( " Popping-----------, ", key, val, v )
+                self.modelLookup.pop( key )
     '''
 
     def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
