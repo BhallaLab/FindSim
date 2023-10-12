@@ -52,6 +52,8 @@
 			   	},
 				"species": { "type": "string" },
 				"cellType": { "type": "string" },
+				"samplePrep": { "type": "string" },
+				"sampleType": { "type": "string" },
 				"temperature": { "type": "number" },
 				"notes": { "type": "string" }
 			},
