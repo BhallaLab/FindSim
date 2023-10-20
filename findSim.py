@@ -617,8 +617,11 @@ class Readout:
             expt = d["value"] * qs
             sem = d["stderr"] * qs
             sim = sw.getObjParam( entity, str( d["field"] ) )
+            if ( sim == -2 ):
+                continue
             datarange = max( expt, sim, 1e-9 )
             if scoringFormula in ["NRMS", "nrms"]:
+                #print( "Expt={:.4g}, Sim = {:.4g}, datarange = {:.4g}".format( expt, sim, datarange ) )
                 score += (expt - sim) * (expt-sim) / (datarange*datarange)
             else: 
                 score += eval( scoringFormula )
