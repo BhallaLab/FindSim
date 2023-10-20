@@ -376,6 +376,8 @@ class SimWrapHillTau( SimWrap ):
             innerNames = self.modelLookup[name]
             for i in innerNames:
                 self.setField( i, field, qe.val )
+                if field == "conc":
+                    self.setField( i, "concInit", qe.val )
 
     def getCurrentTime( self ):
         return self.model.currentTime
@@ -506,6 +508,9 @@ class SimWrapHillTau( SimWrap ):
             if isSilent:
                 return -2.0
             raise SimError( "SimWrapHillTau::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elms ) ) )
+        if field == "Kd":   # Assume mapping to KA.
+            return self.getField( elms[0], "KA" )
+
         return self.getField( elms[0], field )
 
 
