@@ -1395,7 +1395,11 @@ def loadJson( fname, mapFile ):
 
     with open( fs ) as _schema:
         schema = json.load( _schema )
-    jsonschema.validate( findsim, schema )
+    try:
+        jsonschema.validate( findsim, schema )
+    except jsonschema.exceptions.ValidationError:
+        print( "Failed to validate findSim file {}".format( fname ) )
+        raise
     expt = Experiment( findsim["Metadata"], findsim["Experiment"] )
     stims = Stimulus.load( findsim ) # Stimuli are an optional argument
     readouts = Readout( findsim )
