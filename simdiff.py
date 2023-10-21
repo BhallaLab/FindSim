@@ -112,7 +112,7 @@ class MooseScram ():
         try2 = moose.wildcardFind( rootpath+'/##/' + name )
         try2 = [ i for i in try2 if not '/model[0]/plots[0]' in i.path ]  
         if len( try1 ) + len( try2 ) > 1:
-            raise SimError( "findObj: ambiguous name: '{}'".format(name) )
+            raise NameError( "findObj: ambiguous name: '{}'".format(name) )
         if len( try1 ) + len( try2 ) == 0:
             if noRaise:
                 return moose.element('/')
