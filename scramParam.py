@@ -155,6 +155,13 @@ class MooseScram ():
         pd = {}
         for key in paramList:
             obj, field = os.path.splitext( key )
+            # Hack to deal with lack of Kd and tau in Reac fields.
+            # Assume that if I'm tweaking Kd I will usually also have tau.
+            # Assume further that if I'm tweaking tau I want both Kb and Kf.
+            if field == ".Kd":
+                field = ".Kb"
+            elif field == ".tau":
+                field = ".Kf"
             #print( "FILLPA", self.kinPath, obj, field )
             pd[key] = moose.element( self.kinPath + obj ).getField( field[1:] )
         return pd
@@ -162,6 +169,13 @@ class MooseScram ():
     def setParamDict( self, pd ):
         for key, val in pd.items():
             obj, field = os.path.splitext( key )
+            # Hack to deal with lack of Kd and tau in Reac fields.
+            # Assume that if I'm tweaking Kd I will usually also have tau.
+            # Assume further that if I'm tweaking tau I want both Kb and Kf.
+            if field == ".Kd":
+                field = ".Kb"
+            elif field == ".tau":
+                field = ".Kf"
             #print( "Set Param Dict:   ", self.kinPath + obj, field, val )
             moose.element( self.kinPath + obj ).setField( field[1:], val )
 
@@ -316,8 +330,10 @@ def lookupListFromMap( mapDict, paramList ):
     ret = []
     for pp in paramList:
         objName, field = os.path.splitext( pp )
+        #print( "LookupListFromMap: {}    {}".format( objName, field ) )
         mm = mapDict.get( objName )
         if mm:
+            #print( "Got mm: {}".format( mm+ field ) )
             ret.append( mm + field )
     return ret
 
@@ -370,6 +386,15 @@ def mergeModels( inputModel, mapFile, insertModel, outputModel, paramList ):
     innerParamList, mapDict = lookupParamList( mapFile, paramList, scram2 )
     #pd2 = { pp:0.0 for pp in innerParamList }
     pd2 = scram2.fillParamDict( innerParamList )
+    '''
+    print( "ParamDict from insertModel input={} insert={} out={}".format( inputModel, insertModel, outputModel ) )
+    for key, val in mapDict.items():
+        print( "mm = {}:{}".format(key, val ) )
+    for ii in innerParamList:
+        print( "ii = ", ii )
+    for pp, val in pd2.items():
+        print( "pp = ", pp, val )
+    '''
     scram2.model.clear()
 
     scram1 = Scram( inputModel )
