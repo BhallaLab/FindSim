@@ -205,6 +205,11 @@ class HTScram ( ):
         hillTau.scaleDict( self.jsonDict, self.qs )
         self.model = hillTau.parseModel( self.jsonDict )
         self.onlyTau = {}   # a dict of name:flag to specify it tau==tau2
+        for key, val in self.model.reacInfo.items():
+            if val.tau != val.tau2:
+                self.onlyTau[key] = False
+            else:
+                self.onlyTau[key] = True
 
     def fillParamDict( self, paramList ):
         pd = {}
@@ -261,14 +266,15 @@ class HTScram ( ):
                 print("HillTau file type not known: '{}'".format(dumpFname))
                 quit()
 
-
     def getParamDict( self, includeZero = False ):
         pd = {}
         for key, val in self.model.molInfo.items():
+            print( "key = ", key )
             rr = self.model.reacInfo.get( key )
             if (includeZero or val.concInit > 0.0) and not( rr ):
                 pd[ key + ".concInit" ] = val.concInit
             if rr:
+                print( "RR = ", key )
                 if rr.isBuffered:
                     pd[ key + ".concInit" ] = val.concInit
                     continue
@@ -276,9 +282,9 @@ class HTScram ( ):
                 pd[ key + ".tau" ] = rr.tau
                 if rr.tau != rr.tau2:
                     pd[ key + ".tau2" ] = rr.tau2
-                    self.onlyTau[key] = False
-                else:
-                    self.onlyTau[key] = True
+                    #self.onlyTau[key] = False      Set this at init now
+                #else:
+                    #self.onlyTau[key] = True        Set this at init now
                 if includeZero or rr.baseline > 0.0:
                     pd[ key + ".baseline" ] = rr.baseline
                 if rr.gain != 1.0:
