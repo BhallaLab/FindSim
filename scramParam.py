@@ -269,12 +269,10 @@ class HTScram ( ):
     def getParamDict( self, includeZero = False ):
         pd = {}
         for key, val in self.model.molInfo.items():
-            print( "key = ", key )
             rr = self.model.reacInfo.get( key )
             if (includeZero or val.concInit > 0.0) and not( rr ):
                 pd[ key + ".concInit" ] = val.concInit
             if rr:
-                print( "RR = ", key )
                 if rr.isBuffered:
                     pd[ key + ".concInit" ] = val.concInit
                     continue
@@ -344,7 +342,7 @@ def lookupListFromMap( mapDict, paramList ):
     return ret
 
 
-def generateScrambled( inputModel, mapFile, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None ):
+def generateScrambled( inputModel, mapFile, outputModel, numOutputModels, paramList, scramRange, isLogNorm = True, freezeParams = None, ignoreMissingFreeze = False ):
 
     scram = Scram( inputModel )
 
@@ -361,7 +359,7 @@ def generateScrambled( inputModel, mapFile, outputModel, numOutputModels, paramL
             #print( "FFFFFFFFFFFF ",  ff )
             if ff in innerParamList:
                 innerParamList.remove( ff )
-            else:
+            elif not ignoreMissingFreeze:
                 print( "Warning: freezeParams did not find: ", ff )
 
     #print( innerParamList )
