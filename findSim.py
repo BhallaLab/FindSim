@@ -403,7 +403,7 @@ class Readout:
             # Treat the output as all zeroes in this case.
             self.simData = [0.0] * len( ref )
             #raise SimError( "runDoser: Normalization3 failed due to zero denominator" )
-            print( "Warning: runDoser: Normalization3 failed due to zero denominator" )
+            print( "Warning: runDoser: Normalization3 failed due to zero denominator: ", str( min( ref ) ) )
             return
 
 
@@ -616,7 +616,7 @@ class Readout:
             qs = convertQuantityUnits[ d["units"] ]
             expt = d["value"] * qs
             sem = d["stderr"] * qs
-            sim = sw.getObjParam( entity, str( d["field"] ) )
+            sim = sw.getObjParam( entity, str( d["field"] ), isSilent = True )
             if ( sim == -2 ):
                 continue
             datarange = max( expt, sim, 1e-9 )
@@ -1128,12 +1128,16 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
 
     if readouts.useNormalization and readouts.normMode == "each":
         if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
-            raise SimError( "runDoser: Normalization1 failed due to zero denominator" )
-        readouts.simData = [ x/y for x, y in zip(readouts.simData, readouts.ratioData) ]
+            #raise SimError( "runDoser: Normalization1 failed due to zero denominator: " + str( min( readouts.ratioData ) ) )
+            print( "runDoser: Normalization1 failed due to zero denominator: " + str( min( readouts.ratioData ) ) )
+        readouts.simData = [ x/y if abs(y)>= eps else 0.0 for x, y in zip(readouts.simData, readouts.ratioData) ]
     else:
         if abs(norm) < eps:
-            raise SimError( "runDoser: Normalization2 failed due to zero denominator" )
-        readouts.simData = [ x/norm for x in readouts.simData ]
+            #raise SimError( "runDoser: Normalization2 failed due to zero denominator: " + str( norm ) )
+            print( "runDoser: Normalization2 failed due to zero denominator: " + str( norm ) )
+            readouts.simData = [0.0] *len( readouts.simData )
+        else:
+            readouts.simData = [ x/norm for x in readouts.simData ]
     if getPlots or True:
         # Collect detailed time series
         readouts.plots, readouts.plotDt, readouts.numMainPlots = sw.fillPlots()

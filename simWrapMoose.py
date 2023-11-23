@@ -718,7 +718,7 @@ class SimWrapMoose( SimWrap ):
     def getObjParam( self, entity, field, isSilent = False ):
         if not entity in self.modelLookup:
             # Try to use the entity name directly, without lookup
-            foundObj = self.findObj( entity )
+            foundObj = self.findObj( entity, noRaise = True )
             if foundObj.name == '/':
                 if isSilent:
                     return -2.0
