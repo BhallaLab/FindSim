@@ -410,12 +410,13 @@ class Readout:
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
-    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False ):
+    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False, labelPos = None, deferPlot = False ):
         if self.isPlotOnly:
             separator = ":"
         else:
             separator = "."
-        plt.figure( self.entities[0] + "." + self.field )
+        if not deferPlot:
+            plt.figure( self.entities[0] + "." + self.field )
         if "doseresponse" in exptType:
             for i in stims[0].entities:
                 #elms = modelLookup[i.encode("ascii")]
@@ -425,7 +426,8 @@ class Readout:
                     raise SimError( "displayPlots 1: could not find entity '{}'".format( i ) )
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
-                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    pp.plotme( fname, pp.ylabel, joinSimPoints = True, 
+                            labelPos = labelPos )
         elif "barchart" in exptType:
             for i in self.entities:
                 #elms = modelLookup[i.encode("ascii")]
@@ -435,7 +437,7 @@ class Readout:
                     raise SimError( "displayPlots 2: could not find entity '{}'".format(i) )
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
-                    pp.plotbar( self, stims, fname )
+                    pp.plotbar( self, stims, fname, labelPos = labelPos )
         elif "timeseries" in exptType:
             tsUnits = self.quantityUnits
             '''
@@ -504,7 +506,7 @@ class Readout:
                     plt.plot( xpts, ypts )
             #plt.figure( "Main FindSim Plots" ) # Go back to original plot.
             if not self.isPlotOnly :
-                plt.plot( xpts, sumvec, 'r--' )
+                plt.plot( xpts, sumvec, 'r' )
             ylabel = pp.ylabel
             if self.field in ( Readout.epspFields + Readout.epscFields ):
                 if self.field in Readout.epspFields:
@@ -515,7 +517,8 @@ class Readout:
                 plt.figure( self.field ) # Do the EPSP in a new figure
                 if self.useNormalization:
                     ylabel = '{} Fold change'.format( self.field )
-            pp.plotme( fname, ylabel, isPlotOnly = self.isPlotOnly )
+            pp.plotme( fname, ylabel, isPlotOnly = self.isPlotOnly,
+                    labelPos = labelPos, joinSimPoints = False )
 
             ######################################
 
@@ -1299,22 +1302,27 @@ class PlotPanel:
         return ret
 
 
-    def plotbar( self, readout, stims, scriptName ):
+    def plotbar( self, readout, stims, scriptName, labelPos = None ):
+        if labelPos == None:
+            labelPos = "upper left"
         barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
-        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
-        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Expt')
+        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Sim')
         plt.xlabel( "Stimulus combinations", fontsize=self.labelFontSize)
         plt.ylabel( self.ylabel, fontsize = self.labelFontSize )
         plt.title( scriptName, fontsize = self.labelFontSize )
-        plt.legend( loc="upper left", fontsize = self.tickFontSize )
+        plt.legend( loc=labelPos, fontsize = self.tickFontSize, frameon=False )
         #ticklabels = [ i["stimulus"] for i in readout.bardata ] 
         #assert len( ticklabels ) == len( barpos )
         ticklabels = self.convertBarChartLabels( readout, stims )
         plt.xticks( barpos, ticklabels, fontsize = self.tickFontSize  )
         plt.tick_params( labelsize=self.tickFontSize )
 
-    def plotme( self, scriptName, ylabel, joinSimPoints = False, isPlotOnly = False ):
+    def plotme( self, scriptName, ylabel, joinSimPoints = False, 
+            isPlotOnly = False, labelPos = None ):
+        if labelPos == None:
+            labelPos = "upper right"
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
         plt.ylabel( ylabel, fontsize = self.labelFontSize )
         #plt.title( scriptName, fontsize = self.labelFontSize)
@@ -1334,19 +1342,19 @@ class PlotPanel:
         ss = self.sim[:nx]
         if self.useXlog:
             if self.useYlog:
-                plt.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.loglog( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.loglog( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.loglog( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
             else:
-                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogx( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.semilogx( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
         else:
             if self.useYlog:
-                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogy( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.semilogy( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
             else:
-                plt.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
+                plt.plot( self.xpts, self.expt,'bo-', label = 'Expt', linewidth='2' )
                 plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                plt.plot( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.plot( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
 
         '''
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
@@ -1354,7 +1362,7 @@ class PlotPanel:
         plt.title( scriptName, fontsize = self.labelFontSize)
         plt.tick_params( labelsize=self.tickFontSize )
         '''
-        plt.legend( fontsize=self.tickFontSize, loc="upper right")
+        plt.legend( fontsize=self.tickFontSize, loc = labelPos, frameon=False)
 
 ########################################################################
 
@@ -1473,7 +1481,7 @@ def main():
         simWrap = "HillTau"
     innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, labelPos = None, deferPlot = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1610,9 +1618,11 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         elapsedTime = time.time() - t0
         if not hidePlot:
             for rd in readoutVec:
-                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont )
+                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont, labelPos = labelPos,
+                        deferPlot = deferPlot )
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
-            plt.show()
+            if not deferPlot:
+                plt.show()
 
         '''
             plt.figure( "Main FindSim Plots" )
