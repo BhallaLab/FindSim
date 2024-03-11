@@ -89,6 +89,32 @@ def isNotDescendant( elm, ancestorSet ):
         pa = pa.parent
     return True
 
+def findParentGroupPath( elm ):
+    if isContainer( elm ):
+        return elm.path
+    else:
+        return findParentGroupPath( elm.parent )
+
+def findLinkSet( parent, allIn ):
+    linkSet = set()
+    dropSet = set()
+    
+    #print( " findingLink", parent)
+    for ee in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format( parent ) ):
+        for nn in (ee.neighbors['sub'] + ee.neighbors['prd']):
+            pa = findParentGroupPath( nn )
+            if pa == "/":
+                continue
+            elif pa not in allIn:
+                #print( " appending", pa, nn.path )
+                linkSet.add( pa )
+                linkSet.add( nn.path )
+                for ff in moose.wildcardFind( "{0}/##[ISA=PoolBase],{0}/##[ISA=EnzBase],{0}/##[ISA=Reac],{0}/##[ISA=Function]".format( pa ) ):
+                    dropSet.add( ff.path )
+
+    return linkSet, dropSet
+
+
 #######################################################################
 ## Four utility functions to set/get Kd and tau. All assignments should use
 ## these funcs to retain consistency.
@@ -239,27 +265,45 @@ class SimWrapMoose( SimWrap ):
 
     def subsetItems( self, modelSubset ):
         origNumSubs = {} # Key is path of obj, val is [nsub, nprd]
-        nonContainers, directContainers = [],[]
+        directContainers = []
         indirectContainers = [self.modelId]
+        nonContainerSet = set()
+        doomed = set()
 
         kinpath = self.modelId.path
+        '''
         for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
             origNumSubs[e.path] = [len( e.neighbors['sub'] ), len( e.neighbors['prd'] ) ]
+        '''
+        allIn = set()
+        for i in modelSubset: 
+            allIn.update( self.lookup( i ) )
 
         for i in modelSubset: 
             elist = self.lookup( i )
+            #print( "SUBSETTING: ", i, elist, self.ignoreMissingObj )
             for elmPath in elist:
                 if self.ignoreMissingObj and elmPath == '/':
                     continue
                 elm = moose.element( elmPath )
                 if elm.path == '/':
                     continue
+                #print( "elmpath = ", elmPath )
+
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
                     directContainers.append(elm)
+                    # I need to ensure that none of the children of 
+                    # included groups are deleted by another included group.
+                    linkSet, dropSet = findLinkSet( elmPath, allIn )
+                    #print( "LinkSet = ", linkSet )
+                    #print( "DropSet = ", dropSet )
+                    nonContainerSet.update( linkSet )
+                    doomed.update( dropSet )
                 else:
                     indirectContainers.extend( getContainerTree(elm, kinpath))
-                    nonContainers.append( elm )
+                    nonContainerSet.add( elm )
+                    #nonContainers.append( elm )
                 #print( 'isNotContainer' )
 
         # Eliminate indirectContainers that are descended from a
@@ -269,8 +313,9 @@ class SimWrapMoose( SimWrap ):
 
         # Make the containers unique. Put in a set.
         inset = set( [i.path for i in indirectContainers] )
-        nonset = set( [i.path for i in nonContainers] )
-        doomed = set()
+        #nonset = set( [i.path for i in nonContainers] )
+
+        #print( "INSET = ", inset, ", nonset = ", nonContainerSet )
 
         # Go through all immediate children of indirectContainers, 
         #   and mark for deletion in doomedList
@@ -278,18 +323,21 @@ class SimWrapMoose( SimWrap ):
             doomed.update( [j.path for j in moose.wildcardFind( i + '/#[]' ) ] )
         # Remove nonContainers, IndrectContainers and DirectContainers
         #   from doomedList
-        doomed = ((doomed - inset) - dirset) - nonset
+        doomed = ((doomed - inset) - dirset) - nonContainerSet
 
         # Delete everything in doomedList
         for i in doomed:
             if moose.exists( i ):
+                #print( i )
                 moose.delete( i )
-            else:
+            elif not self.silent:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
         # Remove all enzymes which have changed substrates or products.
+        '''
         for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
             if origNumSubs[ e.path ] != [len(e.neighbors['sub']), len( e.neighbors['prd'] ) ]:
                 moose.delete( e )
+        '''
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
