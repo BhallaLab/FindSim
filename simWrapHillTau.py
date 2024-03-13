@@ -30,7 +30,6 @@ import re
 import os
 import json
 import numpy as np
-import moose
 
 # from simWrap import SimWrap 
 # from simError import SimError
@@ -129,12 +128,14 @@ class SimWrapHillTau( SimWrap ):
                 dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
+        self.modifiedModelDict = dict( self.jsonDict )
         # This accumulates a list of objects to delete, which is then
         # applied to the model once it is built.
         # Note that we silently ignore requests to delete nonexistent 
         # objects, or objects that are missing from the map.
         # Logic is that if the object doesn't exist here, it doesn't matter
         # if the experiment wants to delete it for some other model.
+        deleteSet = set()
         for ( _entity, change ) in itemsToDelete:
             if change != 'delete':
                 continue
@@ -144,10 +145,107 @@ class SimWrapHillTau( SimWrap ):
             objList = self.modelLookup.get( _entity )
             if objList:
                 for obj in objList:
-                    self.deleteList.append( obj )
+                    deleteSet.add( obj )
+                    #self.deleteList.append( obj )
             else:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::deleteItems: entity '{}' not found".format( _entity ) )
+        groups = self.modifiedModelDict["Groups"]
+        # Delete the groups first and then come back for the inner objs.
+        # Those are less common but messy to find.
+        for dd in deleteSet:
+            ret = groups.pop( dd, None )
+            if ret != None:
+                deleteSet.discard( dd )
+        for dd in deleteSet:    # Now look for inner objects
+            ret = self.deleteObjFromModel( groups, dd )
+            if ret != None:
+                deleteSet.discard( dd )
+
+    def deleteObjFromModel( groups, dd ):
+        for gg in groups.values():
+            rr = gg.get( "Reacs" )
+            if rr and dd in rr:
+                return rr.pop( dd, None )
+            ss = gg.get( "Species" )
+            if ss and dd in ss:
+                return ss.pop( dd, None )
+            ee = gg.get( "Eqns" )
+            if ee and dd in ee:
+                return ee.pop( dd, None )
+        return None
+
+    def findGroupOfObj( groups, obj ):
+        if obj in groups:
+            return obj
+        for gg in groups.values():
+            rr = gg.get( "Reacs" )
+            if rr and obj in rr:
+                return gg
+            ss = gg.get( "Species" )
+            if ss and obj in ss:
+                return ss.pop( obj, None )
+            ee = gg.get( "Eqns" )
+            if ee and obj in ee:
+                return ee.pop( obj, None )
+        return None
+
+    def extObjLinkedToGroup( self, grp ):
+        # Build up set of species within group
+        groupVal = self.modifiedModelDict['Groups'][grp]
+        consts = self.modifiedModelDict.get( 'Constants' )
+        if consts == None:
+            consts = {}
+        mySpecies = set()
+        if groupVal.get( 'Species' ):
+            for ss in groupVal['Species']:
+                mySpecies.add( ss )
+        if groupVal.get( 'Eqns' ):
+            for ee in groupVal['Eqns']:
+                mySpecies.add( ee )
+        if groupVal.get( 'Reacs' ):
+            for rr in groupVal['Reacs']:
+                mySpecies.add( rr )
+
+        print( grp, "NUM MY SPECIES = ", len( mySpecies ) )
+        print( "MY SPECIES = ",  mySpecies )
+        # Scan for reagent species of eqns and reacs, add if outside group.
+        ret = set()
+        if groupVal.get( 'Eqns' ):
+            for eqnName, eqnVal in groupVal['Eqns'].items():
+                subs, cs = hillTau.extractSubs( eqnVal, consts )
+                for ss in subs:
+                    print( "SS in Eqns = ", ss )
+                    if ss not in mySpecies:
+                        ret.add( ss )
+        if groupVal.get( 'Reacs' ):
+            for rname, rval in groupVal['Reacs'].items():
+                for ss in rval['subs']:
+                    print( "SS = ", ss )
+                    if ss not in mySpecies:
+                        ret.add( ss )
+        print( grp, "NUM Ext Obj= ", len( ret ) )
+        return ret
+
+    def allObjLinkedToObj( self, obj ):
+        ret = self.findDictOfObj( obj )
+        if ret[1] == 'Species':
+            return []
+        elif ret[1] == 'Eqns':
+            return [] # Should parse the equation to extract objects
+        elif ret[1] == 'Reacs':
+            return ret[3]['subs']
+
+    def findDictOfObj( self, obj ):
+        groups = self.modifiedModelDict["Groups"]
+        for gg, gval in groups.items():
+            for objType, tval in gval.items():
+                val = tval.get( obj )
+                if val != None:
+                    return [ gg, objType, obj, val ]
+        assert( 0 )
+
+
 
     def subsetItems( self, _modelSubset ):
         # This builds up a 'saveList' of items to be preserved for
@@ -156,23 +254,67 @@ class SimWrapHillTau( SimWrap ):
         # If a subset entry is a reaction or eqn, save it.
         # If a subset doesn't exist in the model, ignore the request
         # without raising an error.
+        # Flag all external connections to reacs and Eqns and save them too
         # The reasoning is that the subsetted object is implicitly there,
         # so it is safe as long as we don't try to assign anything to it.
         # If we try to use it as a stim or readout other functions will
         # flag it.
-        self.saveList = []
+        if len( _modelSubset ) == 0:
+            return  # Do not further modify modifiedModelDict
+        groups = self.modifiedModelDict["Groups"]
+        subsetDict = dict( self.modifiedModelDict )
+        subsetDict.pop("Groups", None )
+        gdict = {}
+        extObjects = set()
+        #extEntries = set()
+        extEntries = []
+        subsettedGroups = set()
+        subsettedObjects = set()
+
+        # First pass: collate all groups and objs explicitly listed.
         for i in _modelSubset:
             objList = self.modelLookup.get(i)
             if objList:
                 for obj in objList:
-                    self.saveList.append( obj )
-            elif i in self.jsonDict["Groups"]:
-                # The modifySched func recognizes if i is the parent grp
-                self.saveList.append( i ) 
-                # Could do recursive stuff here if need groups in groups.
-            else:
-                if not self.silent:
-                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
+                    if obj in groups:
+                        subsettedGroups.add( obj )
+                    else:
+                        subsettedObjects.add( obj )
+        # Add reagents to list if they are outside the current subset.
+        for gg in subsettedGroups:
+            extObjects.update( self.extObjLinkedToGroup( gg ) )
+        # Assume all subsetted objects are to be treated as Reacs/Eqns
+        # first, and as species only if they are neither.
+        # Add all input reagents linked to any subsetted object.
+        # This returns an empty list if the object itself is a species.
+        for oo in subsettedObjects:
+            extObjects.update( self.allObjLinkedToObj( oo ) )
+        # Now fill in the extGroups. These have to be reconstructed,
+        # not copied wholesale from the source groups dict.
+        for oo in extObjects:
+            #[grp, objType, objName, objVal] = findDictOfObj( oo )
+            entry = self.findDictOfObj( oo )
+            if not entry[0] in subsettedGroups:
+                extEntries.append( entry )
+                print( "ENTRY = ", entry )
+
+        # Now we have all the lists. Now march through and rebuild
+        # Here are the entire subsetted groups, just copied over.
+        for gg in subsettedGroups:
+            gdict[gg] = groups[gg]
+
+        # Here are the specific objects to put in the groups.
+        for [grp, objType, objName, objVal] in extEntries:
+            if not grp in gdict:
+                gdict[grp] = {}
+            if not objType in gdict[grp]:
+                gdict[grp][objType] = {}
+            gdict[grp][objType][objName] = objVal
+
+        # Finally, wrap it up
+        subsetDict['Groups'] = gdict
+        self.modifiedModelDict = subsetDict
+
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -278,11 +420,12 @@ class SimWrapHillTau( SimWrap ):
             hillTau.scaleDict( self.jsonDict, qs )
             # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
             self.buildModelLookup( self.objMap ) 
-            modifyFunc( {}, "" ) # Callback.
+            modelWarning = "Warning in subsetting from: " + fname
+            modifyFunc( {}, modelWarning ) # Callback.
             t0 = time.time()
-            self.model = hillTau.parseModel( self.jsonDict )
+            #self.model = hillTau.parseModel( self.jsonDict )
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
-            self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
+            #self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
             #self.trimModelLookup()
             self._scaleParams( scaleParam )
             '''
@@ -294,9 +437,9 @@ class SimWrapHillTau( SimWrap ):
             '''
             if len( dumpFname) > 0:
                 # convert back into orig units
-                hillTau.scaleDict( self.jsonDict, 1.0 / qs ) 
+                hillTau.scaleDict( self.modifiedModelDict, 1.0 / qs ) 
                 with open( dumpFname, 'w') as f:
-                    json.dump( self.jsonDict, f, indent = 4)
+                    json.dump( self.modifiedModelDict, f, indent = 4)
         else:
             raise SimError( "HillTau models are .json. Type '{}' not known".format( fname ) )
         self.loadtime += time.time() - t0
