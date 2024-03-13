@@ -30,6 +30,7 @@ import re
 import os
 import json
 import numpy as np
+from datetime import datetime
 
 # from simWrap import SimWrap 
 # from simError import SimError
@@ -129,6 +130,15 @@ class SimWrapHillTau( SimWrap ):
 
     def deleteItems( self, itemsToDelete ):
         self.modifiedModelDict = dict( self.jsonDict )
+        # Update the Description and Author fields to reflect subsetting.
+        description = self.modifiedModelDict.get("Description")
+        if not description:
+            description = ""
+        self.modifiedModelDict["Description"] = description + ": Original model modified by findSim for subset calculations."
+        author = self.modifiedModelDict.get("Author")
+        if not author:
+            author = ""
+        self.modifiedModelDict["Author"] = author + ": Programmatic modification by findSim at " + datetime.today().strftime('%Y-%m-%d %H:%M:%S')
         # This accumulates a list of objects to delete, which is then
         # applied to the model once it is built.
         # Note that we silently ignore requests to delete nonexistent 
@@ -207,24 +217,21 @@ class SimWrapHillTau( SimWrap ):
             for rr in groupVal['Reacs']:
                 mySpecies.add( rr )
 
-        print( grp, "NUM MY SPECIES = ", len( mySpecies ) )
-        print( "MY SPECIES = ",  mySpecies )
+        #print( "MY SPECIES = ",  mySpecies )
         # Scan for reagent species of eqns and reacs, add if outside group.
         ret = set()
         if groupVal.get( 'Eqns' ):
             for eqnName, eqnVal in groupVal['Eqns'].items():
                 subs, cs = hillTau.extractSubs( eqnVal, consts )
                 for ss in subs:
-                    print( "SS in Eqns = ", ss )
                     if ss not in mySpecies:
                         ret.add( ss )
         if groupVal.get( 'Reacs' ):
             for rname, rval in groupVal['Reacs'].items():
                 for ss in rval['subs']:
-                    print( "SS = ", ss )
                     if ss not in mySpecies:
                         ret.add( ss )
-        print( grp, "NUM Ext Obj= ", len( ret ) )
+        #print( grp, "NUM Ext Obj= ", len( ret ) )
         return ret
 
     def allObjLinkedToObj( self, obj ):
@@ -296,7 +303,6 @@ class SimWrapHillTau( SimWrap ):
             entry = self.findDictOfObj( oo )
             if not entry[0] in subsettedGroups:
                 extEntries.append( entry )
-                print( "ENTRY = ", entry )
 
         # Now we have all the lists. Now march through and rebuild
         # Here are the entire subsetted groups, just copied over.
@@ -307,9 +313,17 @@ class SimWrapHillTau( SimWrap ):
         for [grp, objType, objName, objVal] in extEntries:
             if not grp in gdict:
                 gdict[grp] = {}
-            if not objType in gdict[grp]:
-                gdict[grp][objType] = {}
-            gdict[grp][objType][objName] = objVal
+            if not "Species" in gdict[grp]:
+                gdict[grp]["Species"] = {}
+            if objType == "Species":
+                gdict[grp][objType][objName] = objVal
+            if objType == "Reacs":
+                baseline = objVal.get( "baseline" )
+                if not baseline:
+                    baseline = 0.0
+                gdict[grp]["Species"][objName] = baseline
+            if objType == "Eqns":
+                gdict[grp]["Species"][objName] = 0.0
 
         # Finally, wrap it up
         subsetDict['Groups'] = gdict
@@ -423,7 +437,7 @@ class SimWrapHillTau( SimWrap ):
             modelWarning = "Warning in subsetting from: " + fname
             modifyFunc( {}, modelWarning ) # Callback.
             t0 = time.time()
-            #self.model = hillTau.parseModel( self.jsonDict )
+            self.model = hillTau.parseModel( self.jsonDict )
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
             #self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
             #self.trimModelLookup()
