@@ -302,7 +302,7 @@ class SimWrapMoose( SimWrap ):
                     doomed.update( dropSet )
                 else:
                     indirectContainers.extend( getContainerTree(elm, kinpath))
-                    nonContainerSet.add( elm )
+                    nonContainerSet.add( elm.path )
                     #nonContainers.append( elm )
                 #print( 'isNotContainer' )
 
