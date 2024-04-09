@@ -32,9 +32,33 @@ import ntpath
 import numpy as np
 import moose
 import sys
-import imp  ## May be deprecated from Python 3.4
-from simWrap import SimWrap 
-from simError import SimError
+from importlib import util
+
+# import imp  ## May be deprecated from Python 3.4
+# from simWrap import SimWrap 
+# from simError import SimError
+
+
+if sys.version_info < (3, 4):
+    import imp      # This is apparently deprecated in Python 3.4 and up
+else:
+    import importlib   
+
+foundLib_HillTau_ = False
+
+try:
+    import hilltau
+    foundLib_HillTau_ = True
+except Exception as e:
+    pass
+
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import SimWrap
+
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
 
 MINIMUM_TAU = 1e-3     # Do not permit excessively fast chem time consts.
 MINIMUM_TAU_RATIO = 1e-2  # Do not permit excessively large change in tau.
@@ -65,6 +89,32 @@ def isNotDescendant( elm, ancestorSet ):
             return False
         pa = pa.parent
     return True
+
+def findParentGroupPath( elm ):
+    if isContainer( elm ):
+        return elm.path
+    else:
+        return findParentGroupPath( elm.parent )
+
+def findLinkSet( parent, allIn ):
+    linkSet = set()
+    dropSet = set()
+    
+    #print( " findingLink", parent)
+    for ee in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format( parent ) ):
+        for nn in (ee.neighbors['sub'] + ee.neighbors['prd']):
+            pa = findParentGroupPath( nn )
+            if pa == "/":
+                continue
+            elif pa not in allIn:
+                #print( " appending", pa, nn.path )
+                linkSet.add( pa )
+                linkSet.add( nn.path )
+                for ff in moose.wildcardFind( "{0}/##[ISA=PoolBase],{0}/##[ISA=EnzBase],{0}/##[ISA=Reac],{0}/##[ISA=Function]".format( pa ) ):
+                    dropSet.add( ff.path )
+
+    return linkSet, dropSet
+
 
 #######################################################################
 ## Four utility functions to set/get Kd and tau. All assignments should use
@@ -216,28 +266,44 @@ class SimWrapMoose( SimWrap ):
 
     def subsetItems( self, modelSubset ):
         origNumSubs = {} # Key is path of obj, val is [nsub, nprd]
-        nonContainers, directContainers = [],[]
+        directContainers = []
         indirectContainers = [self.modelId]
+        nonContainerSet = set()
+        doomed = set()
 
         kinpath = self.modelId.path
+        '''
         for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
             origNumSubs[e.path] = [len( e.neighbors['sub'] ), len( e.neighbors['prd'] ) ]
+        '''
+        allIn = set()
+        for i in modelSubset: 
+            allIn.update( self.lookup( i ) )
 
         for i in modelSubset: 
             elist = self.lookup( i )
+            #print( "SUBSETTING: ", i, elist, self.ignoreMissingObj )
             for elmPath in elist:
                 if self.ignoreMissingObj and elmPath == '/':
                     continue
                 elm = moose.element( elmPath )
                 if elm.path == '/':
                     continue
+                #print( "elmpath = ", elmPath )
+
                 if isContainer(elm):
                     indirectContainers.extend( getContainerTree(elm, kinpath))
                     directContainers.append(elm)
+                    # I need to ensure that none of the children of 
+                    # included groups are deleted by another included group.
+                    linkSet, dropSet = findLinkSet( elmPath, allIn )
+                    #print( "LinkSet = ", linkSet )
+                    #print( "DropSet = ", dropSet )
+                    nonContainerSet.update( linkSet )
+                    doomed.update( dropSet )
                 else:
                     indirectContainers.extend( getContainerTree(elm, kinpath))
-                    nonContainers.append( elm )
-                #print( 'isNotContainer' )
+                    nonContainerSet.add( elm.path )
 
         # Eliminate indirectContainers that are descended from a
         # directContainer: all descendants of a direct are included
@@ -246,8 +312,9 @@ class SimWrapMoose( SimWrap ):
 
         # Make the containers unique. Put in a set.
         inset = set( [i.path for i in indirectContainers] )
-        nonset = set( [i.path for i in nonContainers] )
-        doomed = set()
+        #nonset = set( [i.path for i in nonContainers] )
+
+        #print( "INSET = ", inset, ", nonset = ", nonContainerSet )
 
         # Go through all immediate children of indirectContainers, 
         #   and mark for deletion in doomedList
@@ -255,18 +322,21 @@ class SimWrapMoose( SimWrap ):
             doomed.update( [j.path for j in moose.wildcardFind( i + '/#[]' ) ] )
         # Remove nonContainers, IndrectContainers and DirectContainers
         #   from doomedList
-        doomed = ((doomed - inset) - dirset) - nonset
+        doomed = ((doomed - inset) - dirset) - nonContainerSet
 
         # Delete everything in doomedList
         for i in doomed:
             if moose.exists( i ):
+                #print( i )
                 moose.delete( i )
-            else:
+            elif not self.silent:
                 print( "Warning: deleting doomed obj {}: it does not exist".format( i ) )
         # Remove all enzymes which have changed substrates or products.
+        '''
         for e in moose.wildcardFind( "{0}/##[ISA=EnzBase],{0}/##[ISA=Reac]".format(kinpath) ):
             if origNumSubs[ e.path ] != [len(e.neighbors['sub']), len( e.neighbors['prd'] ) ]:
                 moose.delete( e )
+        '''
 
     def changeParams( self, parameterChange ):
         for (entity, field, value) in parameterChange:
@@ -291,7 +361,7 @@ class SimWrapMoose( SimWrap ):
                 self.modelLookup[key] = foundObj
 
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ): # modify arg is a func
-	#This list holds the entire models Reac/Enz sub/prd list for reference
+    #This list holds the entire models Reac/Enz sub/prd list for reference
         if moose.exists( '/model' ):
             raise SimError( "loadModelFile: Model already exists" )
         erSPlist = {}
@@ -310,9 +380,15 @@ class SimWrapMoose( SimWrap ):
             # Following the load() command, the chemical system for the 
             # model must live under
             #       /library/chem
-            mscript = imp.load_source( "mscript", fname )
-            #mscript = __import__( fileName )
+            spec = util.spec_from_file_location("mscript", fname )
+            mscript = util.module_from_spec(spec)
+            spec.loader.exec_module(mscript)
             rdes = mscript.load()
+            '''
+            # Deprecated Python syntax from pre 3.3
+            mscript = imp.load_source( "mscript", fname )
+            rdes = mscript.load()
+            '''
             if not moose.exists( '/library/chem' ):
                 if ( moose.exists( '/library/cell' ) ):
                     self.modelId = moose.element( '/library/cell' )
@@ -330,7 +406,8 @@ class SimWrapMoose( SimWrap ):
         # We have to scale params _before_ modifying the model since the
         # expt modifications override anything done to the model params.
         self._scaleParams( scaleParam )
-        modifyFunc( erSPlist, modelWarning )
+        if modifyFunc != None:
+            modifyFunc( erSPlist, modelWarning )
         self.turnOffElec = False
         if file_extension == ".py":
             # Deprecated. Here we override the rdes to NOT make a solver.
@@ -695,7 +772,7 @@ class SimWrapMoose( SimWrap ):
     def getObjParam( self, entity, field, isSilent = False ):
         if not entity in self.modelLookup:
             # Try to use the entity name directly, without lookup
-            foundObj = self.findObj( entity )
+            foundObj = self.findObj( entity, noRaise = True )
             if foundObj.name == '/':
                 if isSilent:
                     return -2.0

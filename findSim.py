@@ -51,11 +51,32 @@ if sys.version_info < (3, 4):
     import imp               # This is apparently deprecated in Python 3.4 and up
 else:
     import importlib      
-
+'''
 from simError import SimError
 import simWrap
 import simWrapMoose
 import simWrapHillTau
+'''
+
+foundLib_HillTau_ = False
+try:
+    import hillTau
+    foundLib_HillTau_ = True
+except Exception as e:
+    pass
+
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import  SimWrap
+    from simWrapMoose import SimWrapMoose
+    if foundLib_HillTau_:
+        from simWrapHillTau import SimWrapHillTau
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
+    from FindSim.simWrapMoose import SimWrapMoose
+    if foundLib_HillTau_:
+        from FindSim.simWrapHillTau import SimWrapHillTau
 
 convertTimeUnits = {'sec': 1.0,'s': 1.0, 
         'ms': 1e-3, 'millisec': 1e-3, 'msec' : 1e-3, 
@@ -382,19 +403,20 @@ class Readout:
             # Treat the output as all zeroes in this case.
             self.simData = [0.0] * len( ref )
             #raise SimError( "runDoser: Normalization3 failed due to zero denominator" )
-            print( "Warning: runDoser: Normalization3 failed due to zero denominator" )
+            print( "Warning: runDoser: Normalization3 failed due to zero denominator: ", str( min( ref ) ) )
             return
 
 
         # Finally assign the simData.
         self.simData = [ x/y for x, y in zip( ret, ref ) ]
 
-    def displayPlots( self, fname, modelLookup, stims,  readoutentities, hideSubplots, exptType,dumpPlots, bigFont = False):
+    def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False, labelPos = None, deferPlot = False ):
         if self.isPlotOnly:
             separator = ":"
         else:
             separator = "."
-        plt.figure( self.entities[0] + "." + self.field )
+        if not deferPlot:
+            plt.figure( self.entities[0] + "." + self.field )
         if "doseresponse" in exptType:
             for i in stims[0].entities:
                 #elms = modelLookup[i.encode("ascii")]
@@ -404,7 +426,8 @@ class Readout:
                     raise SimError( "displayPlots 1: could not find entity '{}'".format( i ) )
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
-                    pp.plotme( fname, pp.ylabel, joinSimPoints = True )
+                    pp.plotme( fname, pp.ylabel, joinSimPoints = True, 
+                            labelPos = labelPos )
         elif "barchart" in exptType:
             for i in self.entities:
                 #elms = modelLookup[i.encode("ascii")]
@@ -414,7 +437,7 @@ class Readout:
                     raise SimError( "displayPlots 2: could not find entity '{}'".format(i) )
                 for j in elms:
                     pp = PlotPanel( self, exptType, xlabel = str(j) +' ('+stims[0].quantityUnits+')', useBigFont = bigFont )
-                    pp.plotbar( self, stims, fname )
+                    pp.plotbar( self, stims, fname, labelPos = labelPos )
         elif "timeseries" in exptType:
             tsUnits = self.quantityUnits
             '''
@@ -473,14 +496,6 @@ class Readout:
                 tconv = convertTimeUnits[ self.timeUnits ]
                 xpts = np.array( range( len( ypts ) ) ) * self.plotDt[idx] / tconv
                 ypts /= scale
-                if dumpPlots:
-                    with open(dumpPlots, "a") as fs:
-                        for ploti in range(0,len(xpts)):
-                            if (pp.ylabel[0:pp.ylabel.index(" ")]==readoutentities[0]):
-                                #readoutentities molecule will be scaled and not the rest
-                                fs.write("%s,%s,%s,%s\n" % (xpts[ploti],ypts[ploti]*scale,pp.ylabel[0:pp.ylabel.index(" ")],scale))
-                            else:
-                                fs.write("%s,%s,%s,%s\n" % (xpts[ploti],ypts[ploti],pp.ylabel[0:pp.ylabel.index(" ")],scale))
                 if not self.isPlotOnly :
                     sumvec += ypts
                     if not hideSubplots:
@@ -491,7 +506,7 @@ class Readout:
                     plt.plot( xpts, ypts )
             #plt.figure( "Main FindSim Plots" ) # Go back to original plot.
             if not self.isPlotOnly :
-                plt.plot( xpts, sumvec, 'r--' )
+                plt.plot( xpts, sumvec, 'r' )
             ylabel = pp.ylabel
             if self.field in ( Readout.epspFields + Readout.epscFields ):
                 if self.field in Readout.epspFields:
@@ -502,7 +517,8 @@ class Readout:
                 plt.figure( self.field ) # Do the EPSP in a new figure
                 if self.useNormalization:
                     ylabel = '{} Fold change'.format( self.field )
-            pp.plotme( fname, ylabel, isPlotOnly = self.isPlotOnly )
+            pp.plotme( fname, ylabel, isPlotOnly = self.isPlotOnly,
+                    labelPos = labelPos, joinSimPoints = False )
 
             ######################################
 
@@ -603,9 +619,12 @@ class Readout:
             qs = convertQuantityUnits[ d["units"] ]
             expt = d["value"] * qs
             sem = d["stderr"] * qs
-            sim = sw.getObjParam( entity, str( d["field"] ) )
+            sim = sw.getObjParam( entity, str( d["field"] ), isSilent = True )
+            if ( sim == -2 ):
+                continue
             datarange = max( expt, sim, 1e-9 )
             if scoringFormula in ["NRMS", "nrms"]:
+                #print( "Expt={:.4g}, Sim = {:.4g}, datarange = {:.4g}".format( expt, sim, datarange ) )
                 score += (expt - sim) * (expt-sim) / (datarange*datarange)
             else: 
                 score += eval( scoringFormula )
@@ -1112,12 +1131,16 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
 
     if readouts.useNormalization and readouts.normMode == "each":
         if len( [ y for y in readouts.ratioData if abs(y) < eps ] ) > 0:
-            raise SimError( "runDoser: Normalization1 failed due to zero denominator" )
-        readouts.simData = [ x/y for x, y in zip(readouts.simData, readouts.ratioData) ]
+            #raise SimError( "runDoser: Normalization1 failed due to zero denominator: " + str( min( readouts.ratioData ) ) )
+            print( "runDoser: Normalization1 failed due to zero denominator: " + str( min( readouts.ratioData ) ) )
+        readouts.simData = [ x/y if abs(y)>= eps else 0.0 for x, y in zip(readouts.simData, readouts.ratioData) ]
     else:
         if abs(norm) < eps:
-            raise SimError( "runDoser: Normalization2 failed due to zero denominator" )
-        readouts.simData = [ x/norm for x in readouts.simData ]
+            #raise SimError( "runDoser: Normalization2 failed due to zero denominator: " + str( norm ) )
+            print( "runDoser: Normalization2 failed due to zero denominator: " + str( norm ) )
+            readouts.simData = [0.0] *len( readouts.simData )
+        else:
+            readouts.simData = [ x/norm for x in readouts.simData ]
     if getPlots or True:
         # Collect detailed time series
         readouts.plots, readouts.plotDt, readouts.numMainPlots = sw.fillPlots()
@@ -1279,22 +1302,27 @@ class PlotPanel:
         return ret
 
 
-    def plotbar( self, readout, stims, scriptName ):
+    def plotbar( self, readout, stims, scriptName, labelPos = None ):
+        if labelPos == None:
+            labelPos = "upper left"
         barpos = np.arange( len( self.sim ) )
         width = 0.35 # A reasonable looking bar width
-        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Experiment')
-        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Simulation')
+        exptBar = plt.bar(barpos - width/2, self.expt, width, yerr=self.yerror, color='SkyBlue', label='Expt')
+        simBar = plt.bar(barpos + width/2, self.sim, width, color='IndianRed', label='Sim')
         plt.xlabel( "Stimulus combinations", fontsize=self.labelFontSize)
         plt.ylabel( self.ylabel, fontsize = self.labelFontSize )
         plt.title( scriptName, fontsize = self.labelFontSize )
-        plt.legend( loc="upper left", fontsize = self.tickFontSize )
+        plt.legend( loc=labelPos, fontsize = self.tickFontSize, frameon=False )
         #ticklabels = [ i["stimulus"] for i in readout.bardata ] 
         #assert len( ticklabels ) == len( barpos )
         ticklabels = self.convertBarChartLabels( readout, stims )
         plt.xticks( barpos, ticklabels, fontsize = self.tickFontSize  )
         plt.tick_params( labelsize=self.tickFontSize )
 
-    def plotme( self, scriptName, ylabel, joinSimPoints = False, isPlotOnly = False ):
+    def plotme( self, scriptName, ylabel, joinSimPoints = False, 
+            isPlotOnly = False, labelPos = None ):
+        if labelPos == None:
+            labelPos = "upper right"
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
         plt.ylabel( ylabel, fontsize = self.labelFontSize )
         #plt.title( scriptName, fontsize = self.labelFontSize)
@@ -1314,19 +1342,19 @@ class PlotPanel:
         ss = self.sim[:nx]
         if self.useXlog:
             if self.useYlog:
-                plt.loglog( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.loglog( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.loglog( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.loglog( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
             else:
-                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogx( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.semilogx( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.semilogx( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
         else:
             if self.useYlog:
-                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'expt', linewidth='2' )
-                plt.semilogy( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.semilogy( self.xpts, self.expt, 'bo-', label = 'Expt', linewidth='2' )
+                plt.semilogy( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
             else:
-                plt.plot( self.xpts, self.expt,'bo-', label = 'experiment', linewidth='2' )
+                plt.plot( self.xpts, self.expt,'bo-', label = 'Expt', linewidth='2' )
                 plt.errorbar( self.xpts, self.expt, yerr=self.yerror )
-                plt.plot( self.xpts, ss, sp, label = 'sim', linewidth='2' )
+                plt.plot( self.xpts, ss, sp, label = 'Sim', linewidth='2' )
 
         '''
         plt.xlabel( self.xlabel, fontsize = self.labelFontSize )
@@ -1334,7 +1362,7 @@ class PlotPanel:
         plt.title( scriptName, fontsize = self.labelFontSize)
         plt.tick_params( labelsize=self.tickFontSize )
         '''
-        plt.legend( fontsize=self.tickFontSize, loc="upper right")
+        plt.legend( fontsize=self.tickFontSize, loc = labelPos, frameon=False)
 
 ########################################################################
 
@@ -1345,9 +1373,9 @@ def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
     # does a fresh load, tweaks the params, and saves.
     fname, extn = os.path.splitext( dumpFname )
     if extn == '.g' or extn == '.xml':
-        localSW = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+        localSW = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = True, silent = True )
     elif extn == '.json':
-        localSW = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = True, silent = True )
+        localSW = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = True, silent = True )
     else:
         print( "Warning: dumpTweakedModel: File format '{}' not known".format( extn ) )
         return
@@ -1355,7 +1383,8 @@ def saveTweakedModel( origFname, dumpFname, mapFile, scaleParam ):
     for i in scaleParam:
         sp.extend( i )
     localSW.deleteSimulation()
-    localSW.loadModelFile( origFname, silentDummyModify, sp, dumpFname, "")
+    localSW.loadModelFile( origFname, None, sp, dumpFname, "")
+    localSW.deleteSimulation()
 
 def dummyModify( erSPlist, modelWarning ):
     #raise SimError( "dummyModify: should never be called\n")
@@ -1378,7 +1407,11 @@ def loadJson( fname, mapFile ):
 
     with open( fs ) as _schema:
         schema = json.load( _schema )
-    jsonschema.validate( findsim, schema )
+    try:
+        jsonschema.validate( findsim, schema )
+    except jsonschema.exceptions.ValidationError:
+        print( "Failed to validate findSim file {}".format( fname ) )
+        raise
     expt = Experiment( findsim["Metadata"], findsim["Experiment"] )
     stims = Stimulus.load( findsim ) # Stimuli are an optional argument
     readouts = Readout( findsim )
@@ -1402,9 +1435,9 @@ def runit( expt, model, stims, readouts, getPlots = False ):
 def getInitParams( modelFile, mapFile, paramList ):
     # ParamList as strings of objpath.field 
     if modelFile.split('.')[-1] == "json":
-        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+        sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False )
     else:
-        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False )
+        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False )
 
     sw.deleteSimulation()
     sw.loadModelFile( modelFile, silentDummyModify, [], "", "" )
@@ -1427,7 +1460,6 @@ def main():
     parser.add_argument( '-map', '--map', type = str, help='Optional: mapping file from tsv names to sim-specific strings. JSON format.', default = "" )
     #parser.add_argument( '-schema', '--schema', type = str, help='Optional: Schema for json version of the findSim experiment definition. JSON format.', default = "findSimSchema.json" )
     parser.add_argument( '-d', '--dump_subset', type = str, help='Optional: dump selected subset of model into named file', default = "" )
-    parser.add_argument( '-dp', '--dump_plots', type = str, help='Optional: dump plots to file, default works only for TimeSeries Experiment', default = "" )
     parser.add_argument( '-m', '--model', type = str, help='Optional: model filename, .g or .xml', default = "" )
     parser.add_argument( '-p', '--plot', type = str, nargs = '*', help='Optional: Plot specified fields as time-series', default = "" )
     parser.add_argument( '-tp', '--tweak_param_file', type = str, help='Optional: Generate file of tweakable params belonging to selected subset of model', default = "" )
@@ -1447,9 +1479,9 @@ def main():
     simWrap = ""
     if args.model.split( '.' )[-1] == "json":
         simWrap = "HillTau"
-    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, dumpPlots= args.dump_plots,paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
+    innerMain( args.script, scoreFunc = args.scoreFunc, modelFile = args.model, mapFile = args.map, dumpFname = args.dump_subset, paramFname = args.tweak_param_file, hidePlot = args.hide_plot, hideSubplots = args.hide_subplots, bigFont = args.big_font, optimizeElec = args.optimize_elec, silent = not args.verbose, scaleParam = args.scale_param, settleTime = args.settle_time, tabulateOutput = args.tabulate_output, ignoreMissingObj = args.ignore_missing_obj, simWrap = simWrap, plots = args.plot, generate = args.generate, solver = args.solver )
 
-def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", dumpPlots="",paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
+def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile = "", dumpFname = "", paramFname = "", hidePlot = False, hideSubplots = True, bigFont = False, labelPos = None, deferPlot = False, optimizeElec=True, silent = False, scaleParam=[], settleTime = 0, settleDict = {}, tabulateOutput = False, ignoreMissingObj = False, simWrap = "", plots = None, generate = None, solver = "gsl" ):
     ''' If *settleTime* > 0, then we need to return a dict of concs of
     all variable pools in the chem model obtained after loading in model, 
     applying all modifications, and running for specified settle time.\n
@@ -1465,9 +1497,6 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     readouts.tabulateOutput = tabulateOutput
     readouts.generate = generate
 
-    if dumpPlots != "" and expt.exptType != 'timeseries':
-        print("Only Time Series Experiment plots are saved")
-
     if mapFile != "":
         mapFile = mapFile
     else:
@@ -1480,9 +1509,18 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     if model.fileName.split('.')[-1] == "json":
         simWrap = "HillTau"
     if simWrap == "":
-        sw = simWrapMoose.SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
     elif simWrap == "HillTau":
-        sw = simWrapHillTau.SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+        global foundLib_HillTau_
+        if not foundLib_HillTau_:
+            print('[WARN] No HillTau found.'
+                '\nThis module can be installed by using `pip` in terminal:'
+                '\n\t $ pip install HillTau'
+                )
+            return
+        else:
+            sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = ignoreMissingObj, silent = silent )
+            
     else:
         sw = simWrap.SimWrap( ignoreMissingObj = ignoreMissingObj )
     model.pauseHsolve = PauseHsolve( optimizeElec )
@@ -1532,7 +1570,6 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         readoutVec = [readouts]
         if plots:
             if expt.exptType == "timeseries":
-                uniqueentity = []
                 for i in plots:
                     sp = i.split( "." ) # entity.field
                     entity = model._tempModelLookup.get( sp[0] )
@@ -1542,10 +1579,8 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
                     if len(sp) != 2:
                         print("Field missing. Specify plot item as entity.field:", sp)
                         continue
-                    if entity not in uniqueentity:
-                        uniqueentity.append(entity[0])
-                        #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
-                        readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
+                    #readoutVec.append( readouts.plotCopy( entity[0], sp[1] ) )
+                    readoutVec.append( readouts.plotCopy( sp[0], sp[1] ) )
             else:
                 print("Warning: Experiment design is '{}'. Only 'TimeSeries' supports extra plots. Skipping".format( experiment.exptType ) )
 
@@ -1581,22 +1616,13 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
             readouts.plots = readouts.plots[:readouts.numMainPlots]
             readouts.plotdt = readouts.plotDt[:readouts.numMainPlots]
         elapsedTime = time.time() - t0
-
-        if not hidePlot or dumpPlots != "":
-            if dumpPlots != "":
-                if expt.exptType == "timeseries":
-                    if os.path.exists(dumpPlots):
-                        os.remove(dumpPlots)
-                    with open(dumpPlots, "a") as fs:
-                        fs.write("Time,Value,Name,scale\n")
-                        fs.close()
-                
-            for rd in readoutVec:
-                rd.displayPlots( exptFile, model._tempModelLookup, stims, readouts.entities,hideSubplots, expt.exptType,dumpPlots, bigFont = bigFont)
         if not hidePlot:
+            for rd in readoutVec:
+                rd.displayPlots( exptFile, model._tempModelLookup, stims, hideSubplots, expt.exptType, bigFont = bigFont, labelPos = labelPos,
+                        deferPlot = deferPlot )
             print( "Score= {:.4f} for {:34s} UserT= {:.1f}s, evalT= {:.3f}s".format( score, os.path.basename(exptFile), elapsedTime, sw.runtime ) )
-            plt.show()
-            
+            if not deferPlot:
+                plt.show()
 
         '''
             plt.figure( "Main FindSim Plots" )

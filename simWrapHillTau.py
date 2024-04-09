@@ -30,12 +30,22 @@ import re
 import os
 import json
 import numpy as np
-import moose
-from simWrap import SimWrap 
-from simError import SimError
-import hillTau
+from datetime import datetime
+
+# from simWrap import SimWrap 
+# from simError import SimError
+# import hillTau
 import time
 
+if __package__ is None or __package__ == '':
+    from simError import SimError
+    from simWrap import SimWrap
+    import hillTau
+else:
+    from FindSim.simError import SimError
+    from FindSim.simWrap import SimWrap
+    import hilltau as hillTau
+    
 SIGSTR = "{:.4g}" # Used for dumping JSON files.
 
 class SimWrapHillTau( SimWrap ):
@@ -71,11 +81,23 @@ class SimWrapHillTau( SimWrap ):
         if not ( scale >= 0.0 ):
             raise SimError( "scaleOneParam: {} below 0".format( scale ) )
         if field in ["conc", "concInit"]:
-            mol = self.model.molInfo[ entity ]
+            mol = self.model.molInfo.get( entity )
+            if not mol:
+                if self.silent:
+                    return
+                else:
+                    raise SimError( "scaleOneParam: Unknown mol: " + entity)
+            #mol = self.model.molInfo[ entity ]
             self.model.conc[ mol.index ]= self.model.concInit[mol.index]= scale
             self.jsonDict["Groups"][mol.grp]["Species"][mol.name] = scale
         elif field in ["KA", "tau", "tau2", "baseline", "gain", "Kmod", "Amod"]:
-            reac = self.model.reacInfo[ entity ]
+            reac = self.model.reacInfo.get( entity )
+            if not reac:
+                if self.silent:
+                    return
+                else:
+                    raise SimError( "scaleOneParam: Unknown reac: "+entity)
+            #reac = self.model.reacInfo[ entity ]
             dictReac = self.jsonDict["Groups"][reac.grp]["Reacs"][reac.name]
             if field == "KA":
                 reac.KA = scale
@@ -107,8 +129,14 @@ class SimWrapHillTau( SimWrap ):
                 dictReac["Amod"] = reac.Amod
 
     def deleteItems( self, itemsToDelete ):
-        # This operates at the level of the JSON dict. We then have to
-        # rebuild the model.
+        self.setupModifyDict()
+        # This accumulates a list of objects to delete, which is then
+        # applied to the model once it is built.
+        # Note that we silently ignore requests to delete nonexistent 
+        # objects, or objects that are missing from the map.
+        # Logic is that if the object doesn't exist here, it doesn't matter
+        # if the experiment wants to delete it for some other model.
+        deleteSet = set()
         for ( _entity, change ) in itemsToDelete:
             if change != 'delete':
                 continue
@@ -118,35 +146,183 @@ class SimWrapHillTau( SimWrap ):
             objList = self.modelLookup.get( _entity )
             if objList:
                 for obj in objList:
-                    self.deleteList.append( obj )
-            elif self.ignoreMissingObj:
+                    deleteSet.add( obj )
+                    #self.deleteList.append( obj )
+            else:
                 if not self.silent:
                     print( "Alert: simWrapHillTau::deleteItems: entity '{}' not found".format( _entity ) )
-            else:
-                raise SimError( "SimWrapHillTau::deleteItems: Entity '{}' not found".format( _entity ) )
+        groups = self.modifiedModelDict["Groups"]
+        # Delete the groups first and then come back for the inner objs.
+        # Those are less common but messy to find.
+        for dd in deleteSet:
+            ret = groups.pop( dd, None )
+            if ret != None:
+                deleteSet.discard( dd )
+        for dd in set(deleteSet):    # Now look for inner objects
+            ret = self.deleteObjFromModel( groups, dd )
+            if ret != None:
+                deleteSet.discard( dd )
+
+    def deleteObjFromModel(self, groups, dd ):
+        for gg in groups.values():
+            rr = gg.get( "Reacs" )
+            if rr and dd in rr:
+                return rr.pop( dd, None )
+            ss = gg.get( "Species" )
+            if ss and dd in ss:
+                return ss.pop( dd, None )
+            ee = gg.get( "Eqns" )
+            if ee and dd in ee:
+                return ee.pop( dd, None )
+        return None
+
+    def findGroupOfObj( groups, obj ):
+        if obj in groups:
+            return obj
+        for gg in groups.values():
+            rr = gg.get( "Reacs" )
+            if rr and obj in rr:
+                return gg
+            ss = gg.get( "Species" )
+            if ss and obj in ss:
+                return ss.pop( obj, None )
+            ee = gg.get( "Eqns" )
+            if ee and obj in ee:
+                return ee.pop( obj, None )
+        return None
+
+    def extObjLinkedToGroup( self, grp ):
+        # Build up set of species within group
+        groupVal = self.modifiedModelDict['Groups'][grp]
+        consts = self.modifiedModelDict.get( 'Constants' )
+        if consts == None:
+            consts = {}
+        mySpecies = set()
+        if groupVal.get( 'Species' ):
+            for ss in groupVal['Species']:
+                mySpecies.add( ss )
+        if groupVal.get( 'Eqns' ):
+            for ee in groupVal['Eqns']:
+                mySpecies.add( ee )
+        if groupVal.get( 'Reacs' ):
+            for rr in groupVal['Reacs']:
+                mySpecies.add( rr )
+
+        #print( "MY SPECIES = ",  mySpecies )
+        # Scan for reagent species of eqns and reacs, add if outside group.
+        ret = set()
+        if groupVal.get( 'Eqns' ):
+            for eqnName, eqnVal in groupVal['Eqns'].items():
+                subs, cs = hillTau.extractSubs( eqnVal, consts )
+                for ss in subs:
+                    if ss not in mySpecies:
+                        ret.add( ss )
+        if groupVal.get( 'Reacs' ):
+            for rname, rval in groupVal['Reacs'].items():
+                for ss in rval['subs']:
+                    if ss not in mySpecies:
+                        ret.add( ss )
+        #print( grp, "NUM Ext Obj= ", len( ret ) )
+        return ret
+
+    def allObjLinkedToObj( self, obj ):
+        ret = self.findDictOfObj( obj )
+        if ret[1] == 'Species':
+            return []
+        elif ret[1] == 'Eqns':
+            return [] # Should parse the equation to extract objects
+        elif ret[1] == 'Reacs':
+            return ret[3]['subs']
+
+    def findDictOfObj( self, obj ):
+        groups = self.modifiedModelDict["Groups"]
+        for gg, gval in groups.items():
+            for objType, tval in gval.items():
+                if objType == "comment":
+                    continue
+                val = tval.get( obj )
+                if val != None:
+                    return [ gg, objType, obj, val ]
+        print( "Error: Unable to find dict of specified object '{}'. Did you delete it in the experiment file?".format( obj ) )
+        assert( 0 )
+
+
 
     def subsetItems( self, _modelSubset ):
         # This builds up a 'saveList' of items to be preserved for
         # calculation.
         # If a subset entry is a group, save all its reactions and eqns.
         # If a subset entry is a reaction or eqn, save it.
-        # Don't need to delete anything, just disable unused reacs.
-        self.saveList = []
+        # If a subset doesn't exist in the model, ignore the request
+        # without raising an error.
+        # Flag all external connections to reacs and Eqns and save them too
+        # The reasoning is that the subsetted object is implicitly there,
+        # so it is safe as long as we don't try to assign anything to it.
+        # If we try to use it as a stim or readout other functions will
+        # flag it.
+        if len( _modelSubset ) == 0:
+            return  # Do not further modify modifiedModelDict
+        groups = self.modifiedModelDict["Groups"]
+        subsetDict = dict( self.modifiedModelDict )
+        subsetDict.pop("Groups", None )
+        gdict = {}
+        extObjects = set()
+        #extEntries = set()
+        extEntries = []
+        subsettedGroups = set()
+        subsettedObjects = set()
+
+        # First pass: collate all groups and objs explicitly listed.
         for i in _modelSubset:
             objList = self.modelLookup.get(i)
             if objList:
                 for obj in objList:
-                    self.saveList.append( obj )
-            elif i in self.jsonDict["Groups"]:
-                # The modifySched func recognizes if i is the parent grp
-                self.saveList.append( i ) 
-                # Could do recursive stuff here if need groups in groups.
+                    if obj in groups:
+                        subsettedGroups.add( obj )
+                    else:
+                        subsettedObjects.add( obj )
+        # Add reagents to list if they are outside the current subset.
+        for gg in subsettedGroups:
+            extObjects.update( self.extObjLinkedToGroup( gg ) )
+        # Assume all subsetted objects are to be treated as Reacs/Eqns
+        # first, and as species only if they are neither.
+        # Add all input reagents linked to any subsetted object.
+        # This returns an empty list if the object itself is a species.
+        for oo in subsettedObjects:
+            extObjects.update( self.allObjLinkedToObj( oo ) )
+        # Now fill in the extGroups. These have to be reconstructed,
+        # not copied wholesale from the source groups dict.
+        for oo in extObjects:
+            #[grp, objType, objName, objVal] = findDictOfObj( oo )
+            entry = self.findDictOfObj( oo )
+            if not entry[0] in subsettedGroups:
+                extEntries.append( entry )
 
-            elif self.ignoreMissingObj:
-                if not self.silent:
-                    print( "Alert: simWrapHillTau::subsetItems: entity '{}' not found".format( i ) )
-            else:
-                raise SimError( "SimWrapHillTau::subsetItems: Entity '{}' not found".format( i ) )
+        # Now we have all the lists. Now march through and rebuild
+        # Here are the entire subsetted groups, just copied over.
+        for gg in subsettedGroups:
+            gdict[gg] = groups[gg]
+
+        # Here are the specific objects to put in the groups.
+        for [grp, objType, objName, objVal] in extEntries:
+            if not grp in gdict:
+                gdict[grp] = {}
+            if not "Species" in gdict[grp]:
+                gdict[grp]["Species"] = {}
+            if objType == "Species":
+                gdict[grp][objType][objName] = objVal
+            if objType == "Reacs":
+                baseline = objVal.get( "baseline" )
+                if not baseline:
+                    baseline = 0.0
+                gdict[grp]["Species"][objName] = baseline
+            if objType == "Eqns":
+                gdict[grp]["Species"][objName] = 0.0
+
+        # Finally, wrap it up
+        subsetDict['Groups'] = gdict
+        self.modifiedModelDict = subsetDict
+
 
     def pruneDanglingObj( self, erSPlist ): # Should be clean already
         return
@@ -154,26 +330,52 @@ class SimWrapHillTau( SimWrap ):
     def changeParams( self, params ):
         ''' 
         simWrapHillTau::changeParams( self, params )
-        This changes param values. Note that it gets called BEFORE
-        the modelLookup is built. It operates directly on the json dict.
+        This changes param values. 
+        It operates directly on the json dict.
+        It is meant to be called AFTER the modelLookup is built. It needs
+        to look up and convert names from the expt file to the model Json.
+        It does some nasty things for assignments to eqns, which only
+        permit string assignments in the hillTau schema.
+        If the modified object doesn't exist in the model, raise an error.
         '''
-        for ( entity, field, value) in params:
+        for ( exptEntity, field, value) in params:
+            mm = self.modelLookup.get( exptEntity )
+            if not mm:
+                raise SimError( "SimWrapHillTau::changeParams: '{}' not found on lookup.".format( exptEntity ) )
+            entity = mm[0]
+            #print( "changing entity {} to {}.{}={}".format( exptEntity, entity, field, value ) )
             for jg in self.jsonDict["Groups"].values():
                 if field == "conc" or field == "concInit":
-                    s = jg.get( "Species" )
-                    if s and entity in s:
-                        s[entity] = value
-                        #print("Changing {} of '{}' to {}".format( field, entity, value ) )
+                    #print("Trying {} of '{}' to {}".format( field, entity, value ) )
+                    rr = jg.get( "Reacs" )
+                    if rr and entity in rr:
+                        rr[entity]["concInit"] = value
+                        #print("Changing reac {} of '{}' to {}".format( field, entity, value ) )
+                        continue
+                    ss = jg.get( "Species" )
+                    if ss and entity in ss:
+                        ss[entity] = value
+                        #print("Changing species {} of '{}' to {}".format( field, entity, value ) )
+                        continue
+                    ee = jg.get( "Eqns" )
+                    if ee and entity in ee:
+                        ee[entity] = "concInit=" + str( value )
+                        #print("Changing eqn {} of '{}' to {}".format( field, entity, ee[entity] ) )
+                        continue
                 elif field == "isBuffered" and value == 1:
                     r = jg.get( "Reacs" )
                     if r and entity in r:
                         # This simply removes the entity from the eval queue
-                        self.deleteList.append( entity )
+                        # self.deleteList.append( entity )
                         r[entity]["isBuffered"] = 1
+                        continue
+                        #self.setField( entity, "isBuffered",  1 )
                     else:
                         e = jg.get( "Eqns" )
                         if e and entity in e:
-                            self.deleteList.append( entity )
+                            continue
+                            # Ignore it. We assume that if it is buffered then concInit is set or is going to be set.
+                            #self.deleteList.append( entity )
                     #if len( self.deleteList ) > 0:
                     #    self.model.modifySched( saveList = [], deleteList = self.deleteList )
 
@@ -214,6 +416,18 @@ class SimWrapHillTau( SimWrap ):
         else:
             return scaleParam
 
+    def setupModifyDict( self ):
+        self.modifiedModelDict = dict( self.jsonDict )
+        # Update the Description and Author fields to reflect subsetting.
+        description = self.modifiedModelDict.get("Description")
+        if not description:
+            description = ""
+        self.modifiedModelDict["Description"] = description + ": Original model modified by findSim for subset calculations."
+        author = self.modifiedModelDict.get("Author")
+        if not author:
+            author = ""
+        self.modifiedModelDict["Author"] = author + ": Programmatic modification by findSim at " + datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+
     def loadModelFile( self, fname, modifyFunc, scaleParam, dumpFname, paramFname ):
         #t0 = time.time()
         #print( "Loading model file ", fname, " with numScale = ", len(scaleParam)  )
@@ -224,14 +438,18 @@ class SimWrapHillTau( SimWrap ):
             scaleParam = self.scaleNamedConsts( scaleParam )
             qs = hillTau.getQuantityScale( self.jsonDict )
             hillTau.scaleDict( self.jsonDict, qs )
-            self.extendObjMap() # Extends objects from jsonDict into objMap
             # modifyFunc comes back as deleteItems, subsetItems, prune, changeParams
             self.buildModelLookup( self.objMap ) 
-            modifyFunc( {}, "" ) # Callback.
+            modelWarning = "Warning in subsetting from: " + fname
+            if modifyFunc == None:
+                self.setupModifyDict()
+            else:
+                modifyFunc( {}, modelWarning ) # Callback.
             t0 = time.time()
             self.model = hillTau.parseModel( self.jsonDict )
             #print( "loadModelFile: scaling parms {}".format( scaleParam ) )
-            self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
+            #self.model.modifySched( saveList = self.saveList, deleteList = self.deleteList )
+            #self.trimModelLookup()
             self._scaleParams( scaleParam )
             '''
             for i in range( len( scaleParam ) / 6 ):
@@ -242,33 +460,16 @@ class SimWrapHillTau( SimWrap ):
             '''
             if len( dumpFname) > 0:
                 # convert back into orig units
-                hillTau.scaleDict( self.jsonDict, 1.0 / qs ) 
+                hillTau.scaleDict( self.modifiedModelDict, 1.0 / qs ) 
                 with open( dumpFname, 'w') as f:
-                    json.dump( self.jsonDict, f, indent = 4)
+                    json.dump( self.modifiedModelDict, f, indent = 4)
         else:
             raise SimError( "HillTau models are .json. Type '{}' not known".format( fname ) )
         self.loadtime += time.time() - t0
         return
 
-
-    def extendObjMap( self ):
-        om = self.objMap
-        for key, val in self.jsonDict["Groups"].items():
-            # Only put in the groups which have not been remapped.
-            if not key in om:
-                om[key] = [key]
-            if "Species" in val:
-                for i in val["Species"]:
-                    if not i in om:
-                        om[i] = [i]
-            if "Reacs" in val:
-                for i in val["Reacs"]:
-                    if not i in om:
-                        om[i] = [i]
-
     def buildModelLookup( self, objMap ):
-        # All Mols are keys in modelLookup, plus whatever objMap sets.
-        # We ensure that only valid objects are keys.
+        # Keys must refer to valid objects
         for key, val in objMap.items():
             v = val[0]
             self.modelLookup[key] = val
@@ -283,6 +484,19 @@ class SimWrapHillTau( SimWrap ):
             if v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo:
                 self.modelLookup[key] = val
                 print( "Setting modelLookup: ", key, "  ", val )
+    '''
+
+    '''
+    def trimModelLookup( self ):
+        temp = dict( self.modelLookup )
+        for key, val in temp.items():
+            v = val[0]
+            if not( v in self.model.grpInfo or v in self.model.molInfo or v in self.model.reacInfo or v in self.model.eqnInfo ):
+                print( " Popping, ", key, val, v )
+                self.modelLookup.pop( key )
+            if v in self.deleteList:
+                print( " Popping-----------, ", key, val, v )
+                self.modelLookup.pop( key )
     '''
 
     def buildSolver( self, solver, useVclamp = False, minInterval = 1 ):
@@ -328,6 +542,8 @@ class SimWrapHillTau( SimWrap ):
             innerNames = self.modelLookup[name]
             for i in innerNames:
                 self.setField( i, field, qe.val )
+                if field == "conc":
+                    self.setField( i, "concInit", qe.val )
 
     def getCurrentTime( self ):
         return self.model.currentTime
@@ -368,15 +584,24 @@ class SimWrapHillTau( SimWrap ):
         if field in ['conc', 'concInit']:
             #print( "{}.{} = {}".format( objName, field, value ) )
             if objName in self.model.molInfo:
+                '''
+                idx = self.model.molInfo[objName].index
+                self.model.concInit[idx] = self.model.conc[ idx ]= value
+                print( "Setting {}[{}] concInit to {}".format( objName, idx, value ) )
+                '''
                 if field == 'conc':
                     self.model.conc[ self.model.molInfo[objName].index ]= value
                 elif field == 'concInit':
+                    #print( "Setting {} concInit to {}".format( objName, value ) )
                     self.model.concInit[ self.model.molInfo[objName].index ]= value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown mol {}".format( objName ) )
-        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod']:
+        elif field == "isBuffered" and objName in self.model.eqnInfo:
+            eqn = self.model.eqnInfo[ objName ]
+            eqn.isBuffered = value
+        elif field in ['KA', 'tau', 'tau2', 'baseline', 'gain', 'Kmod', 'Amod', "isBuffered"]:
             if objName in self.model.reacInfo:
-                reac = self.model.reacInfo[elm]
+                reac = self.model.reacInfo[objName]
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown reac {}".format( objName ) )
             if field == 'KA':
@@ -394,6 +619,8 @@ class SimWrapHillTau( SimWrap ):
                 reac.Kmod = value
             elif field == 'Amod':
                 reac.Amod = value
+            elif field == 'isBuffered':
+                reac.isBuffered = value
             else:
                 raise SimError( "SimWrapHillTau::setField: Unknown obj.field {}.{}".format( objName, field ) )
         else:
@@ -447,6 +674,9 @@ class SimWrapHillTau( SimWrap ):
             if isSilent:
                 return -2.0
             raise SimError( "SimWrapHillTau::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elms ) ) )
+        if field == "Kd":   # Assume mapping to KA.
+            return self.getField( elms[0], "KA" )
+
         return self.getField( elms[0], field )
 
 

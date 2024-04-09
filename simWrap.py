@@ -24,8 +24,16 @@
  ********************************************************************/
  '''
 import json
-from simError import SimError
+#from simError import SimError
 import numpy as np
+
+if __package__ is None or __package__ == '':
+    from simError import SimError
+
+else:
+    from FindSim.simError import SimError
+
+
 
 class SimWrap():
     def __init__( self, *args, **kwargs ):
