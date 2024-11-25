@@ -38,6 +38,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           sudo -E apt install python3-tk
           python -m pip install numpy matplotlib --user
+          python -m pip install pybind11[global]
       # Runs a set of commands using the runners shell
       - name: Build
         run: |
