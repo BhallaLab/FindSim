@@ -527,11 +527,59 @@ class SimWrapHillTau( SimWrap ):
                 self.numMainPlots = numPlots
         self.plots = [[]]*numPlots
 
-    def fillPlots( self ): # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns main plot dt as a float, and the number of main plots.
+    def old_fillPlots( self ): 
+        # takes plots from sim and puts the numpy arrays of the plot values from sim into the return. Also returns main plot dt as a float, and the number of main plots.
         tempArray = np.array(self.model.plotvec).transpose()
         for index, plotNum in self.plotPath.values():
             self.plots[plotNum] = tempArray[index]
         return [ np.array( i ) for i in self.plots], [self.plotDt] * len( self.plots ), self.numMainPlots
+
+    def fillPlots(self):
+        """
+        takes plots from sim and puts the numpy arrays of the plot values from 
+        sim into the return. Also returns main plot dt as a float, and the 
+        number of main plots.
+        Optimized using AI.
+        """
+        tempArray = np.array(self.model.plotvec).transpose()
+    
+        # If there are no plots specified, return early.
+        if not self.plotPath:
+            return [], [], self.numMainPlots
+    
+        # Get the desired row indices and their corresponding plot numbers.
+        # We assume self.plotPath.values() yields (index, plotNum) tuples.
+        path_values = list(self.plotPath.values())
+        indices_to_select = [item[0] for item in path_values]
+        plot_num_keys = [item[1] for item in path_values]
+    
+        # Use advanced indexing to select all required plots in a single operation.
+        # This creates one new, compact array with only the data you need.
+        selected_plots = tempArray[indices_to_select]
+    
+        # Populate self.plots with views into the selected_plots array.
+        # This avoids creating a new copy for each plot.
+        for i, key in enumerate(plot_num_keys):
+            self.plots[key] = selected_plots[i]
+    
+        # The original function returned a list of 1D arrays. 
+        # `list(selected_plots)`
+        # does this efficiently without making a final, unnecessary copy.
+        output_plots = list(selected_plots)
+    
+        return output_plots, [self.plotDt] * len(output_plots), self.numMainPlots
+
+
+
+
+
+
+
+
+
+
+
+
     
     def deliverStim( self, qe ):
         field = qe.entry.field
@@ -668,7 +716,7 @@ class SimWrapHillTau( SimWrap ):
         if not entity in self.modelLookup:
             if self.ignoreMissingObj or isSilent:
                 return -2.0
-            raise SimError( "SimWrapHillTau::getObjParam: Entity {} not found".format( entity ) )
+            raise SimError( "SimWrapHillTau::getObjParam: {}: Entity {} not found".format( self.exptFile, entity ) )
         elms = self.modelLookup[entity]
         if len( elms ) != 1:
             if isSilent:
@@ -727,7 +775,7 @@ class SimWrapHillTau( SimWrap ):
                         self.setField( elm, "conc", value * scale )
                         self.setField( elm, "concInit", value * scale )
                 self.reinitSimulation()
-                self.advanceSimulation( settleTime, doPlot = False )
+                self.advanceSimulation( settleTime, doPlot = False, doSettle = True )
                 for elm, field, oldval in orig:
                     self.setField( elm, field, oldval )
                     if field == 'conc':

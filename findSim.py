@@ -190,6 +190,11 @@ class Stimulus:
     load = staticmethod( load )
 
     def minInterval( self ):
+        """
+        This function checks if stim steps up from zero at t>0.
+        I think for plotting? Maybe for numerical stability. Either way,
+        it inserts a very small nonzero value just before the step.
+        """
         ret = 1000.0
         lastt = 0.0
         lastval = 0.0
@@ -208,9 +213,9 @@ class Stimulus:
                 if (not isElec) and (t - lastt) >= 100.0 and lastval < 1e-7 and val > 0.5e-4: 
                     # Have to insert intermediate step in data.
                     newdata.append( [float(d[0]), 1e-6 / self.quantityScale] )
-                    newt = t + (t - lastt)/( 100.0 * self.timeScale )
+                    newt = t + (t - lastt)/100.0
                     #print( "inserting: ", [d[0], 1e-6], [newt, d[1]] )
-                    newdata.append( [newt, d[1]] )
+                    newdata.append( [newt/self.timeScale, d[1]] )
                     ret = min( ret, (t - lastt)/100.0 )
                 else:
                     newdata.append( [d[0], d[1]] )
@@ -1002,7 +1007,7 @@ class Qentry():
 
 def putStimsInQ( q, stims, pauseHsolve ):
     for i in stims:
-        isElec = i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entities[0])
+        isElec = i.field in ['Im', 'current', 'Vclamp'] or (i.field=='rate' and 'syn' in i.entity['name'])
         for j in i.data:
             if len(j) == 0:
                 continue
@@ -1147,7 +1152,8 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
         currt = sw.getCurrentTime()
         if ( qe.t > currt ):
             #print( "currt={:.4f}, qt={:.4f}".format( currt, qe.t) )
-            sw.advanceSimulation( qe.t - currt, doPlot = getPlots )
+            sw.advanceSimulation( qe.t - currt, doPlot = getPlots, 
+                    doSettle = (i==0) )
         if isinstance( qe.entry, Stimulus ):
             sw.deliverStim( qe )
             #print( "DELIVER STIM {} {} {} {}".format( qe.entry.entities, qe.entry.field, qe.entry.data, qe.val ) )
@@ -1502,9 +1508,9 @@ def runit( expt, model, stims, readouts, getPlots = False ):
 def getInitParams( modelFile, mapFile, paramList ):
     # ParamList as strings of objpath.field 
     if modelFile.split('.')[-1] == "json":
-        sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False, exptFile = "" )
+        sw = SimWrapHillTau( mapFile = mapFile, ignoreMissingObj = False, silent = False, exptFile = "getInitParams" )
     else:
-        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False, exptFile = "" )
+        sw = SimWrapMoose( mapFile = mapFile, ignoreMissingObj = False, silent = False, exptFile = "getInitParams" )
 
     sw.deleteSimulation()
     sw.loadModelFile( modelFile, silentDummyModify, [], "", "" )
@@ -1564,6 +1570,9 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     model.scoringFormula = scoreFunc # Override the earlier version.
     readouts.tabulateOutput = tabulateOutput
     readouts.generate = generate
+
+    if not silent:
+        print( "FindSim: doing expt ", exptFile )
 
     if mapFile != "":
         mapFile = mapFile
