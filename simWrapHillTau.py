@@ -522,6 +522,7 @@ class SimWrapHillTau( SimWrap ):
                 for objName in objList:
                     index = self.model.molInfo[objName].index
                     self.plotPath[objName] = [ index, numPlots ]
+                    self.model.addPlot( objName )
                     numPlots += 1
             if not i.isPlotOnly:
                 self.numMainPlots = numPlots
@@ -534,7 +535,7 @@ class SimWrapHillTau( SimWrap ):
             self.plots[plotNum] = tempArray[index]
         return [ np.array( i ) for i in self.plots], [self.plotDt] * len( self.plots ), self.numMainPlots
 
-    def fillPlots(self):
+    def mediumFillPlots(self):
         """
         takes plots from sim and puts the numpy arrays of the plot values from 
         sim into the return. Also returns main plot dt as a float, and the 
@@ -569,16 +570,17 @@ class SimWrapHillTau( SimWrap ):
     
         return output_plots, [self.plotDt] * len(output_plots), self.numMainPlots
 
-
-
-
-
-
-
-
-
-
-
+    def fillPlots(self):
+        """
+        puts the numpy arrays of the plot values from sim into the return. 
+        Also returns main plot dt as a float, and the number of main plots.
+        """
+        if not self.plotPath:
+            return [], [], self.numMainPlots
+        outputPlots = []
+        for idx, name in enumerate( self.plotPath ):
+            outputPlots.append( np.array(self.model.plotvec[idx] ) )
+        return outputPlots, [self.plotDt] * len(self.plots), self.numMainPlots
 
     
     def deliverStim( self, qe ):
