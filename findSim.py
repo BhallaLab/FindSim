@@ -200,6 +200,34 @@ class Stimulus:
         lastval = 0.0
         newdata = []
         isElec = self.field in ['Im', 'current', 'Vclamp'] or (self.field=='rate' and 'syn' in self.entities[0])
+        mint = 1e9
+        sortedData = sorted(self.data, key=lambda tv: tv[0])
+        for d in sortedData:
+            if ( d[0] - lastt ) <1e-9:
+                continue
+            mint = min( mint, d[0]-lastt )
+            lastt = d[0]
+        lastt = 0.0
+        mint *= self.timeScale
+
+        for d in sortedData:
+            t = float(d[0])*self.timeScale
+            val = float(d[1])*self.quantityScale
+            if t == 0.0:    # It is OK to have an event at t = 0.
+                newdata.append( [d[0], d[1]] )
+                lastval = val
+                continue
+
+            if (not isElec) and (t - lastt) >= 100.0 and lastval < 1e-7 and val > 0.5e-4: # Insert tiny intermediate step up for numerics
+                newdata.append( [(t - mint)/self.timeScale, d[1] * 1e-4] )
+                #print( f"INSERTING STIM1 ({newdata[-1][0]}, {newdata[-1][1]})" )
+            
+            newdata.append( [d[0], d[1]] )
+            lastt = t
+            lastval = val
+            #print( f"INSERTING STIM PROPER ({newdata[-1][0]}, {newdata[-1][1]})" )
+
+        '''
         for d in self.data:
             if float( d[0] ) == 0.0:    # Stim at starting time. Legit.
                 newdata.append( [d[0], d[1]] )
@@ -209,22 +237,27 @@ class Stimulus:
             t = float(d[0])*self.timeScale
             val = float(d[1])*self.quantityScale
             if t > lastt:   # Avoid zeros, could set many things at once.
-                ret = min( ret, t - lastt )
+                #ret = min( ret, t - lastt )
                 if (not isElec) and (t - lastt) >= 100.0 and lastval < 1e-7 and val > 0.5e-4: 
                     # Have to insert intermediate step in data.
                     newdata.append( [float(d[0]), 1e-6 / self.quantityScale] )
+                    print( f"INSERTING STIM1 ({newdata[-1][0]}, {newdata[-1][1]})" )
                     newt = t + (t - lastt)/100.0
                     #print( "inserting: ", [d[0], 1e-6], [newt, d[1]] )
                     newdata.append( [newt/self.timeScale, d[1]] )
+                    print( f"INSERTING STIM2 ({newdata[-1][0]}, {newdata[-1][1]})" )
                     ret = min( ret, (t - lastt)/100.0 )
                 else:
                     newdata.append( [d[0], d[1]] )
+                    print( f"INSERTING STIM PROPER ({newdata[-1][0]}, {newdata[-1][1]})" )
             lastt = t
             lastval = val
-
         self.data = newdata
         self.shortestStimInterval = ret
         return ret
+        '''
+        self.data = newdata
+        return mint
 
 
 
@@ -1150,6 +1183,8 @@ def parseAndRun( model, stims, readouts, getPlots = False ):
     for i in range( len( q ) ):
         qe = heapq.heappop( q )
         currt = sw.getCurrentTime()
+        if __name__ == "__main__":
+            print( "Current Sim Time = {:.3f}".format( currt ), end = '\r' )
         if ( qe.t > currt ):
             #print( "currt={:.4f}, qt={:.4f}".format( currt, qe.t) )
             sw.advanceSimulation( qe.t - currt, doPlot = getPlots, 
@@ -1664,12 +1699,15 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
         sw.makeReadoutPlots( readoutVec )
         if 'timeseries' in expt.exptType:
             minInterval = readouts.getMinInterval()
+            #print( "MIN INTERVAL READOUTS = ", minInterval )
             for s in stims:
                 minInterval = min( minInterval, s.minInterval() )
+                #print( "MIN INTERVAL STIMS = ", s.minInterval() )
         else:
             minInterval = readouts.settleTime
+            #print( "MIN INTERVAL settleTime = ", minInterval )
 
-        #print( "minInterval = ", minInterval )
+        #print( "minInterval = ", minInterval, "solver = ", solver  )
         sw.buildSolver( solver, useVclamp = hasVclamp, minInterval = minInterval )
         ##############################################################
         # Here we handle presettling. First to generate, then to apply

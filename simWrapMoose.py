@@ -417,9 +417,7 @@ class SimWrapMoose( SimWrap ):
             # Deprecated. Here we override the rdes to NOT make a solver.
             #self.turnOffElec = rdes.turnOffElec
             #rdes.turnOffElec = False
-            #print( "LIB: ", moose.element( '/library/chem/kinetics/glu/vesicle_release' ).Kf )
             mscript.build( rdes )
-            #print( "MODEL: ", moose.element( '/model/chem/dend/glu/vesicle_release' ).Kf )
             self.modelId = moose.element( '/model' )
             self.buildModelLookup( self.objMap )
             #rdes.turnOffElec = self.turnOffElec
@@ -481,6 +479,7 @@ class SimWrapMoose( SimWrap ):
             stoich.compartment = moose.element( compt.path )
             stoich.ksolve = ksolve
             stoich.reacSystemPath = compt.path + '/##'
+            #print( "ESTIMATED DT = ", ksolve.estimatedDt )
             for i in range( 10, 20 ):
                 moose.setClock( i, 0.5 * minInterval )
 
@@ -687,6 +686,13 @@ class SimWrapMoose( SimWrap ):
         return moose.element( '/clock' ).currentTime
 
     def advanceSimulation( self, advanceTime, doPlot = True, doSettle = False ):
+        '''
+        dts = moose.element( "/clock").dts
+        print( "DTS: ")
+        for idx, dt in enumerate( dts ):
+            if dt > 0:
+                print( idx, dt)
+        '''
         moose.start( advanceTime )
 
     def reinitSimulation( self ):
