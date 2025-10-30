@@ -1601,7 +1601,10 @@ def innerMain( exptFile, scoreFunc = defaultScoreFunc, modelFile = "", mapFile =
     global pause
     global sw
     modelWarning = ""
-    expt, stims, readouts, model = loadJson( exptFile, mapFile )
+    try:
+        expt, stims, readouts, model = loadJson( exptFile, mapFile )
+    except:
+        raise SimError( "FindSim:innerMain failed to load file: {}".format( exptFile ) )
     model.scoringFormula = scoreFunc # Override the earlier version.
     readouts.tabulateOutput = tabulateOutput
     readouts.generate = generate
