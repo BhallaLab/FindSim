@@ -554,7 +554,9 @@ class Readout:
                 xpts = np.array( range( len( ypts ) ) ) * self.plotDt[idx] / tconv
                 if self.window:
                     #print( "scaling plot, baseline = ", self.window["baseline"], "scale = ", scale , self.normMode, self.ratioData )
-                    ypts = (ypts - self.window["baseline"])/scale
+                    #ypts = (ypts - self.window["baseline"])/scale
+                    #ypts = (ypts - self.window["baseline"])
+                    ypts = ypts/scale
                 else:
                     ypts /= scale
                 if not self.isPlotOnly :
@@ -782,7 +784,7 @@ class Readout:
                     elif op == "sdev":
                         rd.append( np.sdev( rb ) )
                 bl = w["baseline"]      # Use baseline computed above.
-                rd = [ x - bl for x in rd ]
+                rd = [ (x/self.quantityScale - bl) for x in rd ]
                 self.ratioData = rd
             self.simData = sd
 
