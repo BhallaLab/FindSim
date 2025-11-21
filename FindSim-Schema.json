@@ -188,6 +188,11 @@
                     "minimum": 0.0, 
                     "maximum": 5000 
                 },
+                "prepDilution": {"type": "number", 
+               		"description": "Active portion of prep may be much smaller than the total volume taken, for example, synaptic spine signals in background of whole slice prep. Typical dilution in that case would be 10, so any ratiometric readout should be scaled by 10x. Best used for normalized readouts.",
+                    "minimum": 1e-6, 
+					"default": 1.0
+                },
                 "normalization": {"type": "object",
                     "properties": {
                         "sampling": {"type": "string",

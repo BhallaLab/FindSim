@@ -289,6 +289,7 @@ class Readout:
         self.findsim = findsim
         self.exptFile = exptFile
         ro = findsim["Readouts"]
+        self.prepDilution = ro.get( "prepDilution", 1.0 )
         self.directParamData = ro.get( "paramdata" )
         self.isPlotOnly = isPlotOnly
         self.simData = []
@@ -307,11 +308,25 @@ class Readout:
             self.data = ro.get("data") # For most kinds of data
             if self.data:
                 for i in self.data: # force it to have [t, v, sem] in each row
+                    # Scale it by the estimated dilution of active sample
+                    # over total sample, eg spine vol over entire tissue.
+                    if "normalization" in ro:
+                        i[1] = 1+ (i[1]-1) * self.prepDilution
+                    else:
+                        i[1] *= self.prepDilution
                     if len( i ) == 2:
                         i.append( 0 )
                     assert( len( i ) == 3 )
 
             self.bardata = ro.get( "bardata" )  # only for barcharts
+            if self.bardata:
+                if "normalization" in ro:
+                    for bb in self.bardata:
+                        bb['value'] = 1 + (bb['value']-1)*self.prepDilution
+                else:
+                    for bb in self.bardata:
+                        bb['value'] *= self.prepDilution
+
             self.tabulateOutput = False
             self.generate = None
             self.generateFile = None
@@ -465,7 +480,7 @@ class Readout:
 
 
         # Finally assign the simData.
-        self.simData = [ x/y for x, y in zip( ret, ref ) ]
+        self.simData = [ x/y for x, y in zip(ret, ref) ]
 
     def displayPlots( self, fname, modelLookup, stims, hideSubplots, exptType, bigFont = False, labelPos = None, deferPlot = False ):
         if self.isPlotOnly:
