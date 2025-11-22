@@ -726,6 +726,8 @@ class SimWrapHillTau( SimWrap ):
             raise SimError( "SimWrapHillTau::getObjParam({}): Should only have 1 object, found {} ".format( entity, len( elms ) ) )
         if field == "Kd":   # Assume mapping to KA.
             return self.getField( elms[0], "KA" )
+        if field == "concInit":   # Assume mapping to conc.
+            return self.getField( elms[0], "conc" )
 
         return self.getField( elms[0], field )
 

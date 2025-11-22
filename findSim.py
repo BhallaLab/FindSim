@@ -737,7 +737,7 @@ class Readout:
         # condense the ratio and the simData terms as per specified op
         if self.window:
             w = self.window
-            assert( w["operation"] in ["min", "max", "mean", "sdev", "oscPk", "oscVal" ] )
+            assert( w["operation"] in ["min", "max", "mean", "sdev", "oscPk", "oscVal", "pkToPk" ] )
             numSamples = int( round( (w["endt"] - w["startt"]) / w["dt"] ) +1 ) 
             sd = []
             #print( "numSamples = {}, len = {}, ".format( numSamples, len( self.simData ) ) )
@@ -760,6 +760,8 @@ class Readout:
                     sd.append( np.mean( sb ) )
                 elif op == "sdev":
                     sd.append( np.sdev( sb ) )
+                elif op == "pkToPk":
+                    sd.append( max( sb ) - min( sb ) )
             bl = w["baseline"]
             if w["baselineOp"] == "min":
                 bl = min( self.simData )
@@ -798,6 +800,8 @@ class Readout:
                         rd.append( np.mean( rb ) )
                     elif op == "sdev":
                         rd.append( np.sdev( rb ) )
+                    elif op == "pkToPk":
+                        rd.append( max( rb ) - min( rb ) )
                 bl = w["baseline"]      # Use baseline computed above.
                 rd = [ (x/self.quantityScale - bl) for x in rd ]
                 self.ratioData = rd
@@ -1306,7 +1310,7 @@ def runDoser( model, stim, readout ):
     responseList = [ [readout.entities['name']], readout.field, readout_ratioReferenceEntities, readout.field ]
     #responseList = [ readout.entities, readout.field, readout.ratioReferenceEntities, readout.field ]
     ret, ref = sw.steadyStateStims( stimList, responseList, isSeries = True, settleTime = readout.settleTime )
-    if len( readout.ratioReferenceEntities ) > 0 and readout.ratioReferenceTime < EPS:
+    if readout.normMode == 'start' or (readout.normMode == 'presetTime' and readout.ratioReferenceTime < EPS ):
         # Special case where the extra entry is the value at reset time.
         refLast = sw.getObjParam(readout.ratioReferenceEntities[0], "concInit" )
         ret.append( ret[-1] )
